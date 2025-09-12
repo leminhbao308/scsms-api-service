@@ -1,14 +1,8 @@
 spring:
   application:
     name: scsms-api-service
-  datasource:
-    url: jdbc:postgresql://localhost:5432/scsms
-    username: admin
-    password: admin
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
+  profiles:
+    active: dev  # dev/prod
 
 server:
   port: 8081
