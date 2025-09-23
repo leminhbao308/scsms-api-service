@@ -17,6 +17,8 @@ spring:
         show_sql: true
     show-sql: true
 logging:
+  sensitive-fields: ${SENSITIVE_DATA:accessToken, refreshToken, phoneNumber,email}
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.kltn.scsms_api_service: TRACE
+    root: warn
+    web: debug

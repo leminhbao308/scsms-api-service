@@ -8,3 +8,18 @@ server:
   port: 8081
   servlet:
     context-path: /api
+
+app:
+  jwt:
+    secret-key: ${APP_JWT_SECRET:MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAFBXXeGg+QpSp/KgFV6znkPp2Y6ocsmQcJnKGZgCcq2g==}
+    public-key: ${APP_JWT_PUBLIC:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaGAQ2Of/wi2x/Xx3wd51F/gg+wkeJtjYtX6Tq0SXtXeXYp9oUqNyW1SEF98RFvHGm3jMdbmlqvNCnOJJsFBj2Q==}
+    access-token:
+      expires-in: ${APP_JWT_TOKEN_EXPIRES_IN:3600000} # 60 minutes in milliseconds
+    refresh-token:
+      expires-in: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN:86400000} # 24 hours in milliseconds
+    remember-me:
+      expires-in: ${APP_JWT_REMEMBER_ME_EXPIRES_IN:604800000} # 7 days in milliseconds
+    otp:
+        expires-in: ${APP_JWT_OTP_EXPIRES_IN:300000} # 5 minutes in milliseconds
+    reset-password:
+        expires-in: ${APP_JWT_RESET_PASSWORD_EXPIRES_IN:300000} # 5 minutes in milliseconds

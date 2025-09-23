@@ -17,6 +17,6 @@ spring:
     show-sql: false
 logging:
   level:
-    org.hibernate.SQL: WARN
-    org.hibernate.type.descriptor.sql.BasicBinder: WARN
     com.kltn.scsms_api_service: INFO
+    web: info
+    root: info
