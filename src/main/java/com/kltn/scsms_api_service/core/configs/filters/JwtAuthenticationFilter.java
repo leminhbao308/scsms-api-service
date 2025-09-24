@@ -36,12 +36,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private static String API_PREFIX = "/api";
     
-    private static final List<String> PROTECTED_PATH_PATTERNS =
-        List.of(
-            API_PREFIX + ApiConstant.LOGOUT_API, // Protect logout endpoint
-            API_PREFIX + ApiConstant.VERIFY_TOKEN_API // Protect verify token endpoint
-        );
-    
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
     
     @Override
@@ -52,11 +46,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
         
         String path = request.getRequestURI();
-        boolean isProtected =
-            PROTECTED_PATH_PATTERNS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
         
         // Skip authentication for non-protected paths
-        if (!isProtected || isBypassPath(request.getRequestURI())) {
+        if (isBypassPath(request.getRequestURI())) {
             filterChain.doFilter(request, response);
             return;
         }
