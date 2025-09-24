@@ -23,3 +23,7 @@ logging:
     com.kltn.scsms_api_service: TRACE
     root: warn
     web: debug
+
+app:
+  cors:
+    allowed-origin-patterns: "*"

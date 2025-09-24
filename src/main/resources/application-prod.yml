@@ -20,3 +20,7 @@ logging:
     com.kltn.scsms_api_service: INFO
     web: info
     root: info
+
+app:
+  cors:
+    allowed-origin-patterns: "${CORS_ALLOWED_ORIGINS:http://localhost:3000}"

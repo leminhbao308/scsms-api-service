@@ -262,7 +262,7 @@ public class PermissionService {
     /**
      * Get all available permissions
      */
-    public List<Permission> getAllPermissions() {
+    public List<Permission> getAllActivePermissions() {
         return permissionRepository.findActivePermissions();
     }
 
@@ -281,9 +281,9 @@ public class PermissionService {
     /**
      * Search permissions by keyword
      */
-    public List<Permission> searchPermissions(String keyword) {
+    public List<Permission> searchActivePermissions(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            return getAllPermissions();
+            return getAllActivePermissions();
         }
         return permissionRepository.searchByKeyword(keyword.trim());
     }
