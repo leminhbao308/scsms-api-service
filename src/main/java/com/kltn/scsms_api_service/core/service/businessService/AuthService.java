@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Service
@@ -42,6 +43,9 @@ public class AuthService {
             tokenService.revokeAllUserTokens(user.getUserId());
             
             Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(user);
+            
+            user.setLastLogin(LocalDateTime.now());
+            userService.saveUser(user);
             
             return buildAuthResponse(tokens, user);
         } else {
@@ -67,6 +71,9 @@ public class AuthService {
             throw new ClientSideException(ErrorCode.UNAUTHORIZED, "User account is inactive or deleted");
         
         Map<TokenType, String> tokens = tokenService.refreshTokens(user);
+        
+        user.setLastLogin(LocalDateTime.now());
+        userService.saveUser(user);
         
         return buildAuthResponse(tokens, user);
     }
@@ -100,11 +107,6 @@ public class AuthService {
             return authHeader.substring(7);
         }
         throw new IllegalArgumentException("Invalid or empty authorization header");
-    }
-    
-    public boolean validateToken(String token) {
-        return tokenService.isValidTokenAndNotExpired(token)
-            && tokenService.isTokenExistedAndNotRevoked(token);
     }
     
     private AuthResponse buildAuthResponse(Map<TokenType, String> tokens, User user) {
