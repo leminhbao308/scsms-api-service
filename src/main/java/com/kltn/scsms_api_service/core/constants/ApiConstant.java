@@ -2,6 +2,8 @@ package com.kltn.scsms_api_service.core.constants;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import java.util.List;
+
 public class ApiConstant {
     
     @Value("${server.servlet.context-path}")
@@ -40,4 +42,25 @@ public class ApiConstant {
     public static final String ASSIGN_ROLE_TO_USER_API = ROLE_MANAGEMENT_PREFIX + "/{roleId}/assign/{userId}";
     public static final String UNASSIGN_ROLE_FROM_USER_API = ROLE_MANAGEMENT_PREFIX + "/{roleId}/unassign/{userId}";
     
+    public static List<String> PROTECTED_PATHS(String apiPrefix) {
+        return List.of(
+            apiPrefix + LOGOUT_API,
+            apiPrefix + VERIFY_TOKEN_API,
+            apiPrefix + GET_ALL_USERS_API,
+            apiPrefix + GET_USER_BY_ID_API,
+            apiPrefix + CREATE_USER_API,
+            apiPrefix + UPDATE_USER_API,
+            apiPrefix + DELETE_USER_API,
+            apiPrefix + RESET_USER_PASSWORD_API,
+            apiPrefix + ACTIVATE_USER_API,
+            apiPrefix + DEACTIVATE_USER_API,
+            apiPrefix + GET_ALL_ROLES_API,
+            apiPrefix + GET_ROLE_BY_ID_API,
+            apiPrefix + CREATE_ROLE_API,
+            apiPrefix + UPDATE_ROLE_API,
+            apiPrefix + DELETE_ROLE_API,
+            apiPrefix + ASSIGN_ROLE_TO_USER_API,
+            apiPrefix + UNASSIGN_ROLE_FROM_USER_API
+        );
+    }
 }
