@@ -12,8 +12,25 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequirePermission {
     /**
-     * Permission code that corresponds to permission_code in database
+     * Required permission codes
      */
-    String value();
-    String message() default "Access denied";
+    String[] permissions();
+    
+    /**
+     * Required role codes, if user has any of these roles, permission check is bypassed
+     * Leave empty if not using role bypass
+     */
+    String[] roles() default {};
+    
+    /**
+     * Logic operation for multiple permissions
+     * AND: user must have ALL permissions
+     * OR: user must have ANY permission
+     */
+    PermissionLogic permLogic() default PermissionLogic.AND;
+    
+    /**
+     * Custom error message when permission denied
+     */
+    String message() default "Access denied - Insufficient roles or permissions";
 }
