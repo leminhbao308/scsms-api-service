@@ -3,6 +3,7 @@ package com.kltn.scsms_api_service.core.abstracts;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
+@SuperBuilder
 public abstract class AuditEntity {
     
     @Column(name = "is_active", nullable = false)
@@ -37,7 +39,7 @@ public abstract class AuditEntity {
     
     @CreatedBy
     @Column(name = "created_by", length = 100, updatable = false)
-    private String createdBy;
+    private String createdBy = "SYSTEM";
     
     @LastModifiedBy
     @Column(name = "modified_by", length = 100)
