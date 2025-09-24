@@ -6,22 +6,15 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to check permission on methods or classes using permission code from database
+ * Annotation to check role on methods or classes using role code from database
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface RequirePermission {
+public @interface RequireRole {
     /**
-     * Required permission codes
+     * Required role codes, if user has any of these roles, permission check is bypassed
      */
-    String[] permissions();
-    
-    /**
-     * Logic operation for multiple permissions
-     * AND: user must have ALL permissions
-     * OR: user must have ANY permission
-     */
-    PermissionLogic permLogic() default PermissionLogic.AND;
+    String[] roles();
     
     /**
      * Custom error message when permission denied
