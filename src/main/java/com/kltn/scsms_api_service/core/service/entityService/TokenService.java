@@ -2,7 +2,7 @@ package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.configs.property.JwtTokenProperties;
 import com.kltn.scsms_api_service.core.entity.Token;
-import com.kltn.scsms_api_service.core.entity.TokenType;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.exception.ServerSideException;
