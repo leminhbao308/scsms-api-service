@@ -15,7 +15,12 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     
     Optional<Role> findByRoleName(String roleName);
     
+    Optional<Role> findByRoleCode(String roleCode);
+    
     boolean existsByRoleName(String roleName);
+    
+    boolean existsByRoleCode(String roleCode);
+    
     
     @Query("SELECT r FROM Role r WHERE r.roleName LIKE %:keyword% OR r.description LIKE %:keyword%")
     List<Role> searchByKeyword(@Param("keyword") String keyword);
