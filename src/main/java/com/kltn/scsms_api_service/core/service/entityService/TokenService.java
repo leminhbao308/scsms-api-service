@@ -1,6 +1,6 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.configs.property.JwtTokenProperties;
+import com.kltn.scsms_api_service.configs.property.JwtTokenProperties;
 import com.kltn.scsms_api_service.core.entity.Token;
 import com.kltn.scsms_api_service.core.entity.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
@@ -34,6 +34,7 @@ public class TokenService {
     
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
+    private final PermissionService permissionService;
     
     private void saveTokens(UUID userId, Map<TokenType, String> tokens) {
         User user = userRepository.getReferenceById(userId);
@@ -112,6 +113,7 @@ public class TokenService {
         accessTokenClaims.put("phone", user.getPhoneNumber());
         accessTokenClaims.put("role", user.getRole().getRoleName());
         accessTokenClaims.put("type", TokenType.ACCESS.toString());
+        accessTokenClaims.put("permissions", permissionService.getUserPermissionCodes(user));
         
         Map<String, Object> refreshTokenClaims = new HashMap<>();
         refreshTokenClaims.put("sub", user.getUserId().toString());
@@ -129,7 +131,6 @@ public class TokenService {
     }
     
     public boolean isValidTokenAndNotExpired(final String token) {
-        log.debug("JWT - Check valid token: {}", token);
         parseToken(token);
         return !isTokenExpired(token);
     }
@@ -152,7 +153,6 @@ public class TokenService {
     }
     
     public Claims getClaimsFromToken(final String token) {
-        log.debug("JWT - Parse token: {}", token);
         return parseToken(token).getPayload();
     }
     
@@ -196,7 +196,6 @@ public class TokenService {
     
     private Jws<Claims> parseToken(final String token) {
         try {
-            log.debug("JWT - Parsing token: {}", token);
             return Jwts.parser().verifyWith(getPublicKey()).build().parseSignedClaims(token);
         } catch (UnsupportedJwtException | MalformedJwtException | IllegalArgumentException e) {
             log.error("JWT - Token parsing failed: {}", e.getMessage());
@@ -208,7 +207,6 @@ public class TokenService {
      * Check token is expired or not.
      */
     private boolean isTokenExpired(final String token) {
-        log.debug("JWT - Check token is expired or not: {}", token);
         return parseToken(token).getPayload().getExpiration().before(new Date());
     }
     

@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
+import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.entity.Permission;
 import com.kltn.scsms_api_service.core.entity.Role;
 import com.kltn.scsms_api_service.core.entity.RolePermission;
@@ -44,20 +45,19 @@ public class PermissionService {
     /**
      * Check if user has specific permission by permission code
      */
-    public boolean hasPermission(User user, String permissionCode) {
+    public boolean hasPermission(LoginUserInfo user, String permissionCode) {
         if (user == null || permissionCode == null || permissionCode.trim().isEmpty()) {
             return false;
         }
 
-        return user.getRole().getRolePermissions().stream()
-                .map(RolePermission::getPermission)
-                .anyMatch(permission -> permissionCode.equals(permission.getPermissionCode()));
+        return user.getPermissions().stream()
+                .anyMatch(permissionCode::equals);
     }
 
     /**
      * Check if user has any of the specified permissions
      */
-    public boolean hasAnyPermission(User user, String... permissionCodes) {
+    public boolean hasAnyPermission(LoginUserInfo user, String... permissionCodes) {
         if (user == null || permissionCodes == null || permissionCodes.length == 0) {
             return false;
         }
@@ -70,12 +70,16 @@ public class PermissionService {
     /**
      * Check if user has all of the specified permissions
      */
-    public boolean hasAllPermissions(User user, String... permissionCodes) {
+    public boolean hasAllPermissions(LoginUserInfo user, String... permissionCodes) {
         if (user == null || permissionCodes == null || permissionCodes.length == 0) {
             return false;
         }
 
         Set<String> userPermissionCodes = getUserPermissionCodes(user);
+        
+        if (userPermissionCodes.isEmpty())
+            return false;
+        
         return Arrays.stream(permissionCodes)
                 .allMatch(userPermissionCodes::contains);
     }
@@ -91,6 +95,17 @@ public class PermissionService {
         return user.getRole().getRolePermissions().stream()
                 .map(rolePermission -> rolePermission.getPermission().getPermissionCode())
                 .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get all permission codes for a user
+     */
+    public Set<String> getUserPermissionCodes(LoginUserInfo user) {
+        if (user == null) {
+            return Collections.emptySet();
+        }
+        
+        return user.getPermissions();
     }
 
     /**
