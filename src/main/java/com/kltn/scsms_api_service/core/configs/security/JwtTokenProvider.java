@@ -39,7 +39,6 @@ public class JwtTokenProvider implements Serializable {
     /** Validate token with request context. */
     public boolean validateToken(final String token, final HttpServletRequest httpServletRequest) {
         try {
-            log.debug("JWT - Validate token: {}", token);
             boolean isTokenValid = tokenService.isValidTokenAndNotExpired(token);
             if (!isTokenValid) {
                 log.error("JWT - Token validation failed");
@@ -65,7 +64,6 @@ public class JwtTokenProvider implements Serializable {
 
     /** Extract jwt from bearer string. */
     public String extractJwtFromBearerString(final String bearer) {
-        log.debug("JWT - Extract jwt from bearer: {}", bearer);
         if (StringUtils.hasText(bearer) && bearer.startsWith(String.format("%s ", TOKEN_TYPE))) {
             return bearer.substring(TOKEN_TYPE.length() + 1);
         }
@@ -80,7 +78,6 @@ public class JwtTokenProvider implements Serializable {
     /** Parsing token. */
     private Jws<Claims> parseToken(final String token) {
         try {
-            log.debug("JWT - Parsing token: {}", token);
             return Jwts.parser().verifyWith(getPublicKey()).build().parseSignedClaims(token);
         } catch (UnsupportedJwtException | MalformedJwtException | IllegalArgumentException e) {
             log.error("JWT - Token parsing failed: {}", e.getMessage());
@@ -90,7 +87,6 @@ public class JwtTokenProvider implements Serializable {
 
     /** Check token is expired or not. */
     private boolean isTokenExpired(final String token) {
-        log.debug("JWT - Check token is expired or not: {}", token);
         return parseToken(token).getPayload().getExpiration().before(new Date());
     }
 

@@ -56,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             PROTECTED_PATH_PATTERNS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
         
         // Skip authentication for non-protected paths
-        if (!isProtected || isBypassPath(request.getRequestURI())) {
+        if (!isProtected || isBypassPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }
