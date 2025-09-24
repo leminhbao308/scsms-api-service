@@ -2,7 +2,6 @@ package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.Token;
 import com.kltn.scsms_api_service.core.entity.TokenType;
-import com.kltn.scsms_api_service.core.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

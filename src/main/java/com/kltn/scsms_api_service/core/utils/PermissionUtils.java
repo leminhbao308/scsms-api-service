@@ -5,7 +5,6 @@ import com.kltn.scsms_api_service.core.enums.SystemPermission;
 import lombok.experimental.UtilityClass;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 

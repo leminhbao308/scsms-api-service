@@ -1,8 +1,8 @@
 package com.kltn.scsms_api_service.core.abstracts;
 
-import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
+import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;

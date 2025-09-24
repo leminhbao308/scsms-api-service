@@ -1,7 +1,5 @@
 package com.kltn.scsms_api_service.core.annotations;
 
-import com.kltn.scsms_api_service.core.enums.SystemPermission;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

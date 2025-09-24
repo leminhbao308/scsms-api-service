@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.kltn.scsms_api_service.core.enums.Gender;
 import jakarta.validation.constraints.Email;

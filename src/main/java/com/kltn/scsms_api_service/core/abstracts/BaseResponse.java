@@ -33,10 +33,5 @@ public abstract class BaseResponse {
         this.message = message;
     }
 
-    protected BaseResponse(BaseResponseBuilder<?, ?> b) {
-        this.success = b.success;
-        this.message = b.message;
-        this.timestamp = b.timestamp != null ? b.timestamp : LocalDateTime.now();
-    }
 }
 

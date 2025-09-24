@@ -1,6 +1,9 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.entity.*;
+import com.kltn.scsms_api_service.core.entity.Permission;
+import com.kltn.scsms_api_service.core.entity.Role;
+import com.kltn.scsms_api_service.core.entity.RolePermission;
+import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.PermissionRepository;
 import com.kltn.scsms_api_service.core.repository.RolePermissionRepository;
 import com.kltn.scsms_api_service.core.repository.RoleRepository;
