@@ -4,8 +4,8 @@ import com.kltn.scsms_api_service.core.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.core.constants.GeneralConstant;
 import com.kltn.scsms_api_service.core.enums.Gender;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -13,6 +13,9 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "users", schema = GeneralConstant.DB_SCHEMA_DEV)
 public class User extends AuditEntity {
     @Id
@@ -49,6 +52,7 @@ public class User extends AuditEntity {
     private String avatarUrl;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "last_login")
@@ -61,6 +65,7 @@ public class User extends AuditEntity {
     @Column(name = "role_assigned_at")
     private LocalDateTime roleAssignedAt;
 
+    @CreatedBy
     @Column(name = "role_assigned_by")
     private String roleAssignedBy;
 
@@ -76,5 +81,6 @@ public class User extends AuditEntity {
     public void setRole(Role role) {
         this.role = role;
         this.roleAssignedAt = LocalDateTime.now();
+        this.roleAssignedBy = "SYSTEM";
     }
 }

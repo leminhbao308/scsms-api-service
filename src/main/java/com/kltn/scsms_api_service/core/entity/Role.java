@@ -3,8 +3,7 @@ package com.kltn.scsms_api_service.core.entity;
 import com.kltn.scsms_api_service.core.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.core.constants.GeneralConstant;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -14,6 +13,9 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "roles", schema = GeneralConstant.DB_SCHEMA_DEV)
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Role extends AuditEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,6 +33,7 @@ public class Role extends AuditEntity {
 
     // Thay đổi từ UserRole thành User
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
+    @Builder.Default
     private Set<User> users = new HashSet<>();
 
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
