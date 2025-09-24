@@ -11,7 +11,6 @@ import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
 import com.kltn.scsms_api_service.core.service.businessService.AuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +37,7 @@ public class AuthController {
     @SwaggerOperation(
         summary = "Perform user login",
         description = "Authenticate user and return access token, refresh token and user info")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody LoginRequest request) {
         
         log.info("Login attempt for email: {}", request.getEmail());
         
@@ -61,7 +60,7 @@ public class AuthController {
         summary = "Refresh access token",
         description = "Use refresh token to obtain a new access token")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
-        @Valid @RequestBody RefreshTokenRequest request) {
+        @RequestBody RefreshTokenRequest request) {
         
         log.info("Token refresh attempt");
         
@@ -105,7 +104,7 @@ public class AuthController {
         summary = "Change password",
         description = "Change user password (requires authentication first)")
     public ResponseEntity<ApiResponse<Void>> changePassword(
-        @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest) {
+        @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest) {
 
         log.info("Password change request");
 
