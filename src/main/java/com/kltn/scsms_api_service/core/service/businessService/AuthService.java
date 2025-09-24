@@ -1,6 +1,5 @@
-package com.kltn.scsms_api_service.core.service;
+package com.kltn.scsms_api_service.core.service.businessService;
 
-import com.kltn.scsms_api_service.core.configs.property.JwtTokenProperties;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
 import com.kltn.scsms_api_service.core.dto.request.LoginRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
@@ -12,6 +11,8 @@ import com.kltn.scsms_api_service.core.entity.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.exception.ClientSideException;
 import com.kltn.scsms_api_service.core.exception.ErrorCode;
+import com.kltn.scsms_api_service.core.service.entityService.TokenService;
+import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,6 @@ import java.util.Map;
 public class AuthService {
     
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProperties jwtTokenProperties;
     
     private final UserService userService;
     private final TokenService tokenService;
