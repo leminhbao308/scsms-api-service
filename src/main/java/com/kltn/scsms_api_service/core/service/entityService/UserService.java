@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.service;
+package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
