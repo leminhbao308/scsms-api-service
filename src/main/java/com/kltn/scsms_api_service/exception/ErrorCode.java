@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.exception;
+package com.kltn.scsms_api_service.exception;
 
 import lombok.Getter;
 
