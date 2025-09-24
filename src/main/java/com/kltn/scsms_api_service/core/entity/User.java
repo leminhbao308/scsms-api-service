@@ -2,6 +2,8 @@ package com.kltn.scsms_api_service.core.entity;
 
 import com.kltn.scsms_api_service.core.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.core.constants.GeneralConstant;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.enums.Gender;
 import jakarta.persistence.*;
 import lombok.*;
@@ -68,6 +70,35 @@ public class User extends AuditEntity {
     @CreatedBy
     @Column(name = "role_assigned_by")
     private String roleAssignedBy;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type", nullable = false)
+    private UserType userType;
+    
+    // Customer attiributes
+    @Enumerated(EnumType.STRING)
+    @Column(name = "customer_rank")
+    private CustomerRank customerRank;
+    
+    @Column(name = "accumulated_points")
+    @Builder.Default
+    private Integer accumulatedPoints = 0;
+    
+    @Column(name = "total_orders")
+    @Builder.Default
+    private Integer totalOrders = 0;
+    
+    @Column(name = "total_spent")
+    @Builder.Default
+    private Double totalSpent = 0.0;
+    
+    // Staff attributes
+    @Column(name = "hired_at")
+    @Builder.Default
+    private LocalDateTime hiredAt = LocalDateTime.now();
+    
+    @Column(name = "citizen_id", unique = true)
+    private String citizenId;
 
     @Override
     protected void onCreate() {
