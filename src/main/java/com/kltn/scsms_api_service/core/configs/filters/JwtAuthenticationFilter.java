@@ -1,6 +1,7 @@
-package com.kltn.scsms_api_service.core.configs.security;
+package com.kltn.scsms_api_service.core.configs.filters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kltn.scsms_api_service.core.configs.security.JwtTokenProvider;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -12,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
