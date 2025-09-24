@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.abstracts;
+package com.kltn.scsms_api_service.abstracts;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
