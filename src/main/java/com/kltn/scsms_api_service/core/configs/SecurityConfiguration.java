@@ -1,6 +1,6 @@
 package com.kltn.scsms_api_service.core.configs;
 
-import com.kltn.scsms_api_service.core.configs.security.JwtAuthenticationFilter;
+import com.kltn.scsms_api_service.core.configs.filters.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -16,18 +16,9 @@ public class ApiResponse<T> extends BaseResponse {
     @JsonProperty("data")
     private T data;
 
-    @JsonProperty("metadata")
-    private Object metadata;
-
     public ApiResponse(Boolean success, String message, T data) {
         super(success, message);
         this.data = data;
-    }
-
-    public ApiResponse(Boolean success, String message, T data, Object metadata) {
-        super(success, message);
-        this.data = data;
-        this.metadata = metadata;
     }
 
     // Convenience methods for common responses
@@ -44,15 +35,6 @@ public class ApiResponse<T> extends BaseResponse {
                 .success(true)
                 .message(message)
                 .data(data)
-                .build();
-    }
-
-    public static <T> ApiResponse<T> success(String message, T data, Object metadata) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message(message)
-                .data(data)
-                .metadata(metadata)
                 .build();
     }
 

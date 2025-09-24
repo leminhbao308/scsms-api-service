@@ -27,10 +27,6 @@ public class ResponseBuilder {
         return ResponseEntity.ok(ApiResponse.success(message));
     }
 
-    public static <T> ResponseEntity<ApiResponse<T>> success(String message, T data, Object metadata) {
-        return ResponseEntity.ok(ApiResponse.success(message, data, metadata));
-    }
-
     // Created responses
     public static <T> ResponseEntity<ApiResponse<T>> created(String message, T data) {
         return ResponseEntity.status(HttpStatus.CREATED)
