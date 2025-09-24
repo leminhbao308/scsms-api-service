@@ -218,16 +218,10 @@ public class TokenService {
         return TokenType.REFRESH.toString().equals(claims.get("type"));
     }
     
-    public Map<TokenType, String> refreshTokens(@NotBlank(message = "Refresh token is required") String refreshToken) {
-        if (!isValidTokenAndNotExpired(refreshToken) || !isRefreshToken(refreshToken)) {
-            throw new ServerSideException(ErrorCode.BAD_REQUEST, "Invalid refresh token");
-        }
-        
-        UUID userId = UUID.fromString(getUserIdFromToken(refreshToken));
-        User user = userRepository.findById(userId).orElseThrow(() -> new ServerSideException(ErrorCode.NOT_FOUND, "User not found"));
+    public Map<TokenType, String> refreshTokens(User user) {
         
         // Revoke all existing tokens
-        revokeAllUserTokens(userId);
+        revokeAllUserTokens(user.getUserId());
         
         // Generate and save new tokens
         return generateAndSaveTokens(user);

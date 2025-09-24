@@ -1,7 +1,10 @@
 package com.kltn.scsms_api_service.core.service;
 
 import com.kltn.scsms_api_service.core.configs.property.JwtTokenProperties;
-import com.kltn.scsms_api_service.core.dto.request.*;
+import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
+import com.kltn.scsms_api_service.core.dto.request.LoginRequest;
+import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
+import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.dto.response.UserResponse;
@@ -40,42 +43,32 @@ public class AuthService {
             
             Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(user);
             
-            RoleResponse roleInfo = RoleResponse.builder()
-                .roleId(user.getRole().getRoleId())
-                .roleName(user.getRole().getRoleName())
-                .roleCode(user.getRole().getRoleCode())
-                .description(user.getRole().getDescription())
-                .build();
-            
-            UserResponse userInfo = UserResponse.builder()
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phoneNumber(user.getPhoneNumber())
-                .dateOfBirth(user.getDateOfBirth())
-                .address(user.getAddress())
-                .avatarUrl(user.getAvatarUrl())
-                .dateOfBirth(user.getDateOfBirth())
-                .gender(user.getGender())
-                .role(roleInfo)
-                .build();
-            
-            return AuthResponse.builder()
-                .accessToken(tokens.get(TokenType.ACCESS))
-                .refreshToken(tokens.get(TokenType.REFRESH))
-                .userInfo(userInfo)
-                .build();
+            return buildAuthResponse(tokens, user);
         } else {
             throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email or password");
         }
     }
     
     public AuthResponse refreshToken(@Valid RefreshTokenRequest request) {
-        Map<TokenType, String> tokens = tokenService.refreshTokens(request.getRefreshToken());
-        return AuthResponse.builder()
-            .accessToken(tokens.get(TokenType.ACCESS))
-            .refreshToken(tokens.get(TokenType.REFRESH))
-            .build();
+        String refreshToken = request.getRefreshToken();
+        
+        if (!tokenService.isValidTokenAndNotExpired(refreshToken) || !tokenService.isRefreshToken(refreshToken)) {
+            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token");
+        }
+        
+        if (!tokenService.isTokenExistedAndNotRevoked(refreshToken))
+            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token");
+        
+        String userId = tokenService.getUserIdFromToken(refreshToken);
+        User user = userService.findById(java.util.UUID.fromString(userId))
+            .orElseThrow(() -> new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token"));
+        
+        if (!user.getIsActive() || user.getIsDeleted())
+            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "User account is inactive or deleted");
+        
+        Map<TokenType, String> tokens = tokenService.refreshTokens(user);
+        
+        return buildAuthResponse(tokens, user);
     }
     
     public void logout(LogoutRequest request) {
@@ -112,5 +105,33 @@ public class AuthService {
     public boolean validateToken(String token) {
         return tokenService.isValidTokenAndNotExpired(token)
             && tokenService.isTokenExistedAndNotRevoked(token);
+    }
+    
+    private AuthResponse buildAuthResponse(Map<TokenType, String> tokens, User user) {
+        RoleResponse roleInfo = RoleResponse.builder()
+            .roleId(user.getRole().getRoleId())
+            .roleName(user.getRole().getRoleName())
+            .roleCode(user.getRole().getRoleCode())
+            .description(user.getRole().getDescription())
+            .build();
+        
+        UserResponse userInfo = UserResponse.builder()
+            .userId(user.getUserId())
+            .email(user.getEmail())
+            .fullName(user.getFullName())
+            .phoneNumber(user.getPhoneNumber())
+            .dateOfBirth(user.getDateOfBirth())
+            .address(user.getAddress())
+            .avatarUrl(user.getAvatarUrl())
+            .dateOfBirth(user.getDateOfBirth())
+            .gender(user.getGender())
+            .role(roleInfo)
+            .build();
+        
+        return AuthResponse.builder()
+            .accessToken(tokens.get(TokenType.ACCESS))
+            .refreshToken(tokens.get(TokenType.REFRESH))
+            .userInfo(userInfo)
+            .build();
     }
 }
