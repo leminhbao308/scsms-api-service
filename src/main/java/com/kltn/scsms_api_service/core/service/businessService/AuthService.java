@@ -1,18 +1,17 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
-import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
-import com.kltn.scsms_api_service.core.dto.request.LoginRequest;
-import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
-import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
+import com.kltn.scsms_api_service.core.dto.request.*;
 import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.dto.response.UserResponse;
-import com.kltn.scsms_api_service.core.entity.TokenType;
+import com.kltn.scsms_api_service.core.entity.Role;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
-import com.kltn.scsms_api_service.exception.ClientSideException;
-import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +29,7 @@ public class AuthService {
     
     private final UserService userService;
     private final TokenService tokenService;
+    private final RoleService roleService;
     
     public AuthResponse login(@Valid LoginRequest request) {
         User user = userService.findByEmail(request.getEmail())
@@ -107,6 +107,40 @@ public class AuthService {
             return authHeader.substring(7);
         }
         throw new IllegalArgumentException("Invalid or empty authorization header");
+    }
+    
+    public AuthResponse register(CreateUserRequest createUserRequest) {
+        // Validate email not already in use
+        if (userService.findByEmail(createUserRequest.getEmail()).isPresent()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + createUserRequest.getEmail() + " is already in use.");
+        }
+        
+        // Always assign CUSTOMER role for new registrations
+        Role customerRole = roleService.getRoleByRoleCode("CUSTOMER")
+            .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, "Default role CUSTOMER does not exist."));
+        
+        // Encode password
+        String encodedPassword = passwordEncoder.encode(createUserRequest.getPassword());
+        
+        // Create new user
+        User newUser = User.builder()
+            .googleId(createUserRequest.getGoogleId())
+            .email(createUserRequest.getEmail())
+            .password(encodedPassword)
+            .fullName(createUserRequest.getFullName())
+            .phoneNumber(createUserRequest.getPhoneNumber())
+            .dateOfBirth(createUserRequest.getDateOfBirth())
+            .gender(createUserRequest.getGender())
+            .address(createUserRequest.getAddress())
+            .avatarUrl(createUserRequest.getAvatarUrl())
+            .role(customerRole)
+            .isActive(true)
+            .build();
+        
+        User createdUser = userService.saveUser(newUser);
+        
+        Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(createdUser);
+        return buildAuthResponse(tokens, createdUser);
     }
     
     private AuthResponse buildAuthResponse(Map<TokenType, String> tokens, User user) {

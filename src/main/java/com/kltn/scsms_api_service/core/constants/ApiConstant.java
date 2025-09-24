@@ -12,6 +12,7 @@ public class ApiConstant {
     // Auth module endpoints (Google integration)
     public static final String AUTH_PREFIX = "/auth";
     public static final String LOGIN_API = AUTH_PREFIX + "/login";
+    public static final String REGISTER_API = AUTH_PREFIX + "/register";
     public static final String REFRESH_TOKEN_API = AUTH_PREFIX + "/refresh-token";
     public static final String LOGOUT_API = AUTH_PREFIX + "/logout";
     public static final String VERIFY_TOKEN_API = AUTH_PREFIX + "/verify-token";

@@ -2,10 +2,7 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.core.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
-import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
-import com.kltn.scsms_api_service.core.dto.request.LoginRequest;
-import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
-import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
+import com.kltn.scsms_api_service.core.dto.request.*;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
 import com.kltn.scsms_api_service.core.service.businessService.AuthService;
@@ -114,6 +111,27 @@ public class AuthController {
             ApiResponse.<Void>builder()
                 .success(true)
                 .message("Password changed successfully")
+                .build()
+        );
+    }
+    
+    /**
+     * Register new user account
+     */
+    @PostMapping(ApiConstant.REGISTER_API)
+    @SwaggerOperation(
+        summary = "User registration",
+        description = "Register a new user account")
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@RequestBody CreateUserRequest request) {
+        log.info("User registration attempt for email: {}", request.getEmail());
+        
+        AuthResponse authResponse = authService.register(request);
+        
+        return ResponseEntity.ok(
+            ApiResponse.<AuthResponse>builder()
+                .success(true)
+                .message("Registration successful")
+                .data(authResponse)
                 .build()
         );
     }
