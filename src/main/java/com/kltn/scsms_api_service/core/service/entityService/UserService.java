@@ -3,6 +3,7 @@ package com.kltn.scsms_api_service.core.service.entityService;
 import com.kltn.scsms_api_service.core.dto.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.dto.response.UserResponse;
+import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
 import jakarta.persistence.EntityManager;
@@ -224,7 +225,7 @@ public class UserService {
         return entityManager.createQuery(countQuery).getSingleResult();
     }
     
-    private UserResponse mapToUserResponse(User user) {
+    public UserResponse mapToUserResponse(User user) {
         RoleResponse roleResponse = null;
         if (user.getRole() != null) {
             roleResponse = RoleResponse.builder()

@@ -10,6 +10,10 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class CreateUserRequest {
+    
+    private String password;
+    
+    private String googleId;
 
     private String email;
     
@@ -27,6 +31,4 @@ public class CreateUserRequest {
     private String avatarUrl;
     
     private String roleCode;
-
-    private Boolean isActive = true;
 }

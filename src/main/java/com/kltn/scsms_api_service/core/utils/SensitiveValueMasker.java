@@ -1,6 +1,6 @@
 package com.kltn.scsms_api_service.core.utils;
 
-import com.kltn.scsms_api_service.core.configs.property.LoggingProperties;
+import com.kltn.scsms_api_service.configs.property.LoggingProperties;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
