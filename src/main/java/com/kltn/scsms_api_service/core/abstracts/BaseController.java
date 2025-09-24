@@ -24,10 +24,6 @@ public abstract class BaseController {
         return ResponseBuilder.success(message);
     }
 
-    protected <T> ResponseEntity<ApiResponse<T>> success(String message, T data, Object metadata) {
-        return ResponseBuilder.success(message, data, metadata);
-    }
-
     // Created responses
     protected <T> ResponseEntity<ApiResponse<T>> created(T data) {
         return ResponseBuilder.created(data);

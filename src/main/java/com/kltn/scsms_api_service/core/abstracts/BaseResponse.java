@@ -23,9 +23,6 @@ public abstract class BaseResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
 
-    @JsonProperty("trace_id")
-    private String traceId;
-
     public BaseResponse() {
         this.timestamp = LocalDateTime.now();
     }
@@ -40,7 +37,6 @@ public abstract class BaseResponse {
         this.success = b.success;
         this.message = b.message;
         this.timestamp = b.timestamp != null ? b.timestamp : LocalDateTime.now();
-        this.traceId = b.traceId;
     }
 }
 
