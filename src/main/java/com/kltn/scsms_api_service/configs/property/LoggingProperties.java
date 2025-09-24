@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.configs.property;
+package com.kltn.scsms_api_service.configs.property;
 
 import lombok.Getter;
 import lombok.Setter;

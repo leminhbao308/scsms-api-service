@@ -1,7 +1,7 @@
-package com.kltn.scsms_api_service.core.configs.filters;
+package com.kltn.scsms_api_service.configs.filters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kltn.scsms_api_service.core.configs.security.JwtTokenProvider;
+import com.kltn.scsms_api_service.configs.security.JwtTokenProvider;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -36,11 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private static String API_PREFIX = "/api";
     
-    private static final List<String> PROTECTED_PATH_PATTERNS =
-        List.of(
-            API_PREFIX + ApiConstant.LOGOUT_API, // Protect logout endpoint
-            API_PREFIX + ApiConstant.VERIFY_TOKEN_API // Protect verify token endpoint
-        );
+    private static final List<String> PROTECTED_PATH_PATTERNS = ApiConstant.PROTECTED_PATHS(API_PREFIX);
     
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
     
@@ -102,6 +98,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(loginUserInfo, null, null);
                     
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    
+                    log.info("AuthFilter - Authenticated user: {} for path: {}", loginUserInfo.getEmail(), request.getRequestURI());
                 } else {
                     log.error("AuthFilter - Invalid token structure: {}", request.getRequestURI());
                     writeErrorResponse(response, "Unauthorized - Invalid token structure");

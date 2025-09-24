@@ -1,6 +1,6 @@
-package com.kltn.scsms_api_service.core.configs.security;
+package com.kltn.scsms_api_service.configs.security;
 
-import com.kltn.scsms_api_service.core.configs.property.JwtTokenProperties;
+import com.kltn.scsms_api_service.configs.property.JwtTokenProperties;
 import com.kltn.scsms_api_service.core.exception.ErrorCode;
 import com.kltn.scsms_api_service.core.exception.ServerSideException;
 import com.kltn.scsms_api_service.core.service.entityService.TokenService;

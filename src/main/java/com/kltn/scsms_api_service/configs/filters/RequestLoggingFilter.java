@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.configs.filters;
+package com.kltn.scsms_api_service.configs.filters;
 
 import com.kltn.scsms_api_service.core.utils.LoggingUtils;
 import jakarta.servlet.FilterChain;

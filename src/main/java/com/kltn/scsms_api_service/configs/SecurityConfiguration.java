@@ -1,9 +1,10 @@
-package com.kltn.scsms_api_service.core.configs;
+package com.kltn.scsms_api_service.configs;
 
-import com.kltn.scsms_api_service.core.configs.filters.JwtAuthenticationFilter;
+import com.kltn.scsms_api_service.configs.filters.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -15,7 +16,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@EnableAspectJAutoProxy
 @RequiredArgsConstructor
 public class SecurityConfiguration {
     
@@ -33,7 +35,7 @@ public class SecurityConfiguration {
     }
     
     @Bean
-    public PasswordEncoder  passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }
