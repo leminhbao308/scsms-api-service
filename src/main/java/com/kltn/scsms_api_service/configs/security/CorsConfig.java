@@ -1,56 +1,48 @@
 package com.kltn.scsms_api_service.configs.security;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-@Slf4j
 @Configuration
-public class CorsConfig {
+public class CorsConfig implements WebMvcConfigurer {
     
     @Value("${app.cors.allowed-origin-patterns}")
     private String allowedOriginPatterns;
+    
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+            .allowedOriginPatterns(allowedOriginPatterns.split(","))
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
+            .maxAge(3600);
+    }
     
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Parse và clean up origin patterns
-        List<String> origins = Arrays.stream(allowedOriginPatterns.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .collect(Collectors.toList());
-        
-        log.info("CORS allowed origin patterns: {}", origins);
+        // Cho phép các origin patterns từ config
+        List<String> origins = Arrays.asList(allowedOriginPatterns.split(","));
         configuration.setAllowedOriginPatterns(origins);
         
         // Cho phép các HTTP methods
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"
+            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
         
         // Cho phép tất cả headers
-        configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type",
-            "X-Requested-With",
-            "Accept",
-            "Origin",
-            "Access-Control-Request-Method",
-            "Access-Control-Request-Headers",
-            "X-Total-Count",
-            "X-Total-Pages",
-            "Cache-Control",
-            "Pragma"
-        ));
+        configuration.setAllowedHeaders(List.of("*"));
         
         // Cho phép credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
@@ -60,9 +52,7 @@ public class CorsConfig {
             "Authorization",
             "Content-Type",
             "X-Total-Count",
-            "X-Total-Pages",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials"
+            "X-Total-Pages"
         ));
         
         // Cache preflight response trong 1 giờ
@@ -71,7 +61,6 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         
-        log.info("CORS configuration applied successfully");
         return source;
     }
 }
