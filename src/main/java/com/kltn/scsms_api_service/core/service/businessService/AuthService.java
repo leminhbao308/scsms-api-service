@@ -1,17 +1,25 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
-import com.kltn.scsms_api_service.core.dto.request.*;
-import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
-import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
-import com.kltn.scsms_api_service.core.dto.response.UserResponse;
+import com.kltn.scsms_api_service.core.dto.auth.CustomerDto;
+import com.kltn.scsms_api_service.core.dto.auth.EmployeeDto;
+import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
+import com.kltn.scsms_api_service.core.dto.auth.response.AuthCustomerResponse;
+import com.kltn.scsms_api_service.core.dto.auth.response.AuthEmployeeResponse;
+import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
+import com.kltn.scsms_api_service.core.dto.request.CreateUserRequest;
+import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
+import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
+import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Role;
-import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +35,13 @@ public class AuthService {
     
     private final PasswordEncoder passwordEncoder;
     
+    private final UserMapper userMapper;
+    
     private final UserService userService;
     private final TokenService tokenService;
     private final RoleService roleService;
     
-    public AuthResponse login(@Valid LoginRequest request) {
+    public ApiResponse<?> login(@Valid LoginRequest request) {
         User user = userService.findByEmail(request.getEmail())
             .orElseThrow(() -> new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email or password"));
         
@@ -53,7 +63,7 @@ public class AuthService {
         }
     }
     
-    public AuthResponse refreshToken(@Valid RefreshTokenRequest request) {
+    public ApiResponse<?> refreshToken(@Valid RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
         
         if (!tokenService.isValidTokenAndNotExpired(refreshToken) || !tokenService.isRefreshToken(refreshToken)) {
@@ -109,7 +119,7 @@ public class AuthService {
         throw new IllegalArgumentException("Invalid or empty authorization header");
     }
     
-    public AuthResponse register(CreateUserRequest createUserRequest) {
+    public ApiResponse<?> register(CreateUserRequest createUserRequest) {
         // Validate email not already in use
         if (userService.findByEmail(createUserRequest.getEmail()).isPresent()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + createUserRequest.getEmail() + " is already in use.");
@@ -143,31 +153,23 @@ public class AuthService {
         return buildAuthResponse(tokens, createdUser);
     }
     
-    private AuthResponse buildAuthResponse(Map<TokenType, String> tokens, User user) {
-        RoleResponse roleInfo = RoleResponse.builder()
-            .roleId(user.getRole().getRoleId())
-            .roleName(user.getRole().getRoleName())
-            .roleCode(user.getRole().getRoleCode())
-            .description(user.getRole().getDescription())
-            .build();
-        
-        UserResponse userInfo = UserResponse.builder()
-            .userId(user.getUserId())
-            .email(user.getEmail())
-            .fullName(user.getFullName())
-            .phoneNumber(user.getPhoneNumber())
-            .dateOfBirth(user.getDateOfBirth())
-            .address(user.getAddress())
-            .avatarUrl(user.getAvatarUrl())
-            .dateOfBirth(user.getDateOfBirth())
-            .gender(user.getGender())
-            .role(roleInfo)
-            .build();
-        
-        return AuthResponse.builder()
-            .accessToken(tokens.get(TokenType.ACCESS))
-            .refreshToken(tokens.get(TokenType.REFRESH))
-            .userInfo(userInfo)
-            .build();
+    private ApiResponse<?> buildAuthResponse(Map<TokenType, String> tokens, User user) {
+        if (user.getUserType().equals(UserType.CUSTOMER)) {
+            CustomerDto userInfo = userMapper.toCustomerDto(user);
+            
+            return ApiResponse.success(AuthCustomerResponse.builder()
+                .accessToken(tokens.get(TokenType.ACCESS))
+                .refreshToken(tokens.get(TokenType.REFRESH))
+                .userInfo(userInfo)
+                .build());
+        } else {
+            EmployeeDto userInfo = userMapper.toEmployeeDto(user);
+            
+            return ApiResponse.success(AuthEmployeeResponse.builder()
+                .accessToken(tokens.get(TokenType.ACCESS))
+                .refreshToken(tokens.get(TokenType.REFRESH))
+                .userInfo(userInfo)
+                .build());
+        }
     }
 }

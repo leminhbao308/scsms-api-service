@@ -1,7 +1,7 @@
 package com.kltn.scsms_api_service.core.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.kltn.scsms_api_service.core.abstracts.BaseResponse;
+import com.kltn.scsms_api_service.abstracts.BaseResponse;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
