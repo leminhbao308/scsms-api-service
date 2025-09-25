@@ -131,7 +131,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.contains("/swagger-ui.html")
             || path.equals(API_PREFIX + ApiConstant.LOGIN_API) // Allow login
             || path.equals(API_PREFIX + ApiConstant.REFRESH_TOKEN_API) // Allow refresh
-            || path.equals(API_PREFIX + ApiConstant.REGISTER_API); // Allow registration
+            || path.equals(API_PREFIX + ApiConstant.REGISTER_API) // Allow registration
+            || path.equals(API_PREFIX + ApiConstant.LOGOUT_API); // Allow logout
     }
     
     private void writeErrorResponse(HttpServletResponse response, String message) throws IOException {
