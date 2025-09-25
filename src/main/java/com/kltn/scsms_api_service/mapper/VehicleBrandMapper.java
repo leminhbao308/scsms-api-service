@@ -11,7 +11,7 @@ import org.mapstruct.ReportingPolicy;
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
     uses = {UserMapper.class, AuditMapper.class})
-public interface VehicleMapper {
+public interface VehicleBrandMapper {
     
     VehicleBrandInfoDto toVehicleBrandInfoDto(VehicleBrand vehicleBrand);
     
