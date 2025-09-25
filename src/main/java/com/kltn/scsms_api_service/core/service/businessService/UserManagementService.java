@@ -91,18 +91,29 @@ public class UserManagementService {
         
         // Update fields if provided
         if (updateUserRequest.getEmail() != null) {
-            // Check if new email is already in use by another user
-            Optional<User> userWithEmail = userService.findByEmail(updateUserRequest.getEmail());
-            if (userWithEmail.isPresent() && !userWithEmail.get().getUserId().equals(existingUser.getUserId())) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + updateUserRequest.getEmail() + " is already in use.");
+            // If current email is same as new email, no need to check uniqueness
+            if (!updateUserRequest.getEmail().equals(existingUser.getEmail())) {
+                // Check if new email is already in use by another user
+                Optional<User> userWithEmail = userService.findByEmail(updateUserRequest.getEmail());
+                if (userWithEmail.isPresent() && !userWithEmail.get().getUserId().equals(existingUser.getUserId())) {
+                    throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + updateUserRequest.getEmail() + " is already in use.");
+                }
+                existingUser.setEmail(updateUserRequest.getEmail());
             }
-            existingUser.setEmail(updateUserRequest.getEmail());
         }
         if (updateUserRequest.getFullName() != null) {
             existingUser.setFullName(updateUserRequest.getFullName());
         }
         if (updateUserRequest.getPhoneNumber() != null) {
-            existingUser.setPhoneNumber(updateUserRequest.getPhoneNumber());
+            // If current phone number is same as new phone number, no need to check uniqueness
+            if (!updateUserRequest.getPhoneNumber().equals(existingUser.getPhoneNumber())) {
+                // Check if new phone number is already in use by another user
+                Optional<User> userWithPhone = userService.findByPhoneNumber(updateUserRequest.getPhoneNumber());
+                if (userWithPhone.isPresent() && !userWithPhone.get().getUserId().equals(existingUser.getUserId())) {
+                    throw new ClientSideException(ErrorCode.BAD_REQUEST, "Phone number " + updateUserRequest.getPhoneNumber() + " is already in use.");
+                }
+                existingUser.setPhoneNumber(updateUserRequest.getPhoneNumber());
+            }
         }
         if (updateUserRequest.getDateOfBirth() != null) {
             existingUser.setDateOfBirth(updateUserRequest.getDateOfBirth());
