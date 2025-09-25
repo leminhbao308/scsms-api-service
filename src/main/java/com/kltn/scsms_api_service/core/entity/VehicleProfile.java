@@ -25,9 +25,6 @@ public class VehicleProfile extends AuditEntity {
     @Column(name = "license_plate", nullable = false)
     private String licensePlate;
     
-    @Column(name = "model_code", unique = true, nullable = false)
-    private String modelCode;
-    
     @Column(name = "description", length = 500)
     private String description;
     
