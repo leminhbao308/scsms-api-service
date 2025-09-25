@@ -241,4 +241,8 @@ public class UserService {
     public Optional<User> findByPhoneNumber(String phoneNumber) {
         return userRepository.findByPhoneNumber(phoneNumber);
     }
+    
+    public User getUserRefById(UUID userId) {
+        return userRepository.getReferenceById(userId);
+    }
 }
