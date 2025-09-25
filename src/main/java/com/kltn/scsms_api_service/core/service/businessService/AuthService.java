@@ -133,24 +133,13 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(registerRequest.getPassword());
         
         // Create new user
-        User newUser = User.builder()
-            .googleId(registerRequest.getGoogleId())
-            .email(registerRequest.getEmail())
-            .password(encodedPassword)
-            .fullName(registerRequest.getFullName())
-            .phoneNumber(registerRequest.getPhoneNumber())
-            .dateOfBirth(registerRequest.getDateOfBirth())
-            .gender(registerRequest.getGender())
-            .address(registerRequest.getAddress())
-            .avatarUrl(registerRequest.getAvatarUrl())
-            .role(customerRole)
-            // Customer specific fields
-            .userType(UserType.CUSTOMER)
-            .accumulatedPoints(0)
-            .totalOrders(0)
-            .totalSpent(0.0)
-            .isActive(true)
-            .build();
+        User newUser = userMapper.toEntity(registerRequest);
+        // Customer specific fields
+        newUser.setUserType(UserType.CUSTOMER);
+        newUser.setAccumulatedPoints(0);
+        newUser.setTotalOrders(0);
+        newUser.setTotalSpent(0.0);
+        newUser.setIsActive(true);
         
         User createdUser = userService.saveUser(newUser);
         

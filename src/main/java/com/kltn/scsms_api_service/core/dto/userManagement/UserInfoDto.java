@@ -32,7 +32,7 @@ public class UserInfoDto {
     private String phoneNumber;
     
     @JsonProperty("date_of_birth")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime dateOfBirth;
     
     @JsonProperty("gender")

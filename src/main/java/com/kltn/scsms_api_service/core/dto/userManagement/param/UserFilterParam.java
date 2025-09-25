@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.userManagement.param;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -30,13 +31,22 @@ public class UserFilterParam {
     
     private String gender;
     
+    @JsonProperty("user_type")
     private String userType;
     
+    @JsonProperty("customer_rank")
     private String customerRank;
     
+    @JsonProperty("has_google_id")
     private Boolean hasGoogleId;
+    
+    @JsonProperty("has_phone_number")
     private Boolean hasPhoneNumber;
+    
+    @JsonProperty("has_date_of_birth")
     private Boolean hasDateOfBirth;
+    
+    @JsonProperty("has_avatar")
     private Boolean hasAvatar;
     
     // Search
@@ -46,30 +56,38 @@ public class UserFilterParam {
     @Email(message = "Invalid email format")
     private String email;
     
+    @JsonProperty("full_name")
     @Size(min = 2, message = "Full name must be at least 2 characters")
     private String fullName;
     
+    @JsonProperty("phone_number")
     @Pattern(regexp = "^[0-9+\\-\\s()]+$", message = "Invalid phone number format")
     private String phoneNumber;
     
     private String address;
     
     // Date ranges
+    @JsonProperty("created_date_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime createdDateFrom;
     
+    @JsonProperty("created_date_to")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime createdDateTo;
     
+    @JsonProperty("modified_date_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime modifiedDateFrom;
     
+    @JsonProperty("modified_date_to")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime modifiedDateTo;
     
+    @JsonProperty("date_of_birth_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime dateOfBirthFrom;
     
+    @JsonProperty("date_of_birth_to")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime dateOfBirthTo;
     

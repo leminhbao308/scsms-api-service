@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.mapper;
 
 import com.kltn.scsms_api_service.core.dto.auth.CustomerDto;
 import com.kltn.scsms_api_service.core.dto.auth.EmployeeDto;
+import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
 import com.kltn.scsms_api_service.core.entity.User;
 import org.mapstruct.Mapper;
@@ -22,4 +23,6 @@ public interface UserMapper {
     User toEntity(CustomerDto customerDto);
     
     User toEntity(EmployeeDto employeeDto);
+    
+    User toEntity(RegisterRequest registerRequest);
 }
