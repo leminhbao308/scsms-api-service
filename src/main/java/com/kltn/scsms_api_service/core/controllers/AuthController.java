@@ -5,7 +5,6 @@ import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
 import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
-import com.kltn.scsms_api_service.core.dto.request.CreateUserRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;

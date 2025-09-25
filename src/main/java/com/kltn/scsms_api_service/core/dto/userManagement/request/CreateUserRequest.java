@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.dto.request;
+package com.kltn.scsms_api_service.core.dto.userManagement.request;
 
 import com.kltn.scsms_api_service.core.enums.Gender;
 import lombok.Getter;

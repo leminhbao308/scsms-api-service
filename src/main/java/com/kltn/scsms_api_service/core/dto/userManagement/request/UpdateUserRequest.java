@@ -20,10 +20,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateUserRequest {
-    
-    @JsonProperty("user_id")
-    private UUID userId;
-    
     @JsonProperty("email")
     private String email;
     
@@ -49,8 +45,11 @@ public class UpdateUserRequest {
     @JsonProperty("is_active")
     private Boolean isActive;
     
-    @JsonProperty("role")
-    private RoleResponse role;
+    @JsonProperty("is_deleted")
+    private Boolean isDeleted;
+    
+    @JsonProperty("role_code")
+    private String roleCode;
     
     // Customer-specific fields
     @JsonProperty("customer_rank")

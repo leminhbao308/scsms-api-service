@@ -46,9 +46,6 @@ public class UserInfoDto {
     @JsonProperty("avatar_url")
     private String avatarUrl;
     
-    @JsonProperty("is_active")
-    private Boolean isActive;
-    
     @JsonProperty("role")
     private RoleResponse role;
     
@@ -75,4 +72,25 @@ public class UserInfoDto {
     
     @JsonProperty("citizen_id")
     private String citizenId;
+    
+    // Audit fields
+    @JsonProperty("created_date")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime createdDate;
+    
+    @JsonProperty("modified_date")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime modifiedDate;
+    
+    @JsonProperty("created_by")
+    private String createdBy;
+    
+    @JsonProperty("modified_by")
+    private String modifiedBy;
+    
+    @JsonProperty("is_active")
+    private Boolean isActive;
+    
+    @JsonProperty("is_deleted")
+    private Boolean isDeleted;
 }
