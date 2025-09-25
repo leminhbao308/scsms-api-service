@@ -64,10 +64,10 @@ public class VehicleModelService {
         typedQuery.setFirstResult(offset);
         typedQuery.setMaxResults(filterParam.getSize());
         
-        List<VehicleModel> VehicleModels = typedQuery.getResultList();
+        List<VehicleModel> vehicleModels = typedQuery.getResultList();
         
         PageRequest pageRequest = PageRequest.of(filterParam.getPage(), filterParam.getSize(), Sort.by(sortDirection, filterParam.getSort()));
-        return new PageImpl<>(VehicleModels, pageRequest, totalElements);
+        return new PageImpl<>(vehicleModels, pageRequest, totalElements);
     }
     
     public List<VehicleModel> getAllActiveVehicleModels(boolean isActive, boolean isDeleted) {
@@ -87,19 +87,19 @@ public class VehicleModelService {
         return vehicleModelRepository.findByModelCode(modelCode);
     }
     
-    public VehicleModel saveVehicleModel(VehicleModel VehicleModel) {
-        return vehicleModelRepository.save(VehicleModel);
+    public VehicleModel saveVehicleModel(VehicleModel vehicleModel) {
+        return vehicleModelRepository.save(vehicleModel);
     }
     
-    public Optional<VehicleModel> getOtpVehicleModelById(UUID brandId) {
-        return vehicleModelRepository.findByModelId(brandId);
+    public Optional<VehicleModel> getOtpVehicleModelById(UUID modelId) {
+        return vehicleModelRepository.findByModelId(modelId);
     }
     
-    public void softDeleteVehicleModel(UUID brandId) {
-        VehicleModel existingBrand = getVehicleModelById(brandId);
+    public void softDeleteVehicleModel(UUID modelId) {
+        VehicleModel existingBrand = getVehicleModelById(modelId);
         existingBrand.setIsDeleted(true);
         vehicleModelRepository.save(existingBrand);
-        log.info("Soft deleted vehicle brand with ID: {}", brandId);
+        log.info("Soft deleted vehicle model with ID: {}", modelId);
     }
     
     
@@ -130,5 +130,9 @@ public class VehicleModelService {
         }
         
         return predicates;
+    }
+    
+    public VehicleModel getVehicleModelRefById(UUID vehicleModelId) {
+        return vehicleModelRepository.getReferenceById(vehicleModelId);
     }
 }
