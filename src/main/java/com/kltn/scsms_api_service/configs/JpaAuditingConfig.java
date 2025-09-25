@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.configs.audit;
+package com.kltn.scsms_api_service.configs;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
