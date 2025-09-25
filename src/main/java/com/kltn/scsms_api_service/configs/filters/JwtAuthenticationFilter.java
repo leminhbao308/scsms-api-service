@@ -62,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             
             if (StringUtils.hasText(token)) {
                 // Validate token format and signature
-                if (!jwtTokenProvider.validateToken(token, request)) {
+                if (jwtTokenProvider.isTokenExpired(token) || !jwtTokenProvider.validateToken(token, request)) {
                     log.error(
                         "AuthFilter - Token validation failed for request: {}", request.getRequestURI());
                     writeErrorResponse(response, "Unauthorized - Invalid token");
@@ -99,7 +99,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     
-                    log.info("AuthFilter - Authenticated user: {} for path: {}", loginUserInfo.getEmail(), request.getRequestURI());
+                    log.info("AuthFilter - Authenticated user: {} for path: {}", loginUserInfo.getSub(), request.getRequestURI());
                 } else {
                     log.error("AuthFilter - Invalid token structure: {}", request.getRequestURI());
                     writeErrorResponse(response, "Unauthorized - Invalid token structure");

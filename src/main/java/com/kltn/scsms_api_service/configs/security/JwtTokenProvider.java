@@ -1,9 +1,9 @@
 package com.kltn.scsms_api_service.configs.security;
 
 import com.kltn.scsms_api_service.configs.property.JwtTokenProperties;
+import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.exception.ServerSideException;
-import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import io.jsonwebtoken.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -23,20 +23,23 @@ import java.util.Date;
 @Slf4j
 @RequiredArgsConstructor
 public class JwtTokenProvider implements Serializable {
-
-    @Serial private static final long serialVersionUID = 1L;
-
+    
+    @Serial
+    private static final long serialVersionUID = 1L;
+    
     private final JwtTokenProperties jwtTokenProperties;
     private final TokenService tokenService;
-
+    
     public static final String TOKEN_HEADER = "Authorization";
     public static final String TOKEN_TYPE = "Bearer";
-
+    
     public Claims getClaimsFromToken(final String token) {
         return tokenService.getClaimsFromToken(token);
     }
-
-    /** Validate token with request context. */
+    
+    /**
+     * Validate token with request context.
+     */
     public boolean validateToken(final String token, final HttpServletRequest httpServletRequest) {
         try {
             boolean isTokenValid = tokenService.isValidTokenAndNotExpired(token);
@@ -58,24 +61,30 @@ public class JwtTokenProvider implements Serializable {
             log.error("JWT - Jwt claims string is empty");
             httpServletRequest.setAttribute("illegal", "JWT claims string is empty.");
         }
-
+        
         return false;
     }
-
-    /** Extract jwt from bearer string. */
+    
+    /**
+     * Extract jwt from bearer string.
+     */
     public String extractJwtFromBearerString(final String bearer) {
         if (StringUtils.hasText(bearer) && bearer.startsWith(String.format("%s ", TOKEN_TYPE))) {
             return bearer.substring(TOKEN_TYPE.length() + 1);
         }
         return null;
     }
-
-    /** Extract jwt from request. */
+    
+    /**
+     * Extract jwt from request.
+     */
     public String extractJwtFromRequest(final HttpServletRequest request) {
         return extractJwtFromBearerString(request.getHeader(TOKEN_HEADER));
     }
-
-    /** Parsing token. */
+    
+    /**
+     * Parsing token.
+     */
     private Jws<Claims> parseToken(final String token) {
         try {
             return Jwts.parser().verifyWith(getPublicKey()).build().parseSignedClaims(token);
@@ -84,12 +93,14 @@ public class JwtTokenProvider implements Serializable {
             throw e;
         }
     }
-
-    /** Check token is expired or not. */
-    private boolean isTokenExpired(final String token) {
+    
+    /**
+     * Check token is expired or not.
+     */
+    public boolean isTokenExpired(final String token) {
         return parseToken(token).getPayload().getExpiration().before(new Date());
     }
-
+    
     private PublicKey getPublicKey() {
         try {
             KeyFactory keyFactory = KeyFactory.getInstance("EC");
@@ -100,13 +111,17 @@ public class JwtTokenProvider implements Serializable {
             throw new ServerSideException(ErrorCode.RESPONSE_ERROR, "Failed to load public key");
         }
     }
-
-    /** Check if token is refresh token */
+    
+    /**
+     * Check if token is refresh token
+     */
     public boolean isRefreshToken(String token) {
         return tokenService.isRefreshToken(token);
     }
-
-    /** Check if token is valid */
+    
+    /**
+     * Check if token is valid
+     */
     public boolean isTokenValid(String token) {
         return tokenService.isTokenExistedAndNotRevoked(token);
     }
