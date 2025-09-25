@@ -12,6 +12,7 @@ import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Role;
 import com.kltn.scsms_api_service.core.entity.User;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
@@ -136,6 +137,7 @@ public class AuthService {
         User newUser = userMapper.toEntity(registerRequest);
         // Customer specific fields
         newUser.setUserType(UserType.CUSTOMER);
+        newUser.setCustomerRank(CustomerRank.BRONZE);
         newUser.setAccumulatedPoints(0);
         newUser.setTotalOrders(0);
         newUser.setTotalSpent(0.0);
