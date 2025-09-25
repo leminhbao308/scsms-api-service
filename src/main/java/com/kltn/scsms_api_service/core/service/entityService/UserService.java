@@ -237,4 +237,8 @@ public class UserService {
         
         userRepository.save(existingUser);
     }
+    
+    public Optional<User> findByPhoneNumber(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber);
+    }
 }
