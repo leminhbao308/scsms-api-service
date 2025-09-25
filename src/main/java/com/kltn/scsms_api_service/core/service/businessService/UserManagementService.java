@@ -133,4 +133,12 @@ public class UserManagementService {
         
         return userMapper.toUserInfoDto(updatedUser);
     }
+    
+    public void deleteUser(UUID uuid) {
+        // Check user exists
+        User existingUser = userService.findById(uuid).orElseThrow(() ->
+            new ClientSideException(ErrorCode.NOT_FOUND, "User with ID " + uuid + " not found."));
+        
+        userService.deleteUser(existingUser);
+    }
 }

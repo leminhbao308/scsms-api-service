@@ -60,7 +60,7 @@ public class UserManagementController {
     @PostMapping(ApiConstant.UPDATE_USER_API)
     @SwaggerOperation(
         summary = "Update an existing user",
-        description = "Update the details of an existing user.")
+        description = "Update the details of an existing user. Inclue enabling/disabling the user.")
     @RequirePermission(permissions = PermissionConstant.USER_UPDATE)
     public ResponseEntity<ApiResponse<UserInfoDto>> updateUser(
         @PathVariable(value = "userId") String userId,
@@ -68,5 +68,16 @@ public class UserManagementController {
         log.info("Updating user with ID: {}", userId);
         UserInfoDto updatedUser = userManagementService.updateUser(UUID.fromString(userId), updateUserRequest);
         return ResponseBuilder.success("User updated successfully", updatedUser);
+    }
+    
+    @PostMapping(ApiConstant.DELETE_USER_API)
+    @SwaggerOperation(
+        summary = "Delete a user",
+        description = "Delete a user by their ID.")
+    @RequirePermission(permissions = PermissionConstant.USER_DELETE)
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable(value = "userId") String userId) {
+        log.info("Deleting user with ID: {}", userId);
+        userManagementService.deleteUser(UUID.fromString(userId));
+        return ResponseBuilder.success("User deleted successfully");
     }
 }

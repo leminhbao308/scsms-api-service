@@ -1,7 +1,5 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
-import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
 import com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
@@ -232,5 +230,11 @@ public class UserService {
         }
         
         return entityManager.createQuery(countQuery).getSingleResult();
+    }
+    
+    public void deleteUser(User existingUser) {
+        existingUser.setIsDeleted(true);
+        
+        userRepository.save(existingUser);
     }
 }
