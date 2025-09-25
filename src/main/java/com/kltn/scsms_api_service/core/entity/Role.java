@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.core.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -13,7 +14,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "roles", schema = GeneralConstant.DB_SCHEMA_DEV)
-@Builder
+@SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
 public class Role extends AuditEntity {

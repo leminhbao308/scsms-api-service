@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.dto.auth;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class EmployeeDto {
     
     @JsonProperty("user_id")

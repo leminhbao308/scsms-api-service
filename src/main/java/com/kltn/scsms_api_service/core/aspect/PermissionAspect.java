@@ -48,14 +48,14 @@ public class PermissionAspect {
         
         if (!hasPermission) {
             log.error("Permission denied for user {} - Required: {} ({})",
-                currentUser.getEmail(),
+                currentUser.getSub(),
                 String.join(", ", requiredPermissions),
                 permLogic.name());
             throw new ClientSideException(ErrorCode.FORBIDDEN, requirePermission.message());
         }
         
         log.debug("Permission check passed for user {} - Permissions: {}",
-            currentUser.getEmail(), String.join(", ", requiredPermissions));
+            currentUser.getSub(), String.join(", ", requiredPermissions));
         
         return joinPoint.proceed();
     }
@@ -83,12 +83,12 @@ public class PermissionAspect {
             
             if (!hasRole) {
                 log.error("Role check failed for user {} - Required roles: {}",
-                    currentUser.getEmail(),
+                    currentUser.getSub(),
                     String.join(", ", requiredRoles));
                 throw new ClientSideException(ErrorCode.FORBIDDEN, requireRole.message());
             } else {
                 log.debug("Role check passed for user {} - Role: {}",
-                    currentUser.getEmail(), currentUser.getRole());
+                    currentUser.getSub(), currentUser.getRole());
             }
         }
         

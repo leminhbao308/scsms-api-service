@@ -7,6 +7,7 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.enums.Gender;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import org.springframework.data.annotation.CreatedBy;
 
 import java.time.LocalDateTime;
@@ -15,7 +16,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Builder
+@SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "users", schema = GeneralConstant.DB_SCHEMA_DEV)
@@ -52,10 +53,6 @@ public class User extends AuditEntity {
 
     @Column(name = "avatar_url", length = Integer.MAX_VALUE)
     private String avatarUrl;
-
-    @Column(name = "is_active", nullable = false)
-    @Builder.Default
-    private Boolean isActive = true;
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;

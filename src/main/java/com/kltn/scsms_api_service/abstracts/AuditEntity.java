@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.abstracts;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
@@ -24,9 +25,11 @@ import java.time.LocalDateTime;
 public abstract class AuditEntity {
     
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
     
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private Boolean isDeleted = false;
     
     @CreatedDate
@@ -39,6 +42,7 @@ public abstract class AuditEntity {
     
     @CreatedBy
     @Column(name = "created_by", length = 100, updatable = false)
+    @Builder.Default
     private String createdBy = "SYSTEM";
     
     @LastModifiedBy
