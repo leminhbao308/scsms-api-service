@@ -3,11 +3,13 @@ package com.kltn.scsms_api_service.core.dto.userManagement;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.enums.Gender;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
@@ -15,11 +17,11 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class UserInfoDto {
+public class UserInfoDto extends AuditDto {
     
     @JsonProperty("user_id")
     private UUID userId;
@@ -72,25 +74,4 @@ public class UserInfoDto {
     
     @JsonProperty("citizen_id")
     private String citizenId;
-    
-    // Audit fields
-    @JsonProperty("created_date")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime createdDate;
-    
-    @JsonProperty("modified_date")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime modifiedDate;
-    
-    @JsonProperty("created_by")
-    private String createdBy;
-    
-    @JsonProperty("modified_by")
-    private String modifiedBy;
-    
-    @JsonProperty("is_active")
-    private Boolean isActive;
-    
-    @JsonProperty("is_deleted")
-    private Boolean isDeleted;
 }

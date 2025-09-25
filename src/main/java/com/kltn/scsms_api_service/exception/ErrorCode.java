@@ -9,6 +9,7 @@ import java.util.Map;
 @Getter
 public enum ErrorCode {
     BAD_REQUEST("SCS-0400", "SCS-0400", "SYSTEM", "Invalid request", "error.invalid_request"),
+    DUPLICATE("SCS-0409", "SCS-0409", "SYSTEM", "Duplicate resource", "error.duplicate_resource"),
     REQUEST_TIMEOUT("SCS-0408", "SCS-0408", "SYSTEM", "Request timeout", "error.request_timeout"),
     INVALID_SIGNATURE("SCS-0444", "SCS-0444", "SYSTEM", "Invalid signature", "Invalid signature"),
     TIMEOUT("SCS-0504", "SCS-0504", "SYSTEM", "Gateway timeout", "error.gateway_timeout"),

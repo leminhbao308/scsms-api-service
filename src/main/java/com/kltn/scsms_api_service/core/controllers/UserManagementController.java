@@ -41,7 +41,7 @@ public class UserManagementController {
     public ResponseEntity<ApiResponse<PaginatedResponse<UserInfoDto>>> getAllUsers(@ModelAttribute UserFilterParam userFilterParam) {
         log.info("Fetching all users");
         
-        Page<UserInfoDto> users = userManagementService.getAllUsers(UserFilterParam.standardizeFilterRequest(userFilterParam));
+        Page<UserInfoDto> users = userManagementService.getAllUsers(UserFilterParam.standardize(userFilterParam));
         
         return ResponseBuilder.paginated("Users fetched successfully", users);
     }

@@ -43,6 +43,39 @@ public class ApiConstant {
     public static final String ASSIGN_ROLE_TO_USER_API = ROLE_MANAGEMENT_PREFIX + "/{roleId}/assign/{userId}";
     public static final String UNASSIGN_ROLE_FROM_USER_API = ROLE_MANAGEMENT_PREFIX + "/{roleId}/unassign/{userId}";
     
+    // Vehicle management module endpoints
+    public static final String VEHICLE_MANAGEMENT_PREFIX = "/vehicles";
+    public static final String VEHICLE_BRAND_PREFIX = VEHICLE_MANAGEMENT_PREFIX + "/brands";
+    public static final String VEHICLE_TYPE_PREFIX = VEHICLE_MANAGEMENT_PREFIX + "/types";
+    public static final String VEHICLE_MODEL_PREFIX = VEHICLE_MANAGEMENT_PREFIX + "/models";
+    public static final String VEHICLE_PROFILE_PREFIX = VEHICLE_MANAGEMENT_PREFIX + "/profiles";
+    // Vehicle Brand APIs
+    public static final String GET_ALL_VEHICLE_BRANDS_API = VEHICLE_BRAND_PREFIX + "/get-all";
+    public static final String GET_ALL_VEHICLE_BRANDS_DROPDOWN_API = VEHICLE_BRAND_PREFIX + "/dropdown";
+    public static final String GET_VEHICLE_BRAND_BY_ID_API =  VEHICLE_BRAND_PREFIX + "/{brandId}";
+    public static final String CREATE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/create";
+    public static final String UPDATE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/{brandId}/update";
+    public static final String DELETE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/{brandId}/delete";
+    // Vehicle Type APIs
+    public static final String GET_ALL_VEHICLE_TYPES_API = VEHICLE_TYPE_PREFIX + "/get-all";
+    public static final String GET_VEHICLE_TYPE_BY_ID_API = VEHICLE_TYPE_PREFIX + "/{typeId}";
+    public static final String CREATE_VEHICLE_TYPE_API = VEHICLE_TYPE_PREFIX + "/create";
+    public static final String UPDATE_VEHICLE_TYPE_API = VEHICLE_TYPE_PREFIX + "/{typeId}/update";
+    public static final String DELETE_VEHICLE_TYPE_API = VEHICLE_TYPE_PREFIX + "/{typeId}/delete";
+    // Vehicle Model APIs
+    public static final String GET_ALL_VEHICLE_MODELS_API = VEHICLE_MODEL_PREFIX + "/get-all";
+    public static final String GET_VEHICLE_MODEL_BY_ID_API = VEHICLE_MODEL_PREFIX + "/{modelId}";
+    public static final String CREATE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/create";
+    public static final String UPDATE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/{modelId}/update";
+    public static final String DELETE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/{modelId}/delete";
+    // Vehicle Profile APIs
+    public static final String GET_ALL_VEHICLE_PROFILES_API = VEHICLE_PROFILE_PREFIX + "/get-all";
+    public static final String GET_VEHICLE_PROFILE_BY_ID_API = VEHICLE_PROFILE_PREFIX + "/{profileId}";
+    public static final String CREATE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/create";
+    public static final String UPDATE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/{profileId}/update";
+    public static final String DELETE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/{profileId}/delete";
+    
+    
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
             apiPrefix + VERIFY_TOKEN_API,
@@ -60,7 +93,28 @@ public class ApiConstant {
             apiPrefix + UPDATE_ROLE_API,
             apiPrefix + DELETE_ROLE_API,
             apiPrefix + ASSIGN_ROLE_TO_USER_API,
-            apiPrefix + UNASSIGN_ROLE_FROM_USER_API
+            apiPrefix + UNASSIGN_ROLE_FROM_USER_API,
+            apiPrefix + GET_ALL_VEHICLE_BRANDS_API,
+            apiPrefix + GET_ALL_VEHICLE_BRANDS_DROPDOWN_API,
+            apiPrefix + GET_VEHICLE_BRAND_BY_ID_API,
+            apiPrefix + CREATE_VEHICLE_BRAND_API,
+            apiPrefix + UPDATE_VEHICLE_BRAND_API,
+            apiPrefix + DELETE_VEHICLE_BRAND_API,
+            apiPrefix + GET_ALL_VEHICLE_TYPES_API,
+            apiPrefix + GET_VEHICLE_TYPE_BY_ID_API,
+            apiPrefix + CREATE_VEHICLE_TYPE_API,
+            apiPrefix + UPDATE_VEHICLE_TYPE_API,
+            apiPrefix + DELETE_VEHICLE_TYPE_API,
+            apiPrefix + GET_ALL_VEHICLE_MODELS_API,
+            apiPrefix + GET_VEHICLE_MODEL_BY_ID_API,
+            apiPrefix + CREATE_VEHICLE_MODEL_API,
+            apiPrefix + UPDATE_VEHICLE_MODEL_API,
+            apiPrefix + DELETE_VEHICLE_MODEL_API,
+            apiPrefix + GET_ALL_VEHICLE_PROFILES_API,
+            apiPrefix + GET_VEHICLE_PROFILE_BY_ID_API,
+            apiPrefix + CREATE_VEHICLE_PROFILE_API,
+            apiPrefix + UPDATE_VEHICLE_PROFILE_API,
+            apiPrefix + DELETE_VEHICLE_PROFILE_API
         );
     }
 }

@@ -11,7 +11,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {RoleMapper.class})
+    uses = {RoleMapper.class, AuditMapper.class})
 public interface UserMapper {
     
     CustomerDto toCustomerDto(User user);
