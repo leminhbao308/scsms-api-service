@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.abstracts;
+package com.kltn.scsms_api_service.abstracts;
 
 import jakarta.persistence.*;
 import lombok.Getter;

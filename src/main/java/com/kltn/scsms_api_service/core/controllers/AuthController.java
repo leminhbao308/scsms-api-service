@@ -2,12 +2,13 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.core.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
+import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
-import com.kltn.scsms_api_service.core.dto.request.LoginRequest;
+import com.kltn.scsms_api_service.core.dto.request.CreateUserRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
-import com.kltn.scsms_api_service.core.dto.response.AuthResponse;
 import com.kltn.scsms_api_service.core.service.businessService.AuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,19 +38,13 @@ public class AuthController {
     @SwaggerOperation(
         summary = "Perform user login",
         description = "Authenticate user and return access token, refresh token and user info")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<?>> login(@RequestBody LoginRequest request) {
         
         log.info("Login attempt for email: {}", request.getEmail());
         
-        AuthResponse authResponse = authService.login(request);
+        ApiResponse<?> response = authService.login(request);
         
-        return ResponseEntity.ok(
-            ApiResponse.<AuthResponse>builder()
-                .success(true)
-                .message("Login successful")
-                .data(authResponse)
-                .build()
-        );
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -59,20 +54,14 @@ public class AuthController {
     @SwaggerOperation(
         summary = "Refresh access token",
         description = "Use refresh token to obtain a new access token")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+    public ResponseEntity<ApiResponse<?>> refreshToken(
         @RequestBody RefreshTokenRequest request) {
         
         log.info("Token refresh attempt");
         
-        AuthResponse authResponse = authService.refreshToken(request);
+        ApiResponse<?> response = authService.refreshToken(request);
         
-        return ResponseEntity.ok(
-            ApiResponse.<AuthResponse>builder()
-                .success(true)
-                .message("Token refreshed successfully")
-                .data(authResponse)
-                .build()
-        );
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -95,7 +84,7 @@ public class AuthController {
                 .build()
         );
     }
-
+    
     /**
      * Change user password (requires authentication)
      */
@@ -105,11 +94,11 @@ public class AuthController {
         description = "Change user password (requires authentication first)")
     public ResponseEntity<ApiResponse<Void>> changePassword(
         @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest) {
-
+        
         log.info("Password change request");
-
+        
         authService.changePassword(request, httpRequest);
-
+        
         return ResponseEntity.ok(
             ApiResponse.<Void>builder()
                 .success(true)
@@ -118,6 +107,21 @@ public class AuthController {
         );
     }
     
+    /**
+     * Register new user account
+     */
+    @PostMapping(ApiConstant.REGISTER_API)
+    @SwaggerOperation(
+        summary = "User registration",
+        description = "Register a new user account")
+    public ResponseEntity<ApiResponse<?>> register(@RequestBody RegisterRequest request) {
+        log.info("User registration attempt for email: {}", request.getEmail());
+        
+        ApiResponse<?> response = authService.register(request);
+        
+        return ResponseEntity.ok(response);
+    }
+
 //    /**
 //     * Get Google OAuth2 authorization URL
 //     */
@@ -217,6 +221,7 @@ public class AuthController {
 //        );
 //    }
 //
+    
     /**
      * Validate token endpoint
      */

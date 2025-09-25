@@ -4,11 +4,11 @@ import com.kltn.scsms_api_service.core.annotations.RequirePermission;
 import com.kltn.scsms_api_service.core.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.constants.PermissionConstant;
-import com.kltn.scsms_api_service.core.dto.param.UserFilterParam;
+import com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.dto.request.CreateUserRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
-import com.kltn.scsms_api_service.core.dto.response.UserResponse;
+import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
 import com.kltn.scsms_api_service.core.service.businessService.UserManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,10 +35,10 @@ public class UserManagementController {
         summary = "Get all users",
         description = "Retrieve a paginated list of all users that can be filtered by role, active, etc.")
     @RequirePermission(permissions = PermissionConstant.USER_READ)
-    public ResponseEntity<ApiResponse<PaginatedResponse<UserResponse>>> getAllUsers(@ModelAttribute UserFilterParam userFilterParam) {
+    public ResponseEntity<ApiResponse<PaginatedResponse<UserInfoDto>>> getAllUsers(@ModelAttribute UserFilterParam userFilterParam) {
         log.info("Fetching all users");
         
-        Page<UserResponse> users = userManagementService.getAllUsers(UserFilterParam.standardizeFilterRequest(userFilterParam));
+        Page<UserInfoDto> users = userManagementService.getAllUsers(UserFilterParam.standardizeFilterRequest(userFilterParam));
         
         return ResponseBuilder.paginated("Users fetched successfully", users);
     }
@@ -48,9 +48,9 @@ public class UserManagementController {
         summary = "Create a new user",
         description = "Create a new user with the provided details.")
     @RequirePermission(permissions = PermissionConstant.USER_CREATE)
-    public ResponseEntity<ApiResponse<UserResponse>> createUser(@RequestBody CreateUserRequest createUserRequest) {
+    public ResponseEntity<ApiResponse<UserInfoDto>> createUser(@RequestBody CreateUserRequest createUserRequest) {
         log.info("Creating new user with email: {}", createUserRequest.getEmail());
-        UserResponse createdUser = userManagementService.createUser(createUserRequest);
+        UserInfoDto createdUser = userManagementService.createUser(createUserRequest);
         return ResponseBuilder.success("User created successfully", createdUser);
     }
 }

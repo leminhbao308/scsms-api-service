@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.entity;
 
 import com.kltn.scsms_api_service.core.constants.GeneralConstant;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
