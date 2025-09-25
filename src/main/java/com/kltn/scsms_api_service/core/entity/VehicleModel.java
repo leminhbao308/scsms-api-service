@@ -17,7 +17,7 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "vehicle_model", schema = GeneralConstant.DB_SCHEMA_DEV)
+@Table(name = "vehicle_models", schema = GeneralConstant.DB_SCHEMA_DEV)
 public class VehicleModel extends AuditEntity {
     
     @Id
