@@ -1,11 +1,11 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.dto.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
-import com.kltn.scsms_api_service.core.dto.response.UserResponse;
-import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
+import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
+import com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
+import com.kltn.scsms_api_service.mapper.UserMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -27,6 +27,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
     
+    private final UserMapper userMapper;
+    
     private final UserRepository userRepository;
     private final EntityManager entityManager;
     
@@ -42,7 +44,7 @@ public class UserService {
         return userRepository.save(user);
     }
     
-    public Page<UserResponse> getAllUsersWithFilters(UserFilterParam filterParam) {
+    public Page<User> getAllUsersWithFilters(UserFilterParam filterParam) {
         log.info("Getting users with filters: {}", filterParam);
         
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -62,17 +64,17 @@ public class UserService {
         Sort.Direction sortDirection = "ASC".equalsIgnoreCase(filterParam.getDirection())
             ? Sort.Direction.ASC : Sort.Direction.DESC;
         
+        Order order;
         if ("role.roleName".equals(filterParam.getSort())) {
-            Order order = sortDirection == Sort.Direction.ASC
+            order = sortDirection == Sort.Direction.ASC
                 ? cb.asc(roleJoin.get("roleName"))
                 : cb.desc(roleJoin.get("roleName"));
-            query.orderBy(order);
         } else {
-            Order order = sortDirection == Sort.Direction.ASC
+            order = sortDirection == Sort.Direction.ASC
                 ? cb.asc(userRoot.get(filterParam.getSort()))
                 : cb.desc(userRoot.get(filterParam.getSort()));
-            query.orderBy(order);
         }
+        query.orderBy(order);
         
         TypedQuery<User> typedQuery = entityManager.createQuery(query);
         
@@ -85,12 +87,9 @@ public class UserService {
         typedQuery.setMaxResults(filterParam.getSize());
         
         List<User> users = typedQuery.getResultList();
-        List<UserResponse> userResponses = users.stream()
-            .map(this::mapToUserResponse)
-            .toList();
         
         PageRequest pageRequest = PageRequest.of(filterParam.getPage(), filterParam.getSize());
-        return new PageImpl<>(userResponses, pageRequest, totalElements);
+        return new PageImpl<>(users, pageRequest, totalElements);
     }
     
     private List<Predicate> buildPredicates(CriteriaBuilder cb, Root<User> userRoot,
@@ -110,6 +109,16 @@ public class UserService {
         // Gender filter
         if (filterParam.getGender() != null) {
             predicates.add(cb.equal(userRoot.get("gender"), filterParam.getGender()));
+        }
+        
+        // User type filter
+        if (filterParam.getUserType() != null) {
+            predicates.add(cb.equal(userRoot.get("userType"), filterParam.getUserType()));
+        }
+        
+        // Customer rank filter
+        if (filterParam.getCustomerRank() != null) {
+            predicates.add(cb.equal(userRoot.get("customerRank"), filterParam.getCustomerRank()));
         }
         
         // Boolean field filters
@@ -223,30 +232,5 @@ public class UserService {
         }
         
         return entityManager.createQuery(countQuery).getSingleResult();
-    }
-    
-    public UserResponse mapToUserResponse(User user) {
-        RoleResponse roleResponse = null;
-        if (user.getRole() != null) {
-            roleResponse = RoleResponse.builder()
-                .roleId(user.getRole().getRoleId())
-                .roleName(user.getRole().getRoleName())
-                .roleCode(user.getRole().getRoleCode())
-                .description(user.getRole().getDescription())
-                .build();
-        }
-        
-        return UserResponse.builder()
-            .userId(user.getUserId())
-            .email(user.getEmail())
-            .fullName(user.getFullName())
-            .phoneNumber(user.getPhoneNumber())
-            .dateOfBirth(user.getDateOfBirth())
-            .gender(user.getGender())
-            .address(user.getAddress())
-            .avatarUrl(user.getAvatarUrl())
-            .isActive(user.getIsActive())
-            .role(roleResponse)
-            .build();
     }
 }

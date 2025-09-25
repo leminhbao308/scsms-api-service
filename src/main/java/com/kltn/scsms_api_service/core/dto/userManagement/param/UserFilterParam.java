@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.dto.param;
+package com.kltn.scsms_api_service.core.dto.userManagement.param;
 
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -29,6 +29,10 @@ public class UserFilterParam {
     private Boolean active;
     
     private String gender;
+    
+    private String userType;
+    
+    private String customerRank;
     
     private Boolean hasGoogleId;
     private Boolean hasPhoneNumber;
@@ -87,6 +91,14 @@ public class UserFilterParam {
         
         if (request.getGender() != null) {
             request.setGender(request.getGender().trim().toUpperCase());
+        }
+        
+        if (request.getUserType() != null) {
+            request.setUserType(request.getUserType().trim().toUpperCase());
+        }
+        
+        if (request.getCustomerRank() != null) {
+            request.setCustomerRank(request.getCustomerRank().trim().toUpperCase());
         }
         
         // Chuẩn hóa search terms
