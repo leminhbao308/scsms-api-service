@@ -14,7 +14,7 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "vehicle_profile", schema = GeneralConstant.DB_SCHEMA_DEV)
+@Table(name = "vehicle_profiles", schema = GeneralConstant.DB_SCHEMA_DEV)
 public class VehicleProfile extends AuditEntity {
     
     @Id
@@ -25,19 +25,16 @@ public class VehicleProfile extends AuditEntity {
     @Column(name = "license_plate", nullable = false)
     private String licensePlate;
     
-    @Column(name = "model_code", unique = true, nullable = false)
-    private String modelCode;
-    
     @Column(name = "description", length = 500)
     private String description;
     
-    @JoinColumn(name = "brand_id", nullable = false)
+    @JoinColumn(name = "vehicle_brand_id", nullable = false)
     private UUID vehicleBrandId;
     
-    @JoinColumn(name = "type_id", nullable = false)
+    @JoinColumn(name = "vehicle_type_id", nullable = false)
     private UUID vehicleTypeId;
     
-    @JoinColumn(name = "model_id", nullable = false)
+    @JoinColumn(name = "vehicle_model_id", nullable = false)
     private UUID vehicleModelId;
     
     @JoinColumn(name = "owner_id", nullable = false)

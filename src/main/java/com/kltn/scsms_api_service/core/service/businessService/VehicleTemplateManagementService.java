@@ -1,21 +1,23 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleBrandInfoDto;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleModelInfoDto;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleTypeInfoDto;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleBrandFilterParam;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleModelFilterParam;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleTypeFilterParam;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleBrandRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleTypeRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.UpdateVehicleBrandRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.UpdateVehicleTypeRequest;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.*;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleBrandDropdownResponse;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleModelDropdownResponse;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleTypeDropdownResponse;
 import com.kltn.scsms_api_service.core.entity.VehicleBrand;
+import com.kltn.scsms_api_service.core.entity.VehicleModel;
 import com.kltn.scsms_api_service.core.entity.VehicleType;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.VehicleBrandMapper;
+import com.kltn.scsms_api_service.mapper.VehicleModelMapper;
 import com.kltn.scsms_api_service.mapper.VehicleTypeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +31,11 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class VehicleManagementService {
+public class VehicleTemplateManagementService {
     
     private final VehicleBrandMapper vehicleBrandMapper;
     private final VehicleTypeMapper vehicleTypeMapper;
+    private final VehicleModelMapper vehicleModelMapper;
     
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
@@ -155,5 +158,92 @@ public class VehicleManagementService {
     
     public void deleteVehicleType(UUID uuid) {
         vehicleTypeService.softDeleteVehicleType(uuid);
+    }
+    
+    public Page<VehicleModelInfoDto> getAllVehicleModels(VehicleModelFilterParam vehicleModelFilterParam) {
+        Page<VehicleModel> vehicleModelPage = vehicleModelService.getAllVehicleModelsWithFilters(vehicleModelFilterParam);
+        
+        return vehicleModelPage.map(vehicleModelMapper::toVehicleModelInfoDto);
+    }
+    
+    public List<VehicleModelDropdownResponse> getAllVehicleModelsForDropdown() {
+        List<VehicleModel> vehicleModels = vehicleModelService.getAllActiveVehicleModels(true, false);
+        
+        return vehicleModels.stream().map(vehicleModelMapper::toVehicleModelDropdownResponse)
+            .toList();
+    }
+    
+    public VehicleModelInfoDto getVehicleModelById(UUID modelId) {
+        VehicleModel vehicleModel = vehicleModelService.getVehicleModelById(modelId);
+        
+        return vehicleModelMapper.toVehicleModelInfoDto(vehicleModel);
+    }
+    
+    public VehicleModelInfoDto createVehicleModel(CreateVehicleModelRequest request) {
+        // Validate unique model code
+        Optional<VehicleModel> existingModel = vehicleModelService.getOtpVehicleModelByCode(request.getModelCode());
+        if (existingModel.isPresent()) {
+            throw new RuntimeException("Vehicle model with code " + request.getModelCode() + " already exists.");
+        }
+        
+        // Validate brandId exists
+        VehicleBrand brandRef = vehicleBrandService.getVehicleBrandRefById(request.getBrandId());
+        if (brandRef == null) {
+            throw new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle brand not found with ID: " + request.getBrandId());
+        }
+        
+        // Validate typeId exists
+        VehicleType typeRef = vehicleTypeService.getVehicleTypeRefById(request.getTypeId());
+        if (typeRef == null) {
+            throw new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle type not found with ID: " + request.getTypeId());
+        }
+        
+        VehicleModel newModel = vehicleModelService.saveVehicleModel(vehicleModelMapper.toEntity(request));
+        
+        return vehicleModelMapper.toVehicleModelInfoDto(newModel);
+    }
+    
+    public VehicleModelInfoDto updateVehicleModel(UUID modelId, UpdateVehicleModelRequest request) {
+        // Get existing model
+        VehicleModel existingModel = vehicleModelService.getOtpVehicleModelById(modelId)
+            .orElseThrow(() -> new RuntimeException("Vehicle type with ID " + modelId + " not found."));
+        
+        // Validate unique model code if changed
+        if (!existingModel.getModelCode().equals(request.getModelCode())) {
+            Optional<VehicleModel> modelWithSameCode = vehicleModelService.getOtpVehicleModelByCode(request.getModelCode());
+            if (modelWithSameCode.isPresent()) {
+                throw new ClientSideException(ErrorCode.DUPLICATE, "Vehicle model with code " + request.getModelCode() + " already exists.");
+            }
+        }
+        
+        // If brandId changed, validate it exists
+        if (!existingModel.getBrandId().equals(request.getBrandId())) {
+            VehicleBrand brandRef = vehicleBrandService.getVehicleBrandRefById(request.getBrandId());
+            if (brandRef == null) {
+                throw new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle brand not found with ID: " + request.getBrandId());
+            }
+        }
+        // If typeId changed, validate it exists
+        if (!existingModel.getTypeId().equals(request.getTypeId())) {
+            VehicleType typeRef = vehicleTypeService.getVehicleTypeRefById(request.getTypeId());
+            if (typeRef == null) {
+                throw new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle type not found with ID: " + request.getTypeId());
+            }
+        }
+        
+        // Update fields
+        existingModel.setModelCode(request.getModelCode());
+        existingModel.setModelName(request.getModelName());
+        existingModel.setDescription(request.getDescription());
+        existingModel.setBrandId(request.getBrandId());
+        existingModel.setTypeId(request.getTypeId());
+        
+        VehicleModel updatedModel = vehicleModelService.saveVehicleModel(existingModel);
+        
+        return vehicleModelMapper.toVehicleModelInfoDto(updatedModel);
+    }
+    
+    public void deleteVehicleModel(UUID uuid) {
+        vehicleModelService.softDeleteVehicleModel(uuid);
     }
 }
