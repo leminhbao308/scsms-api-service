@@ -95,4 +95,8 @@ public class VehicleBrandService {
         vehicleBrandRepository.save(existingBrand);
         log.info("Soft deleted vehicle brand with ID: {}", brandId);
     }
+    
+    public VehicleBrand getVehicleBrandRefById(UUID brandId) {
+        return vehicleBrandRepository.getReferenceById(brandId);
+    }
 }

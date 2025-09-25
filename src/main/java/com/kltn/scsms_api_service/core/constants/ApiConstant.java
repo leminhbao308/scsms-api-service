@@ -65,6 +65,7 @@ public class ApiConstant {
     public static final String DELETE_VEHICLE_TYPE_API = VEHICLE_TYPE_PREFIX + "/{typeId}/delete";
     // Vehicle Model APIs
     public static final String GET_ALL_VEHICLE_MODELS_API = VEHICLE_MODEL_PREFIX + "/get-all";
+    public static final String GET_ALL_VEHICLE_MODELS_DROPDOWN_API = VEHICLE_MODEL_PREFIX + "/dropdown";
     public static final String GET_VEHICLE_MODEL_BY_ID_API = VEHICLE_MODEL_PREFIX + "/{modelId}";
     public static final String CREATE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/create";
     public static final String UPDATE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/{modelId}/update";
@@ -108,6 +109,7 @@ public class ApiConstant {
             apiPrefix + UPDATE_VEHICLE_TYPE_API,
             apiPrefix + DELETE_VEHICLE_TYPE_API,
             apiPrefix + GET_ALL_VEHICLE_MODELS_API,
+            apiPrefix + GET_ALL_VEHICLE_MODELS_DROPDOWN_API,
             apiPrefix + GET_VEHICLE_MODEL_BY_ID_API,
             apiPrefix + CREATE_VEHICLE_MODEL_API,
             apiPrefix + UPDATE_VEHICLE_MODEL_API,

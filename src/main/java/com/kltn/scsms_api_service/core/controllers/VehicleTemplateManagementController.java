@@ -6,16 +6,16 @@ import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleBrandInfoDto;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleModelInfoDto;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleTypeInfoDto;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleBrandFilterParam;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleModelFilterParam;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleTypeFilterParam;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleBrandRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleTypeRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.UpdateVehicleBrandRequest;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.UpdateVehicleTypeRequest;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.*;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleBrandDropdownResponse;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleModelDropdownResponse;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleTypeDropdownResponse;
-import com.kltn.scsms_api_service.core.service.businessService.VehicleManagementService;
+import com.kltn.scsms_api_service.core.service.businessService.VehicleTemplateManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,17 +28,17 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Controller handling vehicle management operations
- * Manages vehicle brands, models, types, and profiles of users' vehicles.
+ * Controller handling vehicle template management operations
+ * Manages vehicle brands, models, types for the system.
  * Provides endpoints for CRUD operations on vehicle-related data.
  */
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Vehicle Management", description = "Vehicle management endpoints")
-public class VehicleManagementController {
+@Tag(name = "Vehicle Template Management", description = "Vehicle template management endpoints")
+public class VehicleTemplateManagementController {
     
-    private final VehicleManagementService vehicleManagementService;
+    private final VehicleTemplateManagementService vehicleTemplateManagementService;
     
     @GetMapping(ApiConstant.GET_ALL_VEHICLE_BRANDS_API)
     @SwaggerOperation(
@@ -48,7 +48,7 @@ public class VehicleManagementController {
     public ResponseEntity<ApiResponse<PaginatedResponse<VehicleBrandInfoDto>>> getAllVehicleBrand(@ModelAttribute VehicleBrandFilterParam vehicleBrandFilterParam) {
         log.info("Fetching all vehicle brands");
         
-        Page<VehicleBrandInfoDto> vehicleBrands = vehicleManagementService.getAllVehicleBrands(VehicleBrandFilterParam.standardize(vehicleBrandFilterParam));
+        Page<VehicleBrandInfoDto> vehicleBrands = vehicleTemplateManagementService.getAllVehicleBrands(VehicleBrandFilterParam.standardize(vehicleBrandFilterParam));
         
         return ResponseBuilder.paginated("Vehicle brands fetched successfully", vehicleBrands);
     }
@@ -61,9 +61,22 @@ public class VehicleManagementController {
     public ResponseEntity<ApiResponse<PaginatedResponse<VehicleTypeInfoDto>>> getAllVehicleType(@ModelAttribute VehicleTypeFilterParam vehicleTypeFilterParam) {
         log.info("Fetching all vehicle types");
         
-        Page<VehicleTypeInfoDto> vehicleTypes = vehicleManagementService.getAllVehicleTypes(VehicleTypeFilterParam.standardize(vehicleTypeFilterParam));
+        Page<VehicleTypeInfoDto> vehicleTypes = vehicleTemplateManagementService.getAllVehicleTypes(VehicleTypeFilterParam.standardize(vehicleTypeFilterParam));
         
-        return ResponseBuilder.paginated("Vehicle brands fetched successfully", vehicleTypes);
+        return ResponseBuilder.paginated("Vehicle types fetched successfully", vehicleTypes);
+    }
+    
+    @GetMapping(ApiConstant.GET_ALL_VEHICLE_MODELS_API)
+    @SwaggerOperation(
+        summary = "Get all vehicle models",
+        description = "Retrieve a paginated list of all vehicle models that can be filtered by name, code, etc.")
+    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+    public ResponseEntity<ApiResponse<PaginatedResponse<VehicleModelInfoDto>>> getAllVehicleModel(@ModelAttribute VehicleModelFilterParam vehicleModelFilterParam) {
+        log.info("Fetching all vehicle models");
+        
+        Page<VehicleModelInfoDto> vehicleModels = vehicleTemplateManagementService.getAllVehicleModels(VehicleModelFilterParam.standardize(vehicleModelFilterParam));
+        
+        return ResponseBuilder.paginated("Vehicle models fetched successfully", vehicleModels);
     }
     
     
@@ -76,7 +89,7 @@ public class VehicleManagementController {
     public ResponseEntity<ApiResponse<List<VehicleBrandDropdownResponse>>> getAllVehicleBrandForDropdown() {
         log.info("Fetching all vehicle brands for dropdown");
         
-        List<VehicleBrandDropdownResponse> vehicleBrands = vehicleManagementService.getAllVehicleBrandsForDropdown();
+        List<VehicleBrandDropdownResponse> vehicleBrands = vehicleTemplateManagementService.getAllVehicleBrandsForDropdown();
         
         return ResponseBuilder.success("Vehicle brands for dropdown fetched successfully", vehicleBrands);
     }
@@ -89,9 +102,22 @@ public class VehicleManagementController {
     public ResponseEntity<ApiResponse<List<VehicleTypeDropdownResponse>>> getAllVehicleTypeForDropdown() {
         log.info("Fetching all vehicle types for dropdown");
         
-        List<VehicleTypeDropdownResponse> vehicleTypes = vehicleManagementService.getAllVehicleTypesForDropdown();
+        List<VehicleTypeDropdownResponse> vehicleTypes = vehicleTemplateManagementService.getAllVehicleTypesForDropdown();
         
         return ResponseBuilder.success("Vehicle brands for dropdown fetched successfully", vehicleTypes);
+    }
+    
+    @GetMapping(ApiConstant.GET_ALL_VEHICLE_MODELS_DROPDOWN_API)
+    @SwaggerOperation(
+        summary = "Get all vehicle models for dropdown",
+        description = "Retrieve a list of all vehicle models for populating dropdowns, without pagination.")
+    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+    public ResponseEntity<ApiResponse<List<VehicleModelDropdownResponse>>> getAllVehicleModelsForDropdown() {
+        log.info("Fetching all vehicle models for dropdown");
+        
+        List<VehicleModelDropdownResponse> vehicleModels = vehicleTemplateManagementService.getAllVehicleModelsForDropdown();
+        
+        return ResponseBuilder.success("Vehicle models for dropdown fetched successfully", vehicleModels);
     }
     
     
@@ -104,10 +130,9 @@ public class VehicleManagementController {
     public ResponseEntity<ApiResponse<VehicleBrandInfoDto>> getVehicleBrandById(@PathVariable("brandId") String brandId) {
         log.info("Fetching vehicle brand with ID: {}", brandId);
         
-        VehicleBrandInfoDto vehicleBrand = vehicleManagementService.getVehicleBrandById(UUID.fromString(brandId));
+        VehicleBrandInfoDto vehicleBrand = vehicleTemplateManagementService.getVehicleBrandById(UUID.fromString(brandId));
         
         return ResponseBuilder.success("Vehicle brand fetched successfully", vehicleBrand);
-        
     }
     
     @GetMapping(ApiConstant.GET_VEHICLE_TYPE_BY_ID_API)
@@ -115,13 +140,25 @@ public class VehicleManagementController {
         summary = "Get vehicle type by ID",
         description = "Retrieve detailed information about a specific vehicle type by its unique identifier.")
     @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
-    public ResponseEntity<ApiResponse<VehicleTypeInfoDto>> getVehicleById(@PathVariable("typeId") String typeID) {
+    public ResponseEntity<ApiResponse<VehicleTypeInfoDto>> getVehicleTypeById(@PathVariable("typeId") String typeID) {
         log.info("Fetching vehicle type with ID: {}", typeID);
         
-        VehicleTypeInfoDto vehicleType = vehicleManagementService.getVehicleTypeById(UUID.fromString(typeID));
+        VehicleTypeInfoDto vehicleType = vehicleTemplateManagementService.getVehicleTypeById(UUID.fromString(typeID));
         
         return ResponseBuilder.success("Vehicle type fetched successfully", vehicleType);
+    }
+    
+    @GetMapping(ApiConstant.GET_VEHICLE_MODEL_BY_ID_API)
+    @SwaggerOperation(
+        summary = "Get vehicle model by ID",
+        description = "Retrieve detailed information about a specific vehicle model by its unique identifier.")
+    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+    public ResponseEntity<ApiResponse<VehicleModelInfoDto>> getVehicleModelById(@PathVariable("modelId") String modelId) {
+        log.info("Fetching vehicle model with ID: {}", modelId);
         
+        VehicleModelInfoDto vehicleModel = vehicleTemplateManagementService.getVehicleModelById(UUID.fromString(modelId));
+        
+        return ResponseBuilder.success("Vehicle model fetched successfully", vehicleModel);
     }
     
     
@@ -132,7 +169,7 @@ public class VehicleManagementController {
         description = "Add a new vehicle brand to the system with details like name, code, and description.")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<VehicleBrandInfoDto>> createVehicleBrand(@RequestBody CreateVehicleBrandRequest request) {
-        VehicleBrandInfoDto createdBrand = vehicleManagementService.createVehicleBrand(request);
+        VehicleBrandInfoDto createdBrand = vehicleTemplateManagementService.createVehicleBrand(request);
         
         log.info("Created new vehicle brand with code: {}", createdBrand.getBrandCode());
         return ResponseBuilder.success("Vehicle brand created successfully", createdBrand);
@@ -144,10 +181,22 @@ public class VehicleManagementController {
         description = "Add a new vehicle type to the system with details like name, code, and description.")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<VehicleTypeInfoDto>> createVehicleType(@RequestBody CreateVehicleTypeRequest request) {
-        VehicleTypeInfoDto createdType = vehicleManagementService.createVehicleType(request);
+        VehicleTypeInfoDto createdType = vehicleTemplateManagementService.createVehicleType(request);
         
         log.info("Created new vehicle type with code: {}", createdType.getTypeCode());
         return ResponseBuilder.success("Vehicle type created successfully", createdType);
+    }
+    
+    @PostMapping(ApiConstant.CREATE_VEHICLE_MODEL_API)
+    @SwaggerOperation(
+        summary = "Create a new vehicle model",
+        description = "Add a new vehicle model to the system with details like name, code, and description.")
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    public ResponseEntity<ApiResponse<VehicleModelInfoDto>> createVehicleModel(@RequestBody CreateVehicleModelRequest request) {
+        VehicleModelInfoDto createdModel = vehicleTemplateManagementService.createVehicleModel(request);
+        
+        log.info("Created new vehicle model with code: {}", createdModel.getModelCode());
+        return ResponseBuilder.success("Vehicle model created successfully", createdModel);
     }
     
     
@@ -162,7 +211,7 @@ public class VehicleManagementController {
         @RequestBody UpdateVehicleBrandRequest request) {
         log.info("Updating vehicle brand with ID: {}", brandId);
         
-        VehicleBrandInfoDto updatedBrand = vehicleManagementService.updateVehicleBrand(UUID.fromString(brandId), request);
+        VehicleBrandInfoDto updatedBrand = vehicleTemplateManagementService.updateVehicleBrand(UUID.fromString(brandId), request);
         
         return ResponseBuilder.success("Vehicle brand updated successfully", updatedBrand);
     }
@@ -177,9 +226,24 @@ public class VehicleManagementController {
         @RequestBody UpdateVehicleTypeRequest request) {
         log.info("Updating vehicle type with ID: {}", typeId);
         
-        VehicleTypeInfoDto updatedType = vehicleManagementService.updateVehicleType(UUID.fromString(typeId), request);
+        VehicleTypeInfoDto updatedType = vehicleTemplateManagementService.updateVehicleType(UUID.fromString(typeId), request);
         
-        return ResponseBuilder.success("Vehicle brand updated successfully", updatedType);
+        return ResponseBuilder.success("Vehicle type updated successfully", updatedType);
+    }
+    
+    @PostMapping(ApiConstant.UPDATE_VEHICLE_MODEL_API)
+    @SwaggerOperation(
+        summary = "Update an existing vehicle model",
+        description = "Modify the details of an existing vehicle model by its ID.")
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    public ResponseEntity<ApiResponse<VehicleModelInfoDto>> updateVehicleModel(
+        @PathVariable("modelId") String modelId,
+        @RequestBody UpdateVehicleModelRequest request) {
+        log.info("Updating vehicle model with ID: {}", modelId);
+        
+        VehicleModelInfoDto updatedModel = vehicleTemplateManagementService.updateVehicleModel(UUID.fromString(modelId), request);
+        
+        return ResponseBuilder.success("Vehicle model updated successfully", updatedModel);
     }
     
     
@@ -191,7 +255,7 @@ public class VehicleManagementController {
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<Void>> deleteVehicleBrand(@PathVariable("brandId") String brandId) {
         log.info("Deleting vehicle brand with ID: {}", brandId);
-        vehicleManagementService.deleteVehicleBrand(UUID.fromString(brandId));
+        vehicleTemplateManagementService.deleteVehicleBrand(UUID.fromString(brandId));
         return ResponseBuilder.success("Vehicle brand deleted successfully");
     }
     
@@ -202,7 +266,18 @@ public class VehicleManagementController {
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<Void>> deleteVehicleType(@PathVariable("typeId") String typeId) {
         log.info("Deleting vehicle type with ID: {}", typeId);
-        vehicleManagementService.deleteVehicleType(UUID.fromString(typeId));
+        vehicleTemplateManagementService.deleteVehicleType(UUID.fromString(typeId));
         return ResponseBuilder.success("Vehicle type deleted successfully");
+    }
+    
+    @PostMapping(ApiConstant.DELETE_VEHICLE_MODEL_API)
+    @SwaggerOperation(
+        summary = "Delete a vehicle model",
+        description = "Remove a vehicle model from the system by its ID.")
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    public ResponseEntity<ApiResponse<Void>> deleteVehicleModel(@PathVariable("modelId") String modelId) {
+        log.info("Deleting vehicle model with ID: {}", modelId);
+        vehicleTemplateManagementService.deleteVehicleModel(UUID.fromString(modelId));
+        return ResponseBuilder.success("Vehicle model deleted successfully");
     }
 }

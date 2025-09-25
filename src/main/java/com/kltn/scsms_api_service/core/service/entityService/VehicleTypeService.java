@@ -98,4 +98,8 @@ public class VehicleTypeService {
         vehicleTypeRepository.save(vehicleType);
         log.info("Soft deleted vehicle type with ID: {}", typeId);
     }
+    
+    public VehicleType getVehicleTypeRefById(UUID typeId) {
+        return vehicleTypeRepository.getReferenceById(typeId);
+    }
 }
