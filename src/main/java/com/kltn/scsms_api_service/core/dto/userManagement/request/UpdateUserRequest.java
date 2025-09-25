@@ -1,6 +1,6 @@
-package com.kltn.scsms_api_service.core.dto.userManagement;
+package com.kltn.scsms_api_service.core.dto.userManagement.request;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
@@ -19,7 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class UserInfoDto {
+public class UpdateUserRequest {
     
     @JsonProperty("user_id")
     private UUID userId;
@@ -52,9 +52,6 @@ public class UserInfoDto {
     @JsonProperty("role")
     private RoleResponse role;
     
-    @JsonProperty("user_type")
-    private UserType userType;
-    
     // Customer-specific fields
     @JsonProperty("customer_rank")
     private CustomerRank customerRank;
@@ -62,17 +59,7 @@ public class UserInfoDto {
     @JsonProperty("accumulated_points")
     private Integer accumulatedPoints = 0;
     
-    @JsonProperty("total_orders")
-    private Integer totalOrders = 0;
-    
-    @JsonProperty("total_spent")
-    private Double totalSpent = 0.0;
-    
     // Employee-specific fields
-    @JsonProperty("hired_at")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime hiredAt;
-    
     @JsonProperty("citizen_id")
     private String citizenId;
 }

@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.userManagement.param;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UserFilterParam {
     // Pagination
     @Min(value = 1, message = "Page must be greater than 0")
