@@ -3,10 +3,10 @@ package com.kltn.scsms_api_service.core.service.businessService;
 import com.kltn.scsms_api_service.core.dto.auth.CustomerDto;
 import com.kltn.scsms_api_service.core.dto.auth.EmployeeDto;
 import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
+import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.auth.response.AuthCustomerResponse;
 import com.kltn.scsms_api_service.core.dto.auth.response.AuthEmployeeResponse;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
-import com.kltn.scsms_api_service.core.dto.request.CreateUserRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -119,10 +119,10 @@ public class AuthService {
         throw new IllegalArgumentException("Invalid or empty authorization header");
     }
     
-    public ApiResponse<?> register(CreateUserRequest createUserRequest) {
+    public ApiResponse<?> register(RegisterRequest registerRequest) {
         // Validate email not already in use
-        if (userService.findByEmail(createUserRequest.getEmail()).isPresent()) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + createUserRequest.getEmail() + " is already in use.");
+        if (userService.findByEmail(registerRequest.getEmail()).isPresent()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + registerRequest.getEmail() + " is already in use.");
         }
         
         // Always assign CUSTOMER role for new registrations
@@ -130,20 +130,25 @@ public class AuthService {
             .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, "Default role CUSTOMER does not exist."));
         
         // Encode password
-        String encodedPassword = passwordEncoder.encode(createUserRequest.getPassword());
+        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword());
         
         // Create new user
         User newUser = User.builder()
-            .googleId(createUserRequest.getGoogleId())
-            .email(createUserRequest.getEmail())
+            .googleId(registerRequest.getGoogleId())
+            .email(registerRequest.getEmail())
             .password(encodedPassword)
-            .fullName(createUserRequest.getFullName())
-            .phoneNumber(createUserRequest.getPhoneNumber())
-            .dateOfBirth(createUserRequest.getDateOfBirth())
-            .gender(createUserRequest.getGender())
-            .address(createUserRequest.getAddress())
-            .avatarUrl(createUserRequest.getAvatarUrl())
+            .fullName(registerRequest.getFullName())
+            .phoneNumber(registerRequest.getPhoneNumber())
+            .dateOfBirth(registerRequest.getDateOfBirth())
+            .gender(registerRequest.getGender())
+            .address(registerRequest.getAddress())
+            .avatarUrl(registerRequest.getAvatarUrl())
             .role(customerRole)
+            // Customer specific fields
+            .userType(UserType.CUSTOMER)
+            .accumulatedPoints(0)
+            .totalOrders(0)
+            .totalSpent(0.0)
             .isActive(true)
             .build();
         
