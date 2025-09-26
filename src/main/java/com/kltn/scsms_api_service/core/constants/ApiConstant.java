@@ -176,7 +176,7 @@ public class ApiConstant {
             apiPrefix + GET_BRANCHES_BY_LOCATION_API,
             apiPrefix + CREATE_BRANCH_API,
             apiPrefix + UPDATE_BRANCH_API,
-            apiPrefix + DELETE_BRANCH_API
+            apiPrefix + DELETE_BRANCH_API,
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,
             apiPrefix + GET_ALL_CATEGORIES_API,
