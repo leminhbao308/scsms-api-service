@@ -2,11 +2,14 @@ package com.kltn.scsms_api_service.core.dto.categoryManagement;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CategoryType;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +20,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class CategoryInfoDto implements Serializable {
+public class CategoryInfoDto extends AuditDto {
     
     @JsonProperty("category_id")
     private UUID categoryId;
@@ -42,16 +45,4 @@ public class CategoryInfoDto implements Serializable {
     
     @JsonProperty("breadcrumb")
     private List<CategoryBreadcrumbDto> breadcrumb;
-    
-    @JsonProperty("created_at")
-    private LocalDateTime createdAt;
-    
-    @JsonProperty("updated_at")
-    private LocalDateTime updatedAt;
-    
-    @JsonProperty("created_by")
-    private String createdBy;
-    
-    @JsonProperty("updated_by")
-    private String updatedBy;
 }

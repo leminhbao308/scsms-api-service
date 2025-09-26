@@ -1,6 +1,9 @@
 package com.kltn.scsms_api_service.mapper;
 
-import com.kltn.scsms_api_service.core.dto.categoryManagement.*;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryBreadcrumbDto;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryFlatDto;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryHierarchyDto;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryInfoDto;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryCreateRequest;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryUpdateRequest;
 import com.kltn.scsms_api_service.core.entity.Category;
@@ -20,6 +23,7 @@ public interface CategoryMapper {
     
     /**
      * Map Category entity to CategoryFlatDto
+     * Audit fields are inherited from AuditDto, so they're mapped automatically
      */
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
     @Mapping(target = "parentCategoryName", source = "parentCategory.categoryName")
@@ -34,9 +38,10 @@ public interface CategoryMapper {
     /**
      * Map Category entity to CategoryInfoDto
      */
-    @Mapping(target = "parentCategory", source = "parentCategory")
+    @Mapping(target = "parentCategory", source = "parentCategory", qualifiedByName = "toParentFlatDto")
     @Mapping(target = "subcategories", source = "subcategories", qualifiedByName = "toSubcategoryFlatDtoList")
-    @Mapping(target = "breadcrumb", ignore = true) // Will be set manually in service
+    @Mapping(target = "breadcrumb", ignore = true)
+    // Will be set manually in service
     CategoryInfoDto toInfoDto(Category category);
     
     /**
@@ -45,7 +50,8 @@ public interface CategoryMapper {
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
     @Mapping(target = "level", ignore = true) // Will be set manually based on hierarchy
     @Mapping(target = "path", ignore = true) // Will be built manually
-    @Mapping(target = "urlPath", ignore = true) // Will be built manually
+    @Mapping(target = "urlPath", ignore = true)
+    // Will be built manually
     CategoryBreadcrumbDto toBreadcrumbDto(Category category);
     
     /**
@@ -55,7 +61,8 @@ public interface CategoryMapper {
     @Mapping(target = "level", ignore = true) // Will be calculated
     @Mapping(target = "hasChildren", expression = "java(hasSubcategories(category))")
     @Mapping(target = "children", ignore = true) // Will be set manually
-    @Mapping(target = "fullPath", ignore = true) // Will be built manually
+    @Mapping(target = "fullPath", ignore = true)
+    // Will be built manually
     CategoryHierarchyDto toHierarchyDto(Category category);
     
     /**
@@ -67,9 +74,8 @@ public interface CategoryMapper {
     
     /**
      * Map CategoryCreateRequest to Category entity
+     * Request DTOs don't extend AuditDto anymore, so map individual fields
      */
-    @Mapping(target = "categoryId", ignore = true) // Auto-generated
-    @Mapping(target = "subcategories", ignore = true) // Not needed for creation
     Category toEntity(CategoryCreateRequest createRequest);
     
     /**
@@ -77,6 +83,7 @@ public interface CategoryMapper {
      */
     @Mapping(target = "categoryId", ignore = true) // Don't update ID
     @Mapping(target = "subcategories", ignore = true) // Don't update subcategories here
+    @Mapping(target = "parentCategory", ignore = true) // Will be handled by service
     void updateEntityFromRequest(CategoryUpdateRequest updateRequest, @MappingTarget Category category);
     
     // ===== BREADCRUMB & HIERARCHY HELPER METHODS =====
@@ -201,11 +208,12 @@ public interface CategoryMapper {
     @Named("toParentFlatDto")
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
     @Mapping(target = "parentCategoryName", source = "parentCategory.categoryName")
-    @Mapping(target = "subcategoryCount", ignore = true) // Not needed for parent reference
+    @Mapping(target = "subcategoryCount", ignore = true)
+    // Not needed for parent reference
     CategoryFlatDto toParentFlatDto(Category category);
     
     /**
-     * Map Category to CategoryFlatDto for subcategory (minimal info)
+     * Map Category to CategoryFlatDto for subcategory
      */
     @Named("toSubcategoryFlatDto")
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
@@ -231,7 +239,7 @@ public interface CategoryMapper {
     // ===== BULK OPERATIONS =====
     
     /**
-     * Convert list for pagination responses
+     * Convert for pagination responses
      */
     @Named("toPaginationFlatDto")
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
@@ -254,16 +262,11 @@ public interface CategoryMapper {
         if (category == null) {
             return null;
         }
-        return CategoryBreadcrumbDto.builder()
-            .categoryId(category.getCategoryId())
-            .categoryUrl(category.getCategoryUrl())
-            .categoryName(category.getCategoryName())
-            .parentCategoryId(category.getParentCategory() != null ?
-                category.getParentCategory().getCategoryId() : null)
-            .level(level)
-            .path(path)
-            .urlPath(urlPath)
-            .build();
+        CategoryBreadcrumbDto dto = toBreadcrumbDto(category);
+        dto.setLevel(level);
+        dto.setPath(path);
+        dto.setUrlPath(urlPath);
+        return dto;
     }
     
     /**
@@ -271,6 +274,9 @@ public interface CategoryMapper {
      */
     @Named("toMinimalDto")
     @Mapping(target = "parentCategoryId", source = "parentCategory.categoryId")
+    @Mapping(target = "level", ignore = true)
+    @Mapping(target = "path", ignore = true)
+    @Mapping(target = "urlPath", ignore = true)
     CategoryBreadcrumbDto toMinimalDto(Category category);
     
     /**
