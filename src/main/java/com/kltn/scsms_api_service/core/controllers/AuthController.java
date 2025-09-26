@@ -1,6 +1,6 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.core.annotations.SwaggerOperation;
+import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
 import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;

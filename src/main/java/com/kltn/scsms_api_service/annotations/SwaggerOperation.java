@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.annotations;
+package com.kltn.scsms_api_service.annotations;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

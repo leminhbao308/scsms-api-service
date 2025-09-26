@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.annotations;
+package com.kltn.scsms_api_service.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

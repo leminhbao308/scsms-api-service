@@ -1,8 +1,8 @@
-package com.kltn.scsms_api_service.core.aspect;
+package com.kltn.scsms_api_service.aspect;
 
-import com.kltn.scsms_api_service.core.annotations.PermissionLogic;
-import com.kltn.scsms_api_service.core.annotations.RequirePermission;
-import com.kltn.scsms_api_service.core.annotations.RequireRole;
+import com.kltn.scsms_api_service.annotations.PermissionLogic;
+import com.kltn.scsms_api_service.annotations.RequirePermission;
+import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.service.entityService.PermissionService;
 import com.kltn.scsms_api_service.core.utils.PermissionUtils;
