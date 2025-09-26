@@ -188,7 +188,7 @@ public class CategoryManagementController {
     /**
      * Delete a category (soft delete)
      */
-    @DeleteMapping(ApiConstant.DELETE_CATEGORY_API)
+    @PostMapping(ApiConstant.DELETE_CATEGORY_API)
     @SwaggerOperation(
         summary = "Delete a category",
         description = "Soft delete a category. Categories with subcategories cannot be deleted unless force flag is used")
