@@ -88,12 +88,19 @@ public class ApiConstant {
     
     // Category management module endpoints
     public static final String CATEGORY_MANAGEMENT_PREFIX = "/categories";
+    public static final String GET_ROOT_CATEGORIES_API = CATEGORY_MANAGEMENT_PREFIX + "/root";
     public static final String GET_ALL_CATEGORIES_API = CATEGORY_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_ALL_CATEGORIES_HIERARCHY_API = CATEGORY_MANAGEMENT_PREFIX + "/get-all-hierarchy";
     public static final String GET_ALL_CATEGORIES_BREADCRUMB_API = CATEGORY_MANAGEMENT_PREFIX + "/get-all-breadcrumb";
     public static final String GET_CATEGORY_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}";
+    public static final String GET_CATEGORY_URL_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/url";
+    public static final String GET_CATEGORY_PATH_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/path";
+    public static final String GET_SUB_CATEGORY_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/sub-categories";
     public static final String CREATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/update";
+    public static final String MOVE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/move";
     public static final String DELETE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/delete";
+    public static final String VALIDATE_CATEGORY_URL_API = CATEGORY_MANAGEMENT_PREFIX + "/validate-url";
     
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
@@ -142,12 +149,19 @@ public class ApiConstant {
             apiPrefix + UPDATE_SUPPLIER_API,
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,
+            apiPrefix + GET_ROOT_CATEGORIES_API,
             apiPrefix + GET_ALL_CATEGORIES_API,
+            apiPrefix + GET_ALL_CATEGORIES_HIERARCHY_API,
             apiPrefix + GET_ALL_CATEGORIES_BREADCRUMB_API,
             apiPrefix + GET_CATEGORY_BY_ID_API,
+            apiPrefix + GET_CATEGORY_URL_BY_ID_API,
+            apiPrefix + GET_CATEGORY_PATH_BY_ID_API,
+            apiPrefix + GET_SUB_CATEGORY_BY_ID_API,
             apiPrefix + CREATE_CATEGORY_API,
             apiPrefix + UPDATE_CATEGORY_API,
-            apiPrefix + DELETE_CATEGORY_API
+            apiPrefix + MOVE_CATEGORY_API,
+            apiPrefix + DELETE_CATEGORY_API,
+            apiPrefix + VALIDATE_CATEGORY_URL_API
         );
     }
 }

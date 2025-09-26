@@ -59,7 +59,7 @@ public class CategoryManagementController {
     /**
      * Get categories in hierarchical structure for tree views
      */
-    @GetMapping(ApiConstant.GET_ALL_CATEGORIES_API + "/hierarchy")
+    @GetMapping(ApiConstant.GET_ALL_CATEGORIES_HIERARCHY_API)
     @SwaggerOperation(
         summary = "Get category hierarchy",
         description = "Retrieve categories in hierarchical tree structure for navigation menus and tree views")
@@ -114,7 +114,7 @@ public class CategoryManagementController {
     /**
      * Get category by URL slug
      */
-    @GetMapping(ApiConstant.GET_CATEGORY_BY_ID_API + "/by-url")
+    @GetMapping(ApiConstant.GET_CATEGORY_URL_BY_ID_API)
     @SwaggerOperation(
         summary = "Get category by URL",
         description = "Retrieve category information using URL slug for SEO-friendly routing")
@@ -126,26 +126,6 @@ public class CategoryManagementController {
         CategoryInfoDto category = categoryManagementService.getCategoryByUrl(categoryUrl);
         
         return ResponseBuilder.success("Category fetched successfully", category);
-    }
-    
-    /**
-     * Get subcategories of a specific category
-     */
-    @GetMapping(ApiConstant.GET_CATEGORY_BY_ID_API + "/subcategories")
-    @SwaggerOperation(
-        summary = "Get subcategories",
-        description = "Retrieve all direct subcategories of a specific parent category")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
-    public ResponseEntity<ApiResponse<List<CategoryInfoDto>>> getSubcategories(
-        @PathVariable("categoryId") String categoryId,
-        @RequestParam(defaultValue = "false") boolean includeInactive) {
-        log.info("Fetching subcategories for category ID: {}, includeInactive: {}",
-            categoryId, includeInactive);
-        
-        List<CategoryInfoDto> subcategories = categoryManagementService.getSubcategories(
-            UUID.fromString(categoryId), includeInactive);
-        
-        return ResponseBuilder.success("Subcategories fetched successfully", subcategories);
     }
     
     /**
@@ -164,6 +144,26 @@ public class CategoryManagementController {
         CategoryInfoDto createdCategory = categoryManagementService.createCategory(createRequest);
         
         return ResponseBuilder.success("Category created successfully", createdCategory);
+    }
+    
+    /**
+     * Get subcategories of a specific category
+     */
+    @GetMapping(ApiConstant.GET_SUB_CATEGORY_BY_ID_API)
+    @SwaggerOperation(
+        summary = "Get subcategories",
+        description = "Retrieve all direct subcategories of a specific parent category")
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    public ResponseEntity<ApiResponse<List<CategoryInfoDto>>> getSubcategories(
+        @PathVariable("categoryId") String categoryId,
+        @RequestParam(defaultValue = "false") boolean includeInactive) {
+        log.info("Fetching subcategories for category ID: {}, includeInactive: {}",
+            categoryId, includeInactive);
+        
+        List<CategoryInfoDto> subcategories = categoryManagementService.getSubcategories(
+            UUID.fromString(categoryId), includeInactive);
+        
+        return ResponseBuilder.success("Subcategories fetched successfully", subcategories);
     }
     
     /**
@@ -206,7 +206,7 @@ public class CategoryManagementController {
     /**
      * Move category to different parent (change hierarchy)
      */
-    @PostMapping(ApiConstant.UPDATE_CATEGORY_API + "/move")
+    @PostMapping(ApiConstant.MOVE_CATEGORY_API)
     @SwaggerOperation(
         summary = "Move category to different parent",
         description = "Change the parent-child relationship of a category within the hierarchy")
@@ -225,7 +225,7 @@ public class CategoryManagementController {
     /**
      * Get category path from root to specified category
      */
-    @GetMapping(ApiConstant.GET_CATEGORY_BY_ID_API + "/path")
+    @GetMapping(ApiConstant.GET_CATEGORY_PATH_BY_ID_API)
     @SwaggerOperation(
         summary = "Get category path",
         description = "Get the complete path from root category to the specified category")
@@ -243,7 +243,7 @@ public class CategoryManagementController {
     /**
      * Validate category URL uniqueness
      */
-    @GetMapping(ApiConstant.CATEGORY_MANAGEMENT_PREFIX + "/validate-url")
+    @GetMapping(ApiConstant.VALIDATE_CATEGORY_URL_API)
     @SwaggerOperation(
         summary = "Validate category URL",
         description = "Check if a category URL is available and valid for use")
@@ -261,7 +261,7 @@ public class CategoryManagementController {
     /**
      * Get root categories (categories without parent)
      */
-    @GetMapping(ApiConstant.CATEGORY_MANAGEMENT_PREFIX + "/roots")
+    @GetMapping(ApiConstant.GET_ROOT_CATEGORIES_API)
     @SwaggerOperation(
         summary = "Get root categories",
         description = "Retrieve all root categories (categories without parent) for main navigation")
