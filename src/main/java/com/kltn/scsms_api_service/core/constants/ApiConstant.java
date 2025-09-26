@@ -52,7 +52,7 @@ public class ApiConstant {
     // Vehicle Brand APIs
     public static final String GET_ALL_VEHICLE_BRANDS_API = VEHICLE_BRAND_PREFIX + "/get-all";
     public static final String GET_ALL_VEHICLE_BRANDS_DROPDOWN_API = VEHICLE_BRAND_PREFIX + "/dropdown";
-    public static final String GET_VEHICLE_BRAND_BY_ID_API =  VEHICLE_BRAND_PREFIX + "/{brandId}";
+    public static final String GET_VEHICLE_BRAND_BY_ID_API = VEHICLE_BRAND_PREFIX + "/{brandId}";
     public static final String CREATE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/create";
     public static final String UPDATE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/{brandId}/update";
     public static final String DELETE_VEHICLE_BRAND_API = VEHICLE_BRAND_PREFIX + "/{brandId}/delete";
@@ -85,6 +85,15 @@ public class ApiConstant {
     public static final String UPDATE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/update";
     public static final String DELETE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/delete";
     
+    
+    // Category management module endpoints
+    public static final String CATEGORY_MANAGEMENT_PREFIX = "/categories";
+    public static final String GET_ALL_CATEGORIES_API = CATEGORY_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_ALL_CATEGORIES_BREADCRUMB_API = CATEGORY_MANAGEMENT_PREFIX + "/get-all-breadcrumb";
+    public static final String GET_CATEGORY_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}";
+    public static final String CREATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/update";
+    public static final String DELETE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/delete";
     
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
@@ -131,7 +140,14 @@ public class ApiConstant {
             apiPrefix + GET_SUPPLIER_BY_ID_API,
             apiPrefix + CREATE_SUPPLIER_API,
             apiPrefix + UPDATE_SUPPLIER_API,
-            apiPrefix + DELETE_SUPPLIER_API
+            apiPrefix + DELETE_SUPPLIER_API,
+            apiPrefix + DELETE_VEHICLE_PROFILE_API,
+            apiPrefix + GET_ALL_CATEGORIES_API,
+            apiPrefix + GET_ALL_CATEGORIES_BREADCRUMB_API,
+            apiPrefix + GET_CATEGORY_BY_ID_API,
+            apiPrefix + CREATE_CATEGORY_API,
+            apiPrefix + UPDATE_CATEGORY_API,
+            apiPrefix + DELETE_CATEGORY_API
         );
     }
 }
