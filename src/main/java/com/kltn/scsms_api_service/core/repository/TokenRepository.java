@@ -25,8 +25,6 @@ public interface TokenRepository extends JpaRepository<Token, String> {
     
     Optional<Token> findByTokenAndTypeAndRevokedFalseAndExpiredFalse(String token, TokenType type);
     
-    void deleteByExpiresAtBefore(LocalDateTime dateTime);
-    
     @Query("SELECT t FROM Token t WHERE t.user.userId = :userId AND t.type = :type AND t.revoked = false AND t.expired = false")
     List<Token> findValidTokensByUserAndType(@Param("userId") UUID userId, @Param("type") TokenType type);
     
@@ -35,4 +33,6 @@ public interface TokenRepository extends JpaRepository<Token, String> {
     @Query(
         "UPDATE Token t SET t.revoked = true, t.expired = true WHERE t.user.userId = :userId AND t.revoked = false")
     int revokeAllUserTokens(@Param("userId") UUID userId);
+    
+    void deleteAllByExpiredAndRevokedAndExpiresAtBefore(boolean expired, boolean revoked, LocalDateTime expiresAtBefore);
 }

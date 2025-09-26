@@ -2,13 +2,13 @@ package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.configs.property.JwtTokenProperties;
 import com.kltn.scsms_api_service.core.entity.Token;
-import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.entity.User;
-import com.kltn.scsms_api_service.exception.ErrorCode;
-import com.kltn.scsms_api_service.exception.ServerSideException;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
 import com.kltn.scsms_api_service.core.repository.TokenRepository;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
 import com.kltn.scsms_api_service.core.utils.SensitiveValueMasker;
+import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.exception.ServerSideException;
 import io.jsonwebtoken.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -102,7 +102,7 @@ public class TokenService {
     }
     
     public void cleanupExpiredTokens() {
-        tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+        tokenRepository.deleteAllByExpiredAndRevokedAndExpiresAtBefore(true, true, LocalDateTime.now());
         log.info("JWT - Cleaned up expired tokens");
     }
     
