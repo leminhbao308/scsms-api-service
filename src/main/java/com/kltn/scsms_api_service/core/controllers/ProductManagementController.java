@@ -1,0 +1,196 @@
+package com.kltn.scsms_api_service.core.controllers;
+
+import com.kltn.scsms_api_service.abstracts.BaseController;
+import com.kltn.scsms_api_service.annotations.RequirePermission;
+import com.kltn.scsms_api_service.annotations.SwaggerOperation;
+import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.core.dto.productManagement.ProductInfoDto;
+import com.kltn.scsms_api_service.core.dto.productManagement.param.ProductFilterParam;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.CreateProductRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductRequest;
+import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.service.businessService.ProductManagementService;
+import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping(ApiConstant.PRODUCT_MANAGEMENT_PREFIX)
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Product Management", description = "APIs for managing products")
+public class ProductManagementController extends BaseController {
+    
+    private final ProductManagementService productManagementService;
+    
+    @GetMapping(ApiConstant.GET_ALL_PRODUCTS_API)
+    @Operation(summary = "Get all products", description = "Retrieve all products with optional filtering and pagination")
+    @SwaggerOperation(summary = "Get all products")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<Object>> getAllProducts(
+            @Parameter(description = "Filter parameters") ProductFilterParam filterParam) {
+        log.info("Getting all products with filter: {}", filterParam);
+        
+        if (filterParam != null && filterParam.getPage() > 0) {
+            // Return paginated results
+            Page<ProductInfoDto> productPage = productManagementService.getAllProducts(filterParam);
+            return ResponseBuilder.success(productPage);
+        } else {
+            // Return all results
+            List<ProductInfoDto> products = productManagementService.getAllProducts();
+            return ResponseBuilder.success(products);
+        }
+    }
+    
+    @GetMapping(ApiConstant.GET_PRODUCT_BY_ID_API)
+    @Operation(summary = "Get product by ID", description = "Retrieve a specific product by its ID")
+    @SwaggerOperation(summary = "Get product by ID")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<ProductInfoDto>> getProductById(
+            @Parameter(description = "Product ID") @PathVariable UUID productId) {
+        log.info("Getting product by ID: {}", productId);
+        ProductInfoDto product = productManagementService.getProductById(productId);
+        return ResponseBuilder.success(product);
+    }
+    
+    @GetMapping(ApiConstant.GET_PRODUCTS_BY_CATEGORY_API)
+    @Operation(summary = "Get products by category", description = "Retrieve all products in a specific category")
+    @SwaggerOperation(summary = "Get products by category")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getProductsByCategory(
+            @Parameter(description = "Category ID") @PathVariable UUID categoryId) {
+        log.info("Getting products by category ID: {}", categoryId);
+        List<ProductInfoDto> products = productManagementService.getProductsByCategory(categoryId);
+        return ResponseBuilder.success(products);
+    }
+    
+    @GetMapping(ApiConstant.GET_PRODUCTS_BY_SUPPLIER_API)
+    @Operation(summary = "Get products by supplier", description = "Retrieve all products from a specific supplier")
+    @SwaggerOperation(summary = "Get products by supplier")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getProductsBySupplier(
+            @Parameter(description = "Supplier ID") @PathVariable UUID supplierId) {
+        log.info("Getting products by supplier ID: {}", supplierId);
+        List<ProductInfoDto> products = productManagementService.getProductsBySupplier(supplierId);
+        return ResponseBuilder.success(products);
+    }
+    
+    @GetMapping(ApiConstant.SEARCH_PRODUCTS_API)
+    @Operation(summary = "Search products", description = "Search products by keyword")
+    @SwaggerOperation(summary = "Search products")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<List<ProductInfoDto>>> searchProducts(
+            @Parameter(description = "Search keyword") @RequestParam String keyword) {
+        log.info("Searching products by keyword: {}", keyword);
+        List<ProductInfoDto> products = productManagementService.searchProducts(keyword);
+        return ResponseBuilder.success(products);
+    }
+    
+    @GetMapping("/featured")
+    @Operation(summary = "Get featured products", description = "Retrieve all featured products")
+    @SwaggerOperation(summary = "Get featured products")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getFeaturedProducts() {
+        log.info("Getting featured products");
+        List<ProductInfoDto> products = productManagementService.getFeaturedProducts();
+        return ResponseBuilder.success(products);
+    }
+    
+    @GetMapping("/low-stock")
+    @Operation(summary = "Get low stock products", description = "Retrieve all products with low stock levels")
+    @SwaggerOperation(summary = "Get low stock products")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getLowStockProducts() {
+        log.info("Getting low stock products");
+        List<ProductInfoDto> products = productManagementService.getLowStockProducts();
+        return ResponseBuilder.success(products);
+    }
+    
+    @PostMapping(ApiConstant.CREATE_PRODUCT_API)
+    @Operation(summary = "Create product", description = "Create a new product")
+    @SwaggerOperation(summary = "Create product")
+    @RequirePermission(permissions = {"PRODUCT_CREATE"})
+    public ResponseEntity<ApiResponse<ProductInfoDto>> createProduct(
+            @Parameter(description = "Product creation request") @Valid @RequestBody CreateProductRequest createProductRequest) {
+        log.info("Creating product: {}", createProductRequest.getProductName());
+        ProductInfoDto product = productManagementService.createProduct(createProductRequest);
+        return ResponseBuilder.created(product);
+    }
+    
+    @PutMapping(ApiConstant.UPDATE_PRODUCT_API)
+    @Operation(summary = "Update product", description = "Update an existing product")
+    @SwaggerOperation(summary = "Update product")
+    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    public ResponseEntity<ApiResponse<ProductInfoDto>> updateProduct(
+            @Parameter(description = "Product ID") @PathVariable UUID productId,
+            @Parameter(description = "Product update request") @Valid @RequestBody UpdateProductRequest updateProductRequest) {
+        log.info("Updating product with ID: {}", productId);
+        ProductInfoDto product = productManagementService.updateProduct(productId, updateProductRequest);
+        return ResponseBuilder.success(product);
+    }
+    
+    @DeleteMapping(ApiConstant.DELETE_PRODUCT_API)
+    @Operation(summary = "Delete product", description = "Delete a product (soft delete)")
+    @SwaggerOperation(summary = "Delete product")
+    @RequirePermission(permissions = {"PRODUCT_DELETE"})
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(
+            @Parameter(description = "Product ID") @PathVariable UUID productId) {
+        log.info("Deleting product with ID: {}", productId);
+        productManagementService.deleteProduct(productId);
+        return ResponseBuilder.success("Product deleted successfully");
+    }
+    
+    @PutMapping("/{productId}/activate")
+    @Operation(summary = "Activate product", description = "Activate a product")
+    @SwaggerOperation(summary = "Activate product")
+    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    public ResponseEntity<ApiResponse<Void>> activateProduct(
+            @Parameter(description = "Product ID") @PathVariable UUID productId) {
+        log.info("Activating product with ID: {}", productId);
+        productManagementService.activateProduct(productId);
+        return ResponseBuilder.success("Product activated successfully");
+    }
+    
+    @PutMapping("/{productId}/deactivate")
+    @Operation(summary = "Deactivate product", description = "Deactivate a product")
+    @SwaggerOperation(summary = "Deactivate product")
+    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    public ResponseEntity<ApiResponse<Void>> deactivateProduct(
+            @Parameter(description = "Product ID") @PathVariable UUID productId) {
+        log.info("Deactivating product with ID: {}", productId);
+        productManagementService.deactivateProduct(productId);
+        return ResponseBuilder.success("Product deactivated successfully");
+    }
+    
+    @GetMapping("/category/{categoryId}/count")
+    @Operation(summary = "Get product count by category", description = "Get the number of products in a category")
+    @SwaggerOperation(summary = "Get product count by category")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<Long>> getProductCountByCategory(
+            @Parameter(description = "Category ID") @PathVariable UUID categoryId) {
+        log.info("Getting product count by category ID: {}", categoryId);
+        long count = productManagementService.getProductCountByCategory(categoryId);
+        return ResponseBuilder.success(count);
+    }
+    
+    @GetMapping("/supplier/{supplierId}/count")
+    @Operation(summary = "Get product count by supplier", description = "Get the number of products from a supplier")
+    @SwaggerOperation(summary = "Get product count by supplier")
+    @RequirePermission(permissions = {"PRODUCT_READ"})
+    public ResponseEntity<ApiResponse<Long>> getProductCountBySupplier(
+            @Parameter(description = "Supplier ID") @PathVariable UUID supplierId) {
+        log.info("Getting product count by supplier ID: {}", supplierId);
+        long count = productManagementService.getProductCountBySupplier(supplierId);
+        return ResponseBuilder.success(count);
+    }
+}

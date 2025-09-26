@@ -107,6 +107,47 @@ public class ApiConstant {
     public static final String DELETE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/delete";
 
 
+    // Product management module endpoints
+    public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
+    public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_PRODUCT_BY_ID_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}";
+    public static final String GET_PRODUCTS_BY_CATEGORY_API = PRODUCT_MANAGEMENT_PREFIX + "/category/{categoryId}";
+    public static final String GET_PRODUCTS_BY_SUPPLIER_API = PRODUCT_MANAGEMENT_PREFIX + "/supplier/{supplierId}";
+    public static final String SEARCH_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/update";
+    public static final String DELETE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/delete";
+    public static final String BULK_UPDATE_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/bulk-update";
+    
+    // Service management module endpoints
+    public static final String SERVICE_MANAGEMENT_PREFIX = "/services";
+    public static final String GET_ALL_SERVICES_API = SERVICE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_BY_ID_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}";
+    public static final String GET_SERVICES_BY_CATEGORY_API = SERVICE_MANAGEMENT_PREFIX + "/category/{categoryId}";
+    public static final String GET_SERVICES_BY_TYPE_API = SERVICE_MANAGEMENT_PREFIX + "/type/{serviceType}";
+    public static final String GET_SERVICES_BY_SKILL_LEVEL_API = SERVICE_MANAGEMENT_PREFIX + "/skill-level/{skillLevel}";
+    public static final String SEARCH_SERVICES_API = SERVICE_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/update";
+    public static final String DELETE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/delete";
+    
+    // Service Package management module endpoints
+    public static final String SERVICE_PACKAGE_MANAGEMENT_PREFIX = "/service-packages";
+    public static final String GET_ALL_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_PACKAGE_BY_ID_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}";
+    public static final String GET_SERVICE_PACKAGES_BY_CATEGORY_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/category/{categoryId}";
+    public static final String GET_SERVICE_PACKAGES_BY_TYPE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/type/{packageType}";
+    public static final String GET_POPULAR_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/popular";
+    public static final String GET_RECOMMENDED_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/recommended";
+    public static final String SEARCH_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/update";
+    public static final String DELETE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/delete";
+    public static final String GET_SERVICE_PACKAGE_STEPS_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps";
+    public static final String ADD_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/add";
+    public static final String UPDATE_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/{stepId}/update";
+    public static final String DELETE_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/{stepId}/delete";
+
     // Category management module endpoints
     public static final String CATEGORY_MANAGEMENT_PREFIX = "/categories";
     public static final String GET_ROOT_CATEGORIES_API = CATEGORY_MANAGEMENT_PREFIX + "/root";
@@ -186,6 +227,42 @@ public class ApiConstant {
             apiPrefix + DELETE_BRANCH_API,
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,
+            // Product management APIs
+            apiPrefix + GET_ALL_PRODUCTS_API,
+            apiPrefix + GET_PRODUCT_BY_ID_API,
+            apiPrefix + GET_PRODUCTS_BY_CATEGORY_API,
+            apiPrefix + GET_PRODUCTS_BY_SUPPLIER_API,
+            apiPrefix + SEARCH_PRODUCTS_API,
+            apiPrefix + CREATE_PRODUCT_API,
+            apiPrefix + UPDATE_PRODUCT_API,
+            apiPrefix + DELETE_PRODUCT_API,
+            apiPrefix + BULK_UPDATE_PRODUCTS_API,
+            // Service management APIs
+            apiPrefix + GET_ALL_SERVICES_API,
+            apiPrefix + GET_SERVICE_BY_ID_API,
+            apiPrefix + GET_SERVICES_BY_CATEGORY_API,
+            apiPrefix + GET_SERVICES_BY_TYPE_API,
+            apiPrefix + GET_SERVICES_BY_SKILL_LEVEL_API,
+            apiPrefix + SEARCH_SERVICES_API,
+            apiPrefix + CREATE_SERVICE_API,
+            apiPrefix + UPDATE_SERVICE_API,
+            apiPrefix + DELETE_SERVICE_API,
+            // Service Package management APIs
+            apiPrefix + GET_ALL_SERVICE_PACKAGES_API,
+            apiPrefix + GET_SERVICE_PACKAGE_BY_ID_API,
+            apiPrefix + GET_SERVICE_PACKAGES_BY_CATEGORY_API,
+            apiPrefix + GET_SERVICE_PACKAGES_BY_TYPE_API,
+            apiPrefix + GET_POPULAR_SERVICE_PACKAGES_API,
+            apiPrefix + GET_RECOMMENDED_SERVICE_PACKAGES_API,
+            apiPrefix + SEARCH_SERVICE_PACKAGES_API,
+            apiPrefix + CREATE_SERVICE_PACKAGE_API,
+            apiPrefix + UPDATE_SERVICE_PACKAGE_API,
+            apiPrefix + DELETE_SERVICE_PACKAGE_API,
+            apiPrefix + GET_SERVICE_PACKAGE_STEPS_API,
+            apiPrefix + ADD_SERVICE_PACKAGE_STEP_API,
+            apiPrefix + UPDATE_SERVICE_PACKAGE_STEP_API,
+            apiPrefix + DELETE_SERVICE_PACKAGE_STEP_API,
+            // Category management APIs
             apiPrefix + GET_ROOT_CATEGORIES_API,
             apiPrefix + GET_ALL_CATEGORIES_API,
             apiPrefix + GET_ALL_CATEGORIES_HIERARCHY_API,

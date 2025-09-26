@@ -590,6 +590,14 @@ public class CategoryService {
     }
     
     /**
+     * Get category by ID (required)
+     */
+    public Category getById(UUID categoryId) {
+        return categoryRepository.findById(categoryId)
+            .orElseThrow(() -> new EntityNotFoundException("Category not found with ID: " + categoryId));
+    }
+    
+    /**
      * Find category by URL (optional)
      */
     public Optional<Category> findByUrl(String categoryUrl) {

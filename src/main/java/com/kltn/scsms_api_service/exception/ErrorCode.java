@@ -24,7 +24,26 @@ public enum ErrorCode {
     SYSTEM_ERROR("SCS-0500", "SCS-0500", "SYSTEM", "System error", "error.system_error"),
     NOT_FOUND("SCS-0404", "SCS-0404", "SYSTEM", "Not found", "error.not_found"),
     UNAUTHORIZED("SCS-0401", "SCS-0401", "SYSTEM", "Unauthorized", "error.unauthorized"),
-    FORBIDDEN("SCS-0403", "SCS-0403", "SYSTEM", "Forbidden", "error.forbidden");
+    FORBIDDEN("SCS-0403", "SCS-0403", "SYSTEM", "Forbidden", "error.forbidden"),
+    
+    // Product related errors
+    PRODUCT_NOT_FOUND("SCS-1001", "SCS-1001", "PRODUCT", "Product not found", "error.product_not_found"),
+    PRODUCT_URL_EXISTS("SCS-1002", "SCS-1002", "PRODUCT", "Product URL already exists", "error.product_url_exists"),
+    PRODUCT_SKU_EXISTS("SCS-1003", "SCS-1003", "PRODUCT", "Product SKU already exists", "error.product_sku_exists"),
+    PRODUCT_BARCODE_EXISTS("SCS-1004", "SCS-1004", "PRODUCT", "Product barcode already exists", "error.product_barcode_exists"),
+    
+    // Service related errors
+    SERVICE_NOT_FOUND("SCS-2001", "SCS-2001", "SERVICE", "Service not found", "error.service_not_found"),
+    SERVICE_URL_EXISTS("SCS-2002", "SCS-2002", "SERVICE", "Service URL already exists", "error.service_url_exists"),
+    
+    // Service Package related errors
+    SERVICE_PACKAGE_NOT_FOUND("SCS-3001", "SCS-3001", "SERVICE_PACKAGE", "Service package not found", "error.service_package_not_found"),
+    SERVICE_PACKAGE_URL_EXISTS("SCS-3002", "SCS-3002", "SERVICE_PACKAGE", "Service package URL already exists", "error.service_package_url_exists"),
+    SERVICE_PACKAGE_STEP_NOT_FOUND("SCS-3003", "SCS-3003", "SERVICE_PACKAGE", "Service package step not found", "error.service_package_step_not_found"),
+    
+    // Category related errors
+    CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
+    CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists");
     private final String code;
     private final String rawCode;
     private final String category;
