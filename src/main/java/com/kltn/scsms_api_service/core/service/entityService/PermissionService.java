@@ -92,9 +92,7 @@ public class PermissionService {
             return Collections.emptySet();
         }
 
-        return user.getRole().getRolePermissions().stream()
-                .map(rolePermission -> rolePermission.getPermission().getPermissionCode())
-                .collect(Collectors.toSet());
+        return permissionRepository.findPermissionCodesByUserId(user.getUserId());
     }
     
     /**

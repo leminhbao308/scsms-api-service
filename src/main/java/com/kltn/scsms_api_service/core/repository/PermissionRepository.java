@@ -47,4 +47,11 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
 
     @Query("SELECT p FROM Permission p WHERE p.isActive = true AND p.isDeleted = false")
     List<Permission> findActivePermissions();
+    
+    @Query("SELECT p.permissionCode FROM Permission p " +
+        "JOIN p.rolePermissions rp " +
+        "JOIN rp.role r " +
+        "JOIN r.users u " +
+        "WHERE u.userId = :userId")
+    Set<String> findPermissionCodesByUserId(@Param("userId") UUID userId);
 }
