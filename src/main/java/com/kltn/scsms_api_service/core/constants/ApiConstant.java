@@ -85,6 +85,27 @@ public class ApiConstant {
     public static final String UPDATE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/update";
     public static final String DELETE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/delete";
     
+    // Center management module endpoints
+    public static final String CENTER_MANAGEMENT_PREFIX = "/centers";
+    public static final String GET_ALL_CENTERS_API = CENTER_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_CENTER_BY_ID_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}";
+    public static final String GET_CENTER_WITH_BRANCHES_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}/branches";
+    public static final String CREATE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}/update";
+    public static final String DELETE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}/delete";
+    
+    // Branch management module endpoints
+    public static final String BRANCH_MANAGEMENT_PREFIX = "/branches";
+    public static final String GET_ALL_BRANCHES_API = BRANCH_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_ALL_BRANCHES_DROPDOWN_API = BRANCH_MANAGEMENT_PREFIX + "/dropdown";
+    public static final String GET_BRANCH_BY_ID_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}";
+    public static final String GET_BRANCHES_BY_CENTER_API = BRANCH_MANAGEMENT_PREFIX + "/center/{centerId}";
+    public static final String GET_AVAILABLE_BRANCHES_API = BRANCH_MANAGEMENT_PREFIX + "/available";
+    public static final String GET_BRANCHES_BY_LOCATION_API = BRANCH_MANAGEMENT_PREFIX + "/location";
+    public static final String CREATE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/update";
+    public static final String DELETE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/delete";
+    
     
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
@@ -131,7 +152,22 @@ public class ApiConstant {
             apiPrefix + GET_SUPPLIER_BY_ID_API,
             apiPrefix + CREATE_SUPPLIER_API,
             apiPrefix + UPDATE_SUPPLIER_API,
-            apiPrefix + DELETE_SUPPLIER_API
+            apiPrefix + DELETE_SUPPLIER_API,
+            apiPrefix + GET_ALL_CENTERS_API,
+            apiPrefix + GET_CENTER_BY_ID_API,
+            apiPrefix + GET_CENTER_WITH_BRANCHES_API,
+            apiPrefix + CREATE_CENTER_API,
+            apiPrefix + UPDATE_CENTER_API,
+            apiPrefix + DELETE_CENTER_API,
+            apiPrefix + GET_ALL_BRANCHES_API,
+            apiPrefix + GET_ALL_BRANCHES_DROPDOWN_API,
+            apiPrefix + GET_BRANCH_BY_ID_API,
+            apiPrefix + GET_BRANCHES_BY_CENTER_API,
+            apiPrefix + GET_AVAILABLE_BRANCHES_API,
+            apiPrefix + GET_BRANCHES_BY_LOCATION_API,
+            apiPrefix + CREATE_BRANCH_API,
+            apiPrefix + UPDATE_BRANCH_API,
+            apiPrefix + DELETE_BRANCH_API
         );
     }
 }
