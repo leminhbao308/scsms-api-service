@@ -49,7 +49,7 @@ public class SupplierManagementController {
     @SwaggerOperation(
         summary = "Get supplier by ID",
         description = "Retrieve detailed information about a specific supplier by its unique identifier.")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<SupplierInfoDto>> getSupplierById(@PathVariable("supplierId") String supplierId) {
         log.info("Fetching supplier with ID: {}", supplierId);
         
@@ -62,7 +62,7 @@ public class SupplierManagementController {
     @SwaggerOperation(
         summary = "Create a new supplier",
         description = "Add a new supplier to the system with details like name, contact person, email, etc.")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<SupplierInfoDto>> createSupplier(@RequestBody CreateSupplierRequest request) {
         log.info("Creating new supplier with name: {}", request.getSupplierName());
         
@@ -75,7 +75,7 @@ public class SupplierManagementController {
     @SwaggerOperation(
         summary = "Update an existing supplier",
         description = "Modify the details of an existing supplier by its ID.")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<SupplierInfoDto>> updateSupplier(
         @PathVariable("supplierId") String supplierId,
         @RequestBody UpdateSupplierRequest request) {
