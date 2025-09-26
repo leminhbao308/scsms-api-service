@@ -77,6 +77,14 @@ public class ApiConstant {
     public static final String UPDATE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/{profileId}/update";
     public static final String DELETE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/{profileId}/delete";
     
+    // Supplier management module endpoints
+    public static final String SUPPLIER_MANAGEMENT_PREFIX = "/suppliers";
+    public static final String GET_ALL_SUPPLIERS_API = SUPPLIER_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SUPPLIER_BY_ID_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}";
+    public static final String CREATE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/update";
+    public static final String DELETE_SUPPLIER_API = SUPPLIER_MANAGEMENT_PREFIX + "/{supplierId}/delete";
+    
     
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
@@ -118,7 +126,12 @@ public class ApiConstant {
             apiPrefix + GET_VEHICLE_PROFILE_BY_ID_API,
             apiPrefix + CREATE_VEHICLE_PROFILE_API,
             apiPrefix + UPDATE_VEHICLE_PROFILE_API,
-            apiPrefix + DELETE_VEHICLE_PROFILE_API
+            apiPrefix + DELETE_VEHICLE_PROFILE_API,
+            apiPrefix + GET_ALL_SUPPLIERS_API,
+            apiPrefix + GET_SUPPLIER_BY_ID_API,
+            apiPrefix + CREATE_SUPPLIER_API,
+            apiPrefix + UPDATE_SUPPLIER_API,
+            apiPrefix + DELETE_SUPPLIER_API
         );
     }
 }
