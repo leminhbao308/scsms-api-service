@@ -110,7 +110,8 @@ public class ApiConstant {
     // Product management module endpoints
     public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
     public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
-    public static final String GET_PRODUCT_BY_ID_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}";
+    public static final String GET_PRODUCT_BY_ID_API = PRODUCT_MANAGEMENT_PREFIX + "/id/{productId}";
+    public static final String GET_PRODUCT_BY_URL_API = PRODUCT_MANAGEMENT_PREFIX + "/{productUrl}";
     public static final String GET_PRODUCTS_BY_CATEGORY_API = PRODUCT_MANAGEMENT_PREFIX + "/category/{categoryId}";
     public static final String GET_PRODUCTS_BY_SUPPLIER_API = PRODUCT_MANAGEMENT_PREFIX + "/supplier/{supplierId}";
     public static final String SEARCH_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/search";
@@ -228,11 +229,6 @@ public class ApiConstant {
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,
             // Product management APIs
-            apiPrefix + GET_ALL_PRODUCTS_API,
-            apiPrefix + GET_PRODUCT_BY_ID_API,
-            apiPrefix + GET_PRODUCTS_BY_CATEGORY_API,
-            apiPrefix + GET_PRODUCTS_BY_SUPPLIER_API,
-            apiPrefix + SEARCH_PRODUCTS_API,
             apiPrefix + CREATE_PRODUCT_API,
             apiPrefix + UPDATE_PRODUCT_API,
             apiPrefix + DELETE_PRODUCT_API,
