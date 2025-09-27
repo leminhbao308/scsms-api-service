@@ -1,13 +1,12 @@
 package com.kltn.scsms_api_service.core.dto.userManagement;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.dto.response.RoleResponse;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
-import com.kltn.scsms_api_service.core.enums.Gender;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.Gender;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.springframework.format.annotation.DateTimeFormat;

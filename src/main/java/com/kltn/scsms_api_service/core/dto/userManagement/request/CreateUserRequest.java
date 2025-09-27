@@ -3,7 +3,7 @@ package com.kltn.scsms_api_service.core.dto.userManagement.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
-import com.kltn.scsms_api_service.core.enums.Gender;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.Gender;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
