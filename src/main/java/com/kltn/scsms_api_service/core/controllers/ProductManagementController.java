@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.RequirePermission;
+import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.productManagement.ProductInfoDto;
@@ -25,7 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(ApiConstant.PRODUCT_MANAGEMENT_PREFIX)
+@RequestMapping
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Product Management", description = "APIs for managing products")
@@ -36,7 +37,6 @@ public class ProductManagementController extends BaseController {
     @GetMapping(ApiConstant.GET_ALL_PRODUCTS_API)
     @Operation(summary = "Get all products", description = "Retrieve all products with optional filtering and pagination")
     @SwaggerOperation(summary = "Get all products")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
     public ResponseEntity<ApiResponse<Object>> getAllProducts(
             @Parameter(description = "Filter parameters") ProductFilterParam filterParam) {
         log.info("Getting all products with filter: {}", filterParam);
@@ -55,7 +55,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping(ApiConstant.GET_PRODUCT_BY_ID_API)
     @Operation(summary = "Get product by ID", description = "Retrieve a specific product by its ID")
     @SwaggerOperation(summary = "Get product by ID")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<ProductInfoDto>> getProductById(
             @Parameter(description = "Product ID") @PathVariable UUID productId) {
         log.info("Getting product by ID: {}", productId);
@@ -63,10 +63,20 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success(product);
     }
     
+    @GetMapping(ApiConstant.GET_PRODUCT_BY_URL_API)
+    @Operation(summary = "Get product by URL", description = "Retrieve a specific product by its URL")
+    @SwaggerOperation(summary = "Get product by URL")
+    public ResponseEntity<ApiResponse<ProductInfoDto>> getProductByUrl(
+        @Parameter(description = "Product URL") @PathVariable String productUrl) {
+        log.info("Getting product by URL: {}", productUrl);
+        ProductInfoDto product = productManagementService.getProductByUrl(productUrl);
+        return ResponseBuilder.success(product);
+    }
+    
     @GetMapping(ApiConstant.GET_PRODUCTS_BY_CATEGORY_API)
     @Operation(summary = "Get products by category", description = "Retrieve all products in a specific category")
     @SwaggerOperation(summary = "Get products by category")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getProductsByCategory(
             @Parameter(description = "Category ID") @PathVariable UUID categoryId) {
         log.info("Getting products by category ID: {}", categoryId);
@@ -77,7 +87,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping(ApiConstant.GET_PRODUCTS_BY_SUPPLIER_API)
     @Operation(summary = "Get products by supplier", description = "Retrieve all products from a specific supplier")
     @SwaggerOperation(summary = "Get products by supplier")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getProductsBySupplier(
             @Parameter(description = "Supplier ID") @PathVariable UUID supplierId) {
         log.info("Getting products by supplier ID: {}", supplierId);
@@ -88,7 +98,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping(ApiConstant.SEARCH_PRODUCTS_API)
     @Operation(summary = "Search products", description = "Search products by keyword")
     @SwaggerOperation(summary = "Search products")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<List<ProductInfoDto>>> searchProducts(
             @Parameter(description = "Search keyword") @RequestParam String keyword) {
         log.info("Searching products by keyword: {}", keyword);
@@ -99,7 +109,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping("/featured")
     @Operation(summary = "Get featured products", description = "Retrieve all featured products")
     @SwaggerOperation(summary = "Get featured products")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getFeaturedProducts() {
         log.info("Getting featured products");
         List<ProductInfoDto> products = productManagementService.getFeaturedProducts();
@@ -109,7 +119,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping("/low-stock")
     @Operation(summary = "Get low stock products", description = "Retrieve all products with low stock levels")
     @SwaggerOperation(summary = "Get low stock products")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<List<ProductInfoDto>>> getLowStockProducts() {
         log.info("Getting low stock products");
         List<ProductInfoDto> products = productManagementService.getLowStockProducts();
@@ -119,18 +129,18 @@ public class ProductManagementController extends BaseController {
     @PostMapping(ApiConstant.CREATE_PRODUCT_API)
     @Operation(summary = "Create product", description = "Create a new product")
     @SwaggerOperation(summary = "Create product")
-    @RequirePermission(permissions = {"PRODUCT_CREATE"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<ProductInfoDto>> createProduct(
-            @Parameter(description = "Product creation request") @Valid @RequestBody CreateProductRequest createProductRequest) {
+            @Parameter(description = "Product creation request") @RequestBody CreateProductRequest createProductRequest) {
         log.info("Creating product: {}", createProductRequest.getProductName());
         ProductInfoDto product = productManagementService.createProduct(createProductRequest);
         return ResponseBuilder.created(product);
     }
     
-    @PutMapping(ApiConstant.UPDATE_PRODUCT_API)
+    @PostMapping(ApiConstant.UPDATE_PRODUCT_API)
     @Operation(summary = "Update product", description = "Update an existing product")
     @SwaggerOperation(summary = "Update product")
-    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<ProductInfoDto>> updateProduct(
             @Parameter(description = "Product ID") @PathVariable UUID productId,
             @Parameter(description = "Product update request") @Valid @RequestBody UpdateProductRequest updateProductRequest) {
@@ -139,10 +149,10 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success(product);
     }
     
-    @DeleteMapping(ApiConstant.DELETE_PRODUCT_API)
+    @PostMapping(ApiConstant.DELETE_PRODUCT_API)
     @Operation(summary = "Delete product", description = "Delete a product (soft delete)")
     @SwaggerOperation(summary = "Delete product")
-    @RequirePermission(permissions = {"PRODUCT_DELETE"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
             @Parameter(description = "Product ID") @PathVariable UUID productId) {
         log.info("Deleting product with ID: {}", productId);
@@ -150,10 +160,10 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success("Product deleted successfully");
     }
     
-    @PutMapping("/{productId}/activate")
+    @PostMapping("/{productId}/activate")
     @Operation(summary = "Activate product", description = "Activate a product")
     @SwaggerOperation(summary = "Activate product")
-    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Void>> activateProduct(
             @Parameter(description = "Product ID") @PathVariable UUID productId) {
         log.info("Activating product with ID: {}", productId);
@@ -161,10 +171,10 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success("Product activated successfully");
     }
     
-    @PutMapping("/{productId}/deactivate")
+    @PostMapping("/{productId}/deactivate")
     @Operation(summary = "Deactivate product", description = "Deactivate a product")
     @SwaggerOperation(summary = "Deactivate product")
-    @RequirePermission(permissions = {"PRODUCT_UPDATE"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Void>> deactivateProduct(
             @Parameter(description = "Product ID") @PathVariable UUID productId) {
         log.info("Deactivating product with ID: {}", productId);
@@ -175,7 +185,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping("/category/{categoryId}/count")
     @Operation(summary = "Get product count by category", description = "Get the number of products in a category")
     @SwaggerOperation(summary = "Get product count by category")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Long>> getProductCountByCategory(
             @Parameter(description = "Category ID") @PathVariable UUID categoryId) {
         log.info("Getting product count by category ID: {}", categoryId);
@@ -186,7 +196,7 @@ public class ProductManagementController extends BaseController {
     @GetMapping("/supplier/{supplierId}/count")
     @Operation(summary = "Get product count by supplier", description = "Get the number of products from a supplier")
     @SwaggerOperation(summary = "Get product count by supplier")
-    @RequirePermission(permissions = {"PRODUCT_READ"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Long>> getProductCountBySupplier(
             @Parameter(description = "Supplier ID") @PathVariable UUID supplierId) {
         log.info("Getting product count by supplier ID: {}", supplierId);

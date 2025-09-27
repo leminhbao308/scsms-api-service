@@ -9,6 +9,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter
@@ -49,7 +50,7 @@ public class Product extends AuditEntity {
     
     @Column(name = "specifications")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String specifications;
+    private Map<String, String> specifications;
     
     @Column(name = "sku", unique = true)
     private String sku;
@@ -78,7 +79,7 @@ public class Product extends AuditEntity {
     
     @Column(name = "dimensions")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String dimensions;
+    private Map<String, String> dimensions;
     
     @Column(name = "warranty_period_months")
     private Integer warrantyPeriodMonths;
@@ -93,11 +94,11 @@ public class Product extends AuditEntity {
     
     @Column(name = "image_urls")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String imageUrls;
+    private Map<String, String> imageUrls;
     
     @Column(name = "tags")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String tags;
+    private Map<String, String> tags;
     
     @Column(name = "supplier_id")
     private UUID supplierId;

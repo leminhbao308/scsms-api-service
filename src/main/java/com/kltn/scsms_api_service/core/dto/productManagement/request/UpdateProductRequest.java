@@ -6,6 +6,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter
@@ -43,7 +44,7 @@ public class UpdateProductRequest {
     private String model;
     
     @JsonProperty("specifications")
-    private String specifications;
+    private Map<String, String> specifications;
     
     @Size(max = 100, message = "SKU must not exceed 100 characters")
     @JsonProperty("sku")
@@ -78,7 +79,7 @@ public class UpdateProductRequest {
     private BigDecimal weight;
     
     @JsonProperty("dimensions")
-    private String dimensions;
+    private Map<String, String> dimensions;
     
     @Min(value = 0, message = "Warranty period must be non-negative")
     @JsonProperty("warranty_period_months")
@@ -91,10 +92,10 @@ public class UpdateProductRequest {
     private Boolean isConsumable;
     
     @JsonProperty("image_urls")
-    private String imageUrls;
+    private Map<String, String> imageUrls;
     
     @JsonProperty("tags")
-    private String tags;
+    private Map<String, String> tags;
     
     @JsonProperty("supplier_id")
     private UUID supplierId;

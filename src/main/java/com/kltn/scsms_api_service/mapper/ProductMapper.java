@@ -11,7 +11,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class, CategoryMapper.class}
+    uses = {AuditMapper.class, CategoryMapper.class, SupplierMapper.class}
 )
 public interface ProductMapper {
     

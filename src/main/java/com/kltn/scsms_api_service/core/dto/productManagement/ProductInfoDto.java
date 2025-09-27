@@ -2,16 +2,18 @@ package com.kltn.scsms_api_service.core.dto.productManagement;
 
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ProductInfoDto {
+@SuperBuilder
+public class ProductInfoDto extends AuditDto {
     
     private UUID productId;
     private String productUrl;
@@ -22,7 +24,7 @@ public class ProductInfoDto {
     private String unitOfMeasure;
     private String brand;
     private String model;
-    private String specifications;
+    private Map<String, String> specifications;
     private String sku;
     private String barcode;
     private BigDecimal costPrice;
@@ -31,15 +33,14 @@ public class ProductInfoDto {
     private Integer maxStockLevel;
     private Integer reorderPoint;
     private BigDecimal weight;
-    private String dimensions;
+    private Map<String, String> dimensions;
     private Integer warrantyPeriodMonths;
     private Boolean isTrackable;
     private Boolean isConsumable;
-    private String imageUrls;
-    private String tags;
+    private Map<String, String> imageUrls;
+    private Map<String, String> tags;
     private UUID supplierId;
     private Boolean isFeatured;
     private Integer sortOrder;
     private Boolean isActive;
-    private AuditDto audit;
 }
