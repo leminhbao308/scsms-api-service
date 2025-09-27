@@ -2,7 +2,7 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
-import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
@@ -36,10 +36,10 @@ public class BranchManagementController {
     @GetMapping("/get-all")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get all branches with filtering and pagination")
-    @Operation(summary = "Get all branches with filtering and pagination", 
+    @Operation(summary = "Get all branches with filtering and pagination",
                description = "Retrieve a paginated list of branches with optional filtering")
     public ResponseEntity<ApiResponse<PaginatedResponse<BranchInfoDto>>> getAllBranches(
-            @Parameter(description = "Filter parameters for branches") 
+            @Parameter(description = "Filter parameters for branches")
             @Valid BranchFilterParam branchFilterParam) {
         
         log.info("Getting all branches with filters: {}", branchFilterParam);
@@ -63,10 +63,10 @@ public class BranchManagementController {
     @GetMapping("/{branchId}")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get branch by ID")
-    @Operation(summary = "Get branch by ID", 
+    @Operation(summary = "Get branch by ID",
                description = "Retrieve a specific branch by its ID")
     public ResponseEntity<ApiResponse<BranchInfoDto>> getBranchById(
-            @Parameter(description = "Branch ID") 
+            @Parameter(description = "Branch ID")
             @PathVariable UUID branchId) {
         
         log.info("Getting branch by ID: {}", branchId);
@@ -79,10 +79,10 @@ public class BranchManagementController {
     @GetMapping("/center/{centerId}")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get branches by center ID")
-    @Operation(summary = "Get branches by center ID", 
+    @Operation(summary = "Get branches by center ID",
                description = "Retrieve all branches belonging to a specific center")
     public ResponseEntity<ApiResponse<List<BranchInfoDto>>> getBranchesByCenterId(
-            @Parameter(description = "Center ID") 
+            @Parameter(description = "Center ID")
             @PathVariable UUID centerId) {
         
         log.info("Getting branches by center ID: {}", centerId);
@@ -95,7 +95,7 @@ public class BranchManagementController {
     @GetMapping("/available")
     @RequireRole(roles = {"ADMIN", "MANAGER", "STAFF"})
     @SwaggerOperation(summary = "Get available branches")
-    @Operation(summary = "Get available branches", 
+    @Operation(summary = "Get available branches",
                description = "Retrieve all branches that are available for service (not at capacity)")
     public ResponseEntity<ApiResponse<List<BranchInfoDto>>> getAvailableBranches() {
         
@@ -109,14 +109,14 @@ public class BranchManagementController {
     @GetMapping("/location")
     @RequireRole(roles = {"ADMIN", "MANAGER", "STAFF", "CUSTOMER"})
     @SwaggerOperation(summary = "Get branches by location")
-    @Operation(summary = "Get branches by location", 
+    @Operation(summary = "Get branches by location",
                description = "Retrieve branches within a specified radius from given coordinates")
     public ResponseEntity<ApiResponse<List<BranchInfoDto>>> getBranchesByLocation(
-            @Parameter(description = "Latitude") 
+            @Parameter(description = "Latitude")
             @RequestParam Double latitude,
-            @Parameter(description = "Longitude") 
+            @Parameter(description = "Longitude")
             @RequestParam Double longitude,
-            @Parameter(description = "Radius in kilometers") 
+            @Parameter(description = "Radius in kilometers")
             @RequestParam Double radiusKm) {
         
         log.info("Getting branches by location: lat={}, lng={}, radius={}km", latitude, longitude, radiusKm);
@@ -130,10 +130,10 @@ public class BranchManagementController {
     @PostMapping("/create")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Create new branch")
-    @Operation(summary = "Create new branch", 
+    @Operation(summary = "Create new branch",
                description = "Create a new branch for a car care center")
     public ResponseEntity<ApiResponse<BranchInfoDto>> createBranch(
-            @Parameter(description = "Branch creation request") 
+            @Parameter(description = "Branch creation request")
             @Valid @RequestBody CreateBranchRequest createBranchRequest) {
         
         log.info("Creating new branch: {}", createBranchRequest.getBranchName());
@@ -146,12 +146,12 @@ public class BranchManagementController {
     @PostMapping("/{branchId}/update")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Update branch")
-    @Operation(summary = "Update branch", 
+    @Operation(summary = "Update branch",
                description = "Update an existing branch")
     public ResponseEntity<ApiResponse<BranchInfoDto>> updateBranch(
-            @Parameter(description = "Branch ID") 
+            @Parameter(description = "Branch ID")
             @PathVariable UUID branchId,
-            @Parameter(description = "Branch update request") 
+            @Parameter(description = "Branch update request")
             @Valid @RequestBody UpdateBranchRequest updateBranchRequest) {
         
         log.info("Updating branch with ID: {}", branchId);
@@ -164,10 +164,10 @@ public class BranchManagementController {
     @PostMapping("/{branchId}/delete")
     @RequireRole(roles = {"ADMIN"})
     @SwaggerOperation(summary = "Delete branch")
-    @Operation(summary = "Delete branch", 
+    @Operation(summary = "Delete branch",
                description = "Delete a branch (soft delete)")
     public ResponseEntity<ApiResponse<Void>> deleteBranch(
-            @Parameter(description = "Branch ID") 
+            @Parameter(description = "Branch ID")
             @PathVariable UUID branchId) {
         
         log.info("Deleting branch with ID: {}", branchId);

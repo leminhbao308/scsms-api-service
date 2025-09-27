@@ -2,7 +2,7 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
-import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.dto.centerManagement.CenterInfoDto;
@@ -35,10 +35,10 @@ public class CenterManagementController {
     @GetMapping("/get-all")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get all centers with filtering and pagination")
-    @Operation(summary = "Get all centers with filtering and pagination", 
+    @Operation(summary = "Get all centers with filtering and pagination",
                description = "Retrieve a paginated list of centers with optional filtering")
     public ResponseEntity<ApiResponse<PaginatedResponse<CenterInfoDto>>> getAllCenters(
-            @Parameter(description = "Filter parameters for centers") 
+            @Parameter(description = "Filter parameters for centers")
             @Valid CenterFilterParam centerFilterParam) {
         
         log.info("Getting all centers with filters: {}", centerFilterParam);
@@ -62,10 +62,10 @@ public class CenterManagementController {
     @GetMapping("/{centerId}")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get center by ID")
-    @Operation(summary = "Get center by ID", 
+    @Operation(summary = "Get center by ID",
                description = "Retrieve a specific center by its ID")
     public ResponseEntity<ApiResponse<CenterInfoDto>> getCenterById(
-            @Parameter(description = "Center ID") 
+            @Parameter(description = "Center ID")
             @PathVariable UUID centerId) {
         
         log.info("Getting center by ID: {}", centerId);
@@ -78,10 +78,10 @@ public class CenterManagementController {
     @GetMapping("/{centerId}/branches")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Get center with all its branches")
-    @Operation(summary = "Get center with all its branches", 
+    @Operation(summary = "Get center with all its branches",
                description = "Retrieve a specific center with all its associated branches")
     public ResponseEntity<ApiResponse<CenterInfoDto>> getCenterWithBranches(
-            @Parameter(description = "Center ID") 
+            @Parameter(description = "Center ID")
             @PathVariable UUID centerId) {
         
         log.info("Getting center with branches by ID: {}", centerId);
@@ -94,10 +94,10 @@ public class CenterManagementController {
     @PostMapping("/create")
     @RequireRole(roles = {"ADMIN"})
     @SwaggerOperation(summary = "Create new center")
-    @Operation(summary = "Create new center", 
+    @Operation(summary = "Create new center",
                description = "Create a new car care center")
     public ResponseEntity<ApiResponse<CenterInfoDto>> createCenter(
-            @Parameter(description = "Center creation request") 
+            @Parameter(description = "Center creation request")
             @Valid @RequestBody CreateCenterRequest createCenterRequest) {
         
         log.info("Creating new center: {}", createCenterRequest.getCenterName());
@@ -110,12 +110,12 @@ public class CenterManagementController {
     @PostMapping("/{centerId}/update")
     @RequireRole(roles = {"ADMIN", "MANAGER"})
     @SwaggerOperation(summary = "Update center")
-    @Operation(summary = "Update center", 
+    @Operation(summary = "Update center",
                description = "Update an existing center")
     public ResponseEntity<ApiResponse<CenterInfoDto>> updateCenter(
-            @Parameter(description = "Center ID") 
+            @Parameter(description = "Center ID")
             @PathVariable UUID centerId,
-            @Parameter(description = "Center update request") 
+            @Parameter(description = "Center update request")
             @Valid @RequestBody UpdateCenterRequest updateCenterRequest) {
         
         log.info("Updating center with ID: {}", centerId);
@@ -128,10 +128,10 @@ public class CenterManagementController {
     @PostMapping("/{centerId}/delete")
     @RequireRole(roles = {"ADMIN"})
     @SwaggerOperation(summary = "Delete center")
-    @Operation(summary = "Delete center", 
+    @Operation(summary = "Delete center",
                description = "Delete a center (soft delete)")
     public ResponseEntity<ApiResponse<Void>> deleteCenter(
-            @Parameter(description = "Center ID") 
+            @Parameter(description = "Center ID")
             @PathVariable UUID centerId) {
         
         log.info("Deleting center with ID: {}", centerId);

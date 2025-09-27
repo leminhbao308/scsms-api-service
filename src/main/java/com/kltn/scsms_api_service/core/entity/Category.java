@@ -1,7 +1,7 @@
 package com.kltn.scsms_api_service.core.entity;
 
 import com.kltn.scsms_api_service.abstracts.AuditEntity;
-import com.kltn.scsms_api_service.core.constants.GeneralConstant;
+import com.kltn.scsms_api_service.constants.GeneralConstant;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CategoryType;
 import jakarta.persistence.*;
 import lombok.*;

@@ -2,7 +2,7 @@ package com.kltn.scsms_api_service.configs.filters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kltn.scsms_api_service.configs.security.JwtTokenProvider;
-import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.jsonwebtoken.Claims;

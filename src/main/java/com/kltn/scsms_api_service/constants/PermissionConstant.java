@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.constants;
+package com.kltn.scsms_api_service.constants;
 
 /**
  * Permission constants that correspond to permission_code in database

@@ -3,7 +3,7 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
-import com.kltn.scsms_api_service.core.constants.ApiConstant;
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.param.ServiceFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceRequest;
