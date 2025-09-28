@@ -9,6 +9,7 @@ import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryBreadcrumb
 import com.kltn.scsms_api_service.core.dto.categoryManagement.param.CategoryFilterParam;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryCreateRequest;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryUpdateRequest;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.service.businessService.CategoryManagementService;
@@ -170,7 +171,7 @@ public class CategoryManagementController {
     @PostMapping(ApiConstant.UPDATE_CATEGORY_API)
     @SwaggerOperation(
         summary = "Update an existing category",
-        description = "Update category details including name, URL, parent relationship, and type")
+        description = "Update category details including name, URL, parent relationship, type, and active status")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<CategoryInfoDto>> updateCategory(
         @PathVariable("categoryId") String categoryId,
@@ -272,4 +273,23 @@ public class CategoryManagementController {
         
         return ResponseBuilder.success("Root categories fetched successfully", rootCategories);
     }
+    
+    /**
+     * Update category status (isActive) only
+     */
+    @PostMapping(ApiConstant.UPDATE_CATEGORY_STATUS_API)
+    @SwaggerOperation(
+        summary = "Update category status",
+        description = "Update only the active status (isActive) of a category")
+    public ResponseEntity<ApiResponse<CategoryInfoDto>> updateCategoryStatus(
+        @PathVariable("categoryId") String categoryId,
+        @Valid @RequestBody CategoryStatusUpdateRequest statusRequest) {
+        log.info("Updating category status for ID: {} to {}", categoryId, statusRequest.getIsActive());
+        
+        CategoryInfoDto updatedCategory = categoryManagementService.updateCategoryStatus(
+            UUID.fromString(categoryId), statusRequest);
+        
+        return ResponseBuilder.success("Category status updated successfully", updatedCategory);
+    }
+    
 }

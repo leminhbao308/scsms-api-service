@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryInfoDto;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.param.CategoryFilterParam;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryCreateRequest;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryUpdateRequest;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -322,6 +323,22 @@ public class CategoryManagementService {
         log.debug("Getting category suggestions for: {}, parent: {}, limit: {}", partial, parentId, limit);
         return categoryService.getCategorySuggestions(partial, parentId, limit);
     }
+    
+    /**
+     * Update category status (isActive) only
+     */
+    @Transactional
+    public CategoryInfoDto updateCategoryStatus(UUID categoryId, CategoryStatusUpdateRequest statusRequest) {
+        log.info("Updating category status: {} to {}", categoryId, statusRequest.getIsActive());
+        
+        // Validate category exists
+        if (!categoryService.existsById(categoryId)) {
+            throw new IllegalArgumentException("Category not found: " + categoryId);
+        }
+        
+        return categoryService.updateCategoryStatus(categoryId, statusRequest.getIsActive());
+    }
+    
     
     // Inner class for statistics DTO
     public static class CategoryStatsDto {

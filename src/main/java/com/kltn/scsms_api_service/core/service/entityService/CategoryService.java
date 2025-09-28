@@ -798,6 +798,23 @@ public class CategoryService {
             .collect(Collectors.toList());
     }
     
+    
+    /**
+     * Update category status (isActive) only
+     */
+    @Transactional
+    public CategoryInfoDto updateCategoryStatus(UUID categoryId, Boolean isActive) {
+        log.info("Updating category status: {} to {}", categoryId, isActive);
+        
+        Category existingCategory = categoryRepository.findById(categoryId)
+            .orElseThrow(() -> new EntityNotFoundException("Category not found: " + categoryId));
+        
+        existingCategory.setIsActive(isActive);
+        Category updatedCategory = categoryRepository.save(existingCategory);
+        
+        return categoryMapper.toDetailedInfoDto(updatedCategory);
+    }
+    
     /**
      * Validate category before save
      */

@@ -161,6 +161,7 @@ public class ApiConstant {
     public static final String GET_SUB_CATEGORY_BY_ID_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/sub-categories";
     public static final String CREATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/update";
+    public static final String UPDATE_CATEGORY_STATUS_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/status";
     public static final String MOVE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/move";
     public static final String DELETE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/delete";
     public static final String VALIDATE_CATEGORY_URL_API = CATEGORY_MANAGEMENT_PREFIX + "/validate-url";
