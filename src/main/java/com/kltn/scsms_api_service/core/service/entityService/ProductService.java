@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -95,19 +96,9 @@ public class ProductService {
         return productRepository.searchByKeyword(keyword);
     }
     
-    public List<Product> findByTag(String tag) {
-        log.info("Finding products by tag: {}", tag);
-        return productRepository.findByTag(tag);
-    }
-    
-    public List<Product> findByPriceRange(Double minPrice, Double maxPrice) {
+    public List<Product> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
         log.info("Finding products by price range: {} - {}", minPrice, maxPrice);
         return productRepository.findByPriceRange(minPrice, maxPrice);
-    }
-    
-    public List<Product> findByWeightRange(Double minWeight, Double maxWeight) {
-        log.info("Finding products by weight range: {} - {}", minWeight, maxWeight);
-        return productRepository.findByWeightRange(minWeight, maxWeight);
     }
     
     public List<Product> findProductsWithWarranty() {
@@ -115,14 +106,19 @@ public class ProductService {
         return productRepository.findProductsWithWarranty();
     }
     
-    public List<Product> findTrackableProducts() {
-        log.info("Finding trackable products");
-        return productRepository.findByIsTrackableTrueAndIsActiveTrue();
+    public List<Product> findByWeightRange(BigDecimal minWeight, BigDecimal maxWeight) {
+        log.info("Finding products by weight range: {} - {}", minWeight, maxWeight);
+        return productRepository.findByWeightRange(minWeight, maxWeight);
     }
     
-    public List<Product> findConsumableProducts() {
-        log.info("Finding consumable products");
-        return productRepository.findByIsConsumableTrueAndIsActiveTrue();
+    public List<Product> findByBrightness(String brightness) {
+        log.info("Finding products by brightness: {}", brightness);
+        return productRepository.findByBrightness(brightness);
+    }
+    
+    public long countProductsWithWarranty() {
+        log.info("Counting products with warranty");
+        return productRepository.countProductsWithWarranty();
     }
     
     public boolean existsByProductUrl(String productUrl) {

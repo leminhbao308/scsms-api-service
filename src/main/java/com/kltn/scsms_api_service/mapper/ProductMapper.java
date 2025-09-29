@@ -33,6 +33,9 @@ public interface ProductMapper {
         if (updateRequest.getProductName() != null) {
             existingProduct.setProductName(updateRequest.getProductName());
         }
+        if (updateRequest.getProductUrl() != null) {
+            existingProduct.setProductUrl(updateRequest.getProductUrl());
+        }
         if (updateRequest.getDescription() != null) {
             existingProduct.setDescription(updateRequest.getDescription());
         }
@@ -44,9 +47,6 @@ public interface ProductMapper {
         }
         if (updateRequest.getModel() != null) {
             existingProduct.setModel(updateRequest.getModel());
-        }
-        if (updateRequest.getSpecifications() != null) {
-            existingProduct.setSpecifications(updateRequest.getSpecifications());
         }
         if (updateRequest.getSku() != null) {
             existingProduct.setSku(updateRequest.getSku());
@@ -60,47 +60,49 @@ public interface ProductMapper {
         if (updateRequest.getSellingPrice() != null) {
             existingProduct.setSellingPrice(updateRequest.getSellingPrice());
         }
+        
+        // Inventory Management
         if (updateRequest.getMinStockLevel() != null) {
             existingProduct.setMinStockLevel(updateRequest.getMinStockLevel());
         }
         if (updateRequest.getMaxStockLevel() != null) {
             existingProduct.setMaxStockLevel(updateRequest.getMaxStockLevel());
         }
-        if (updateRequest.getReorderPoint() != null) {
-            existingProduct.setReorderPoint(updateRequest.getReorderPoint());
-        }
+        
+        // Physical Properties
         if (updateRequest.getWeight() != null) {
             existingProduct.setWeight(updateRequest.getWeight());
         }
         if (updateRequest.getDimensions() != null) {
             existingProduct.setDimensions(updateRequest.getDimensions());
         }
+        
+        // Warranty Information
         if (updateRequest.getWarrantyPeriodMonths() != null) {
             existingProduct.setWarrantyPeriodMonths(updateRequest.getWarrantyPeriodMonths());
         }
-        if (updateRequest.getIsTrackable() != null) {
-            existingProduct.setIsTrackable(updateRequest.getIsTrackable());
-        }
-        if (updateRequest.getIsConsumable() != null) {
-            existingProduct.setIsConsumable(updateRequest.getIsConsumable());
-        }
+        
+        // Media and Display
         if (updateRequest.getImageUrls() != null) {
             existingProduct.setImageUrls(updateRequest.getImageUrls());
         }
-        if (updateRequest.getTags() != null) {
-            existingProduct.setTags(updateRequest.getTags());
-        }
+        
+        // Business Relations
         if (updateRequest.getSupplierId() != null) {
             existingProduct.setSupplierId(updateRequest.getSupplierId());
         }
+        
+        // Product Features
         if (updateRequest.getIsFeatured() != null) {
             existingProduct.setIsFeatured(updateRequest.getIsFeatured());
         }
-        if (updateRequest.getSortOrder() != null) {
-            existingProduct.setSortOrder(updateRequest.getSortOrder());
-        }
         if (updateRequest.getIsActive() != null) {
             existingProduct.setIsActive(updateRequest.getIsActive());
+        }
+        
+        // Additional Specifications
+        if (updateRequest.getSpecifications() != null) {
+            existingProduct.setSpecifications(updateRequest.getSpecifications());
         }
         
         return existingProduct;

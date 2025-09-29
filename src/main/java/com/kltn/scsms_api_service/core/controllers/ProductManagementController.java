@@ -8,6 +8,7 @@ import com.kltn.scsms_api_service.core.dto.productManagement.ProductInfoDto;
 import com.kltn.scsms_api_service.core.dto.productManagement.param.ProductFilterParam;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.CreateProductRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.ProductStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.service.businessService.ProductManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -105,7 +106,7 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success(products);
     }
     
-    @GetMapping("/featured")
+    @GetMapping(ApiConstant.GET_FEATURED_PRODUCTS_API)
     @Operation(summary = "Get featured products", description = "Retrieve all featured products")
     @SwaggerOperation(summary = "Get featured products")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
@@ -115,7 +116,7 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success(products);
     }
     
-    @GetMapping("/low-stock")
+    @GetMapping(ApiConstant.GET_LOW_STOCK_PRODUCTS_API)
     @Operation(summary = "Get low stock products", description = "Retrieve all products with low stock levels")
     @SwaggerOperation(summary = "Get low stock products")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
@@ -159,7 +160,7 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success("Product deleted successfully");
     }
     
-    @PostMapping("/{productId}/activate")
+    @PostMapping(ApiConstant.ACTIVATE_PRODUCT_API)
     @Operation(summary = "Activate product", description = "Activate a product")
     @SwaggerOperation(summary = "Activate product")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
@@ -170,7 +171,7 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success("Product activated successfully");
     }
     
-    @PostMapping("/{productId}/deactivate")
+    @PostMapping(ApiConstant.DEACTIVATE_PRODUCT_API)
     @Operation(summary = "Deactivate product", description = "Deactivate a product")
     @SwaggerOperation(summary = "Deactivate product")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
@@ -181,7 +182,21 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success("Product deactivated successfully");
     }
     
-    @GetMapping("/category/{categoryId}/count")
+    @PostMapping(ApiConstant.UPDATE_PRODUCT_STATUS_API)
+    @Operation(summary = "Update product status", description = "Update the active status of a product")
+    @SwaggerOperation(summary = "Update product status")
+    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    public ResponseEntity<ApiResponse<ProductInfoDto>> updateProductStatus(
+            @Parameter(description = "Product ID") @PathVariable UUID productId,
+            @Valid @RequestBody ProductStatusUpdateRequest statusRequest) {
+        log.info("Updating product status for ID: {} to {}", productId, statusRequest.getIsActive());
+        
+        ProductInfoDto updatedProduct = productManagementService.updateProductStatus(productId, statusRequest);
+        
+        return ResponseBuilder.success("Product status updated successfully", updatedProduct);
+    }
+    
+    @GetMapping(ApiConstant.GET_PRODUCT_COUNT_BY_CATEGORY_API)
     @Operation(summary = "Get product count by category", description = "Get the number of products in a category")
     @SwaggerOperation(summary = "Get product count by category")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
@@ -192,7 +207,7 @@ public class ProductManagementController extends BaseController {
         return ResponseBuilder.success(count);
     }
     
-    @GetMapping("/supplier/{supplierId}/count")
+    @GetMapping(ApiConstant.GET_PRODUCT_COUNT_BY_SUPPLIER_API)
     @Operation(summary = "Get product count by supplier", description = "Get the number of products from a supplier")
     @SwaggerOperation(summary = "Get product count by supplier")
     @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})

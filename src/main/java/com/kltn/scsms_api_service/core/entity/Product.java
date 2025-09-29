@@ -26,36 +26,32 @@ public class Product extends AuditEntity {
     @Column(name = "product_id", nullable = false)
     private UUID productId;
     
-    @Column(name = "product_url", unique = true, nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "product_url", unique = true, nullable = false, length = 255)
     private String productUrl;
     
-    @Column(name = "product_name", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
     
-    @Column(name = "description", length = Integer.MAX_VALUE)
+    @Column(name = "description", length = 1000)
     private String description;
     
-    @Column(name = "unit_of_measure", nullable = false)
+    @Column(name = "unit_of_measure", nullable = false, length = 50)
     private String unitOfMeasure;
     
-    @Column(name = "brand")
+    @Column(name = "brand", length = 100)
     private String brand;
     
-    @Column(name = "model")
+    @Column(name = "model", length = 100)
     private String model;
     
-    @Column(name = "specifications")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> specifications;
-    
-    @Column(name = "sku", unique = true)
+    @Column(name = "sku", unique = true, length = 100)
     private String sku;
     
-    @Column(name = "barcode")
+    @Column(name = "barcode", length = 100)
     private String barcode;
     
     @Column(name = "cost_price", precision = 15, scale = 2)
@@ -64,6 +60,7 @@ public class Product extends AuditEntity {
     @Column(name = "selling_price", precision = 15, scale = 2)
     private BigDecimal sellingPrice;
     
+    // Inventory Management
     @Column(name = "min_stock_level")
     @Builder.Default
     private Integer minStockLevel = 0;
@@ -71,43 +68,34 @@ public class Product extends AuditEntity {
     @Column(name = "max_stock_level")
     private Integer maxStockLevel;
     
-    @Column(name = "reorder_point")
-    private Integer reorderPoint;
-    
-    @Column(name = "weight")
-    private BigDecimal weight;
+    // Physical Properties
+    @Column(name = "weight", precision = 10, scale = 3)
+    private BigDecimal weight; // in kg
     
     @Column(name = "dimensions")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> dimensions;
+    private Map<String, String> dimensions; // {"length": "10cm", "width": "5cm", "height": "3cm"}
     
+    // Warranty Information
     @Column(name = "warranty_period_months")
     private Integer warrantyPeriodMonths;
     
-    @Column(name = "is_trackable")
-    @Builder.Default
-    private Boolean isTrackable = false;
-    
-    @Column(name = "is_consumable")
-    @Builder.Default
-    private Boolean isConsumable = true;
-    
+    // Media and Display
     @Column(name = "image_urls")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> imageUrls;
+    private Map<String, String> imageUrls; // {"main": "url1", "thumbnail": "url2", "gallery": ["url3", "url4"]}
     
-    @Column(name = "tags")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> tags;
-    
+    // Business Relations
     @Column(name = "supplier_id")
     private UUID supplierId;
     
+    // Product Features
     @Column(name = "is_featured")
     @Builder.Default
     private Boolean isFeatured = false;
     
-    @Column(name = "sort_order")
-    @Builder.Default
-    private Integer sortOrder = 0;
+    // Additional Specifications (for complex products like LED lights)
+    @Column(name = "specifications")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, String> specifications; // {"brightness": "3000lm", "color_temp": "6000K", "power": "50W"}
 }

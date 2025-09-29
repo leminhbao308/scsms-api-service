@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.productManagement.ProductInfoDto;
 import com.kltn.scsms_api_service.core.dto.productManagement.param.ProductFilterParam;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.CreateProductRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.ProductStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.entity.Category;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
@@ -152,17 +153,8 @@ public class ProductManagementService {
         if (product.getMinStockLevel() == null) {
             product.setMinStockLevel(0);
         }
-        if (product.getIsTrackable() == null) {
-            product.setIsTrackable(false);
-        }
-        if (product.getIsConsumable() == null) {
-            product.setIsConsumable(true);
-        }
         if (product.getIsFeatured() == null) {
             product.setIsFeatured(false);
-        }
-        if (product.getSortOrder() == null) {
-            product.setSortOrder(0);
         }
         
         Product savedProduct = productService.save(product);
@@ -229,6 +221,25 @@ public class ProductManagementService {
     public void deactivateProduct(UUID productId) {
         log.info("Deactivating product with ID: {}", productId);
         productService.deactivateById(productId);
+    }
+    
+    /**
+     * Update product active status
+     */
+    @Transactional
+    public ProductInfoDto updateProductStatus(UUID productId, ProductStatusUpdateRequest statusRequest) {
+        log.info("Updating product status for ID: {} to {}", productId, statusRequest.getIsActive());
+        
+        // Get existing product
+        Product existingProduct = productService.getById(productId);
+        
+        // Update status
+        existingProduct.setIsActive(statusRequest.getIsActive());
+        
+        // Save updated product
+        Product updatedProduct = productService.update(existingProduct);
+        
+        return productMapper.toProductInfoDto(updatedProduct);
     }
     
     public long getProductCountByCategory(UUID categoryId) {

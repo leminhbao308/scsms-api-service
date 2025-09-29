@@ -110,15 +110,22 @@ public class ApiConstant {
     // Product management module endpoints
     public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
     public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
-    public static final String GET_PRODUCT_BY_ID_API = PRODUCT_MANAGEMENT_PREFIX + "/id/{productId}";
-    public static final String GET_PRODUCT_BY_URL_API = PRODUCT_MANAGEMENT_PREFIX + "/{productUrl}";
+    public static final String GET_PRODUCT_BY_ID_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}";
+    public static final String GET_PRODUCT_BY_URL_API = PRODUCT_MANAGEMENT_PREFIX + "/url/{productUrl}";
     public static final String GET_PRODUCTS_BY_CATEGORY_API = PRODUCT_MANAGEMENT_PREFIX + "/category/{categoryId}";
     public static final String GET_PRODUCTS_BY_SUPPLIER_API = PRODUCT_MANAGEMENT_PREFIX + "/supplier/{supplierId}";
     public static final String SEARCH_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/search";
+    public static final String GET_FEATURED_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/featured";
+    public static final String GET_LOW_STOCK_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/low-stock";
     public static final String CREATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/update";
+    public static final String UPDATE_PRODUCT_STATUS_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/status";
+    public static final String ACTIVATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/activate";
+    public static final String DEACTIVATE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/deactivate";
     public static final String DELETE_PRODUCT_API = PRODUCT_MANAGEMENT_PREFIX + "/{productId}/delete";
     public static final String BULK_UPDATE_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/bulk-update";
+    public static final String GET_PRODUCT_COUNT_BY_CATEGORY_API = PRODUCT_MANAGEMENT_PREFIX + "/category/{categoryId}/count";
+    public static final String GET_PRODUCT_COUNT_BY_SUPPLIER_API = PRODUCT_MANAGEMENT_PREFIX + "/supplier/{supplierId}/count";
     
     // Service management module endpoints
     public static final String SERVICE_MANAGEMENT_PREFIX = "/services";
@@ -230,10 +237,23 @@ public class ApiConstant {
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,
             // Product management APIs
+            apiPrefix + GET_ALL_PRODUCTS_API,
+            apiPrefix + GET_PRODUCT_BY_ID_API,
+            apiPrefix + GET_PRODUCT_BY_URL_API,
+            apiPrefix + GET_PRODUCTS_BY_CATEGORY_API,
+            apiPrefix + GET_PRODUCTS_BY_SUPPLIER_API,
+            apiPrefix + SEARCH_PRODUCTS_API,
+            apiPrefix + GET_FEATURED_PRODUCTS_API,
+            apiPrefix + GET_LOW_STOCK_PRODUCTS_API,
             apiPrefix + CREATE_PRODUCT_API,
             apiPrefix + UPDATE_PRODUCT_API,
+            apiPrefix + UPDATE_PRODUCT_STATUS_API,
+            apiPrefix + ACTIVATE_PRODUCT_API,
+            apiPrefix + DEACTIVATE_PRODUCT_API,
             apiPrefix + DELETE_PRODUCT_API,
             apiPrefix + BULK_UPDATE_PRODUCTS_API,
+            apiPrefix + GET_PRODUCT_COUNT_BY_CATEGORY_API,
+            apiPrefix + GET_PRODUCT_COUNT_BY_SUPPLIER_API,
             // Service management APIs
             apiPrefix + GET_ALL_SERVICES_API,
             apiPrefix + GET_SERVICE_BY_ID_API,

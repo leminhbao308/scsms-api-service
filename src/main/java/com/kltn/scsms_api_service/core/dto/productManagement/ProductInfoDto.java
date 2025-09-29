@@ -24,23 +24,32 @@ public class ProductInfoDto extends AuditDto {
     private String unitOfMeasure;
     private String brand;
     private String model;
-    private Map<String, String> specifications;
     private String sku;
     private String barcode;
     private BigDecimal costPrice;
     private BigDecimal sellingPrice;
+    
+    // Inventory Management
     private Integer minStockLevel;
     private Integer maxStockLevel;
-    private Integer reorderPoint;
-    private BigDecimal weight;
-    private Map<String, String> dimensions;
+    
+    // Physical Properties
+    private BigDecimal weight; // in kg
+    private Map<String, String> dimensions; // {"length": "10cm", "width": "5cm", "height": "3cm"}
+    
+    // Warranty Information
     private Integer warrantyPeriodMonths;
-    private Boolean isTrackable;
-    private Boolean isConsumable;
-    private Map<String, String> imageUrls;
-    private Map<String, String> tags;
+    
+    // Media and Display
+    private Map<String, String> imageUrls; // {"main": "url1", "thumbnail": "url2"}
+    
+    // Business Relations
     private UUID supplierId;
+    
+    // Product Features
     private Boolean isFeatured;
-    private Integer sortOrder;
     private Boolean isActive;
+    
+    // Additional Specifications
+    private Map<String, String> specifications; // {"brightness": "3000lm", "color_temp": "6000K", "power": "50W"}
 }
