@@ -43,71 +43,132 @@ public class ServicePackage extends AuditEntity {
     private Integer totalDuration; // in minutes
     
     @Column(name = "package_price", precision = 15, scale = 2)
-    private BigDecimal packagePrice;
-    
-    @Column(name = "original_price", precision = 15, scale = 2)
-    private BigDecimal originalPrice; // Total price if services were booked separately
-    
-    @Column(name = "discount_percentage", precision = 5, scale = 2)
-    private BigDecimal discountPercentage;
-    
-    @Column(name = "savings_amount", precision = 15, scale = 2)
-    private BigDecimal savingsAmount;
+    private BigDecimal packagePrice; // Total price = sum of service prices + sum of product prices
     
     @Column(name = "package_type")
     @Enumerated(EnumType.STRING)
     private PackageType packageType;
     
-    @Column(name = "target_vehicle_types")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String targetVehicleTypes; // JSON array of supported vehicle types
-    
-    @Column(name = "validity_period_days")
-    private Integer validityPeriodDays; // How long the package is valid after purchase
-    
-    @Column(name = "max_usage_count")
-    private Integer maxUsageCount; // Maximum number of times the package can be used
-    
-    @Column(name = "is_limited_time")
-    @Builder.Default
-    private Boolean isLimitedTime = false;
-    
-    @Column(name = "start_date")
-    private java.time.LocalDate startDate;
-    
-    @Column(name = "end_date")
-    private java.time.LocalDate endDate;
-    
-    @Column(name = "is_popular")
-    @Builder.Default
-    private Boolean isPopular = false;
-    
-    @Column(name = "is_recommended")
-    @Builder.Default
-    private Boolean isRecommended = false;
     
     @Column(name = "image_urls")
     @JdbcTypeCode(SqlTypes.JSON)
     private String imageUrls;
     
-    @Column(name = "tags")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String tags;
-    
-    @Column(name = "sort_order")
-    @Builder.Default
-    private Integer sortOrder = 0;
-    
-    @Column(name = "terms_and_conditions", length = Integer.MAX_VALUE)
-    private String termsAndConditions;
     
     // One-to-many relationship with service package steps
     @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<com.kltn.scsms_api_service.core.entity.ServicePackageStep> packageSteps = new java.util.ArrayList<>();
     
+    // One-to-many relationship with service package products
+    @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<ServicePackageProduct> packageProducts = new java.util.ArrayList<>();
+    
+    // One-to-many relationship with service package services
+    @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<ServicePackageService> packageServices = new java.util.ArrayList<>();
+    
+    // Business methods
+    /**
+     * Tính tổng giá từ các service trong package (qua steps)
+     */
+    public BigDecimal calculateServiceCostFromSteps() {
+        if (packageSteps == null || packageSteps.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return packageSteps.stream()
+                .filter(step -> step.getReferencedService() != null)
+                .map(step -> step.getReferencedService().getBasePrice() != null ? 
+                     step.getReferencedService().getBasePrice() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    
+    /**
+     * Tính tổng giá từ các service trực tiếp trong package
+     */
+    public BigDecimal calculateServiceCostFromServices() {
+        if (packageServices == null || packageServices.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return packageServices.stream()
+                .filter(service -> service.getTotalPrice() != null)
+                .map(ServicePackageService::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    
+    /**
+     * Tính tổng giá từ tất cả service trong package (steps + direct services)
+     */
+    public BigDecimal calculateServiceCost() {
+        return calculateServiceCostFromSteps().add(calculateServiceCostFromServices());
+    }
+    
+    /**
+     * Tính tổng giá từ các sản phẩm trong package
+     */
+    public BigDecimal calculateProductCost() {
+        if (packageProducts == null || packageProducts.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return packageProducts.stream()
+                .filter(product -> product.getTotalPrice() != null)
+                .map(ServicePackageProduct::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    
+    /**
+     * Tính tổng giá của package (service + product)
+     */
+    public BigDecimal calculateTotalPrice() {
+        return calculateServiceCost().add(calculateProductCost());
+    }
+    
+    /**
+     * Tính tổng thời gian từ các service trong package (qua steps)
+     */
+    public Integer calculateDurationFromSteps() {
+        if (packageSteps == null || packageSteps.isEmpty()) {
+            return 0;
+        }
+        return packageSteps.stream()
+                .filter(step -> step.getReferencedService() != null)
+                .mapToInt(step -> step.getReferencedService().getStandardDuration() != null ? 
+                         step.getReferencedService().getStandardDuration() : 0)
+                .sum();
+    }
+    
+    /**
+     * Tính tổng thời gian từ các service trực tiếp trong package
+     */
+    public Integer calculateDurationFromServices() {
+        if (packageServices == null || packageServices.isEmpty()) {
+            return 0;
+        }
+        return packageServices.stream()
+                .filter(service -> service.getService() != null && service.getService().getStandardDuration() != null)
+                .mapToInt(service -> service.getService().getStandardDuration() * service.getQuantity())
+                .sum();
+    }
+    
+    /**
+     * Tính tổng thời gian từ tất cả service trong package (steps + direct services)
+     */
+    public Integer calculateTotalDuration() {
+        return calculateDurationFromSteps() + calculateDurationFromServices();
+    }
+    
+    /**
+     * Cập nhật giá và thời gian package
+     */
+    public void updatePricing() {
+        this.packagePrice = calculateTotalPrice();
+        this.totalDuration = calculateTotalDuration();
+    }
+    
     // Enums
     public enum PackageType {
-        MAINTENANCE, REPAIR, COSMETIC, INSPECTION, CUSTOM, SEASONAL, PROMOTIONAL
+        MAINTENANCE, REPAIR, COSMETIC, INSPECTION, CUSTOM
     }
 }

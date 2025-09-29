@@ -19,7 +19,6 @@ public class ServiceFilterParam extends BaseFilterParam<ServiceFilterParam> {
     private UUID categoryId;
     private Service.ServiceType serviceType;
     private Service.SkillLevel requiredSkillLevel;
-    private Service.ComplexityLevel complexityLevel;
     
     // Duration filters
     private Integer minDuration;
@@ -31,12 +30,9 @@ public class ServiceFilterParam extends BaseFilterParam<ServiceFilterParam> {
     
     // Boolean filters
     private Boolean isPackage;
-    private Boolean isExpressService;
-    private Boolean isPremiumService;
     private Boolean isFeatured;
     private Boolean isActive;
     private Boolean photoRequired;
-    private Boolean customerApprovalRequired;
     
     // Search filters
     private String search;

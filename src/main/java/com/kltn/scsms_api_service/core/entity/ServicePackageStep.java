@@ -77,9 +77,6 @@ public class ServicePackageStep extends AuditEntity {
     @Builder.Default
     private Boolean photoRequired = false;
     
-    @Column(name = "customer_approval_required")
-    @Builder.Default
-    private Boolean customerApprovalRequired = false;
     
     // Enums
     public enum StepType {

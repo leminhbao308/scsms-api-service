@@ -70,10 +70,6 @@ public class ServiceService {
         return serviceRepository.findByRequiredSkillLevel(skillLevel);
     }
     
-    public List<Service> findByComplexityLevel(Service.ComplexityLevel complexityLevel) {
-        log.info("Finding services by complexity level: {}", complexityLevel);
-        return serviceRepository.findByComplexityLevel(complexityLevel);
-    }
     
     public List<Service> findByDurationRange(Integer minDuration, Integer maxDuration) {
         log.info("Finding services by duration range: {} - {}", minDuration, maxDuration);
@@ -95,15 +91,6 @@ public class ServiceService {
         return serviceRepository.findByIsPackageFalseAndIsActiveTrue();
     }
     
-    public List<Service> findExpressServices() {
-        log.info("Finding express services");
-        return serviceRepository.findByIsExpressServiceTrueAndIsActiveTrue();
-    }
-    
-    public List<Service> findPremiumServices() {
-        log.info("Finding premium services");
-        return serviceRepository.findByIsPremiumServiceTrueAndIsActiveTrue();
-    }
     
     public List<Service> findFeaturedServices() {
         log.info("Finding featured services");
@@ -115,42 +102,13 @@ public class ServiceService {
         return serviceRepository.findByPhotoRequiredTrueAndIsActiveTrue();
     }
     
-    public List<Service> findServicesRequiringApproval() {
-        log.info("Finding services requiring customer approval");
-        return serviceRepository.findByCustomerApprovalRequiredTrueAndIsActiveTrue();
-    }
     
     public List<Service> searchByKeyword(String keyword) {
         log.info("Searching services by keyword: {}", keyword);
         return serviceRepository.searchByKeyword(keyword);
     }
     
-    public List<Service> findByTag(String tag) {
-        log.info("Finding services by tag: {}", tag);
-        return serviceRepository.findByTag(tag);
-    }
     
-    public List<Service> findByVehicleType(String vehicleType) {
-        log.info("Finding services by vehicle type: {}", vehicleType);
-        return serviceRepository.findByVehicleType(vehicleType);
-    }
-    
-    public List<Service> findByRequiredTool(String tool) {
-        log.info("Finding services by required tool: {}", tool);
-        return serviceRepository.findByRequiredTool(tool);
-    }
-    
-    public List<Service> findByMultipleCriteria(
-        Service.ServiceType serviceType,
-        Service.SkillLevel skillLevel,
-        Service.ComplexityLevel complexityLevel,
-        Boolean isExpress,
-        Boolean isPremium
-    ) {
-        log.info("Finding services by multiple criteria: serviceType={}, skillLevel={}, complexityLevel={}, isExpress={}, isPremium={}", 
-                serviceType, skillLevel, complexityLevel, isExpress, isPremium);
-        return serviceRepository.findByMultipleCriteria(serviceType, skillLevel, complexityLevel, isExpress, isPremium);
-    }
     
     public boolean existsByServiceUrl(String serviceUrl) {
         log.info("Checking if service exists by URL: {}", serviceUrl);

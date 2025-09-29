@@ -7,6 +7,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -45,58 +46,26 @@ public class CreateServiceRequest {
     
     @DecimalMin(value = "0.0", message = "Base price must be non-negative")
     @JsonProperty("base_price")
-    private BigDecimal basePrice;
+    private BigDecimal basePrice; // Total price = product costs + labor costs
     
-    @DecimalMin(value = "0.0", message = "Minimum price must be non-negative")
-    @JsonProperty("min_price")
-    private BigDecimal minPrice;
-    
-    @DecimalMin(value = "0.0", message = "Maximum price must be non-negative")
-    @JsonProperty("max_price")
-    private BigDecimal maxPrice;
-    
-    @JsonProperty("complexity_level")
-    private Service.ComplexityLevel complexityLevel;
+    @DecimalMin(value = "0.0", message = "Labor cost must be non-negative")
+    @JsonProperty("labor_cost")
+    private BigDecimal laborCost; // Tiền công lao động
     
     @JsonProperty("service_type")
     private Service.ServiceType serviceType;
     
-    @JsonProperty("vehicle_types")
-    private String vehicleTypes;
-    
-    @JsonProperty("required_tools")
-    private String requiredTools;
-    
-    @Size(max = 2000, message = "Safety notes must not exceed 2000 characters")
-    @JsonProperty("safety_notes")
-    private String safetyNotes;
-    
-    @Size(max = 2000, message = "Quality criteria must not exceed 2000 characters")
-    @JsonProperty("quality_criteria")
-    private String qualityCriteria;
-    
     @JsonProperty("photo_required")
     private Boolean photoRequired;
     
-    @JsonProperty("customer_approval_required")
-    private Boolean customerApprovalRequired;
     
-    @JsonProperty("is_express_service")
-    private Boolean isExpressService;
-    
-    @JsonProperty("is_premium_service")
-    private Boolean isPremiumService;
     
     @JsonProperty("image_urls")
-    private String imageUrls;
-    
-    @JsonProperty("tags")
-    private String tags;
-    
-    @Min(value = 0, message = "Sort order must be non-negative")
-    @JsonProperty("sort_order")
-    private Integer sortOrder;
+    private String imageUrls; // JSON array of image URLs
     
     @JsonProperty("is_featured")
     private Boolean isFeatured;
+    
+    @JsonProperty("service_products")
+    private List<CreateServiceProductRequest> serviceProducts; // Danh sách sản phẩm trong service
 }

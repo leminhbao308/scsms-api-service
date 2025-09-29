@@ -4,10 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 import lombok.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -38,63 +38,21 @@ public class CreateServicePackageRequest {
     @JsonProperty("total_duration")
     private Integer totalDuration;
     
-    @DecimalMin(value = "0.0", message = "Package price must be non-negative")
-    @JsonProperty("package_price")
-    private BigDecimal packagePrice;
-    
-    @DecimalMin(value = "0.0", message = "Original price must be non-negative")
-    @JsonProperty("original_price")
-    private BigDecimal originalPrice;
-    
-    @DecimalMin(value = "0.0", message = "Discount percentage must be non-negative")
-    @DecimalMax(value = "100.0", message = "Discount percentage cannot exceed 100%")
-    @JsonProperty("discount_percentage")
-    private BigDecimal discountPercentage;
-    
-    @DecimalMin(value = "0.0", message = "Savings amount must be non-negative")
-    @JsonProperty("savings_amount")
-    private BigDecimal savingsAmount;
-    
     @JsonProperty("package_type")
     private ServicePackage.PackageType packageType;
-    
-    @JsonProperty("target_vehicle_types")
-    private String targetVehicleTypes;
-    
-    @Min(value = 1, message = "Validity period must be at least 1 day")
-    @JsonProperty("validity_period_days")
-    private Integer validityPeriodDays;
-    
-    @Min(value = 1, message = "Maximum usage count must be at least 1")
-    @JsonProperty("max_usage_count")
-    private Integer maxUsageCount;
-    
-    @JsonProperty("is_limited_time")
-    private Boolean isLimitedTime;
-    
-    @JsonProperty("start_date")
-    private LocalDate startDate;
-    
-    @JsonProperty("end_date")
-    private LocalDate endDate;
-    
-    @JsonProperty("is_popular")
-    private Boolean isPopular;
-    
-    @JsonProperty("is_recommended")
-    private Boolean isRecommended;
     
     @JsonProperty("image_urls")
     private String imageUrls;
     
-    @JsonProperty("tags")
-    private String tags;
+    @Valid
+    @JsonProperty("package_products")
+    private List<CreateServicePackageProductRequest> packageProducts;
     
-    @Min(value = 0, message = "Sort order must be non-negative")
-    @JsonProperty("sort_order")
-    private Integer sortOrder;
+    @Valid
+    @JsonProperty("package_steps")
+    private List<CreateServicePackageStepRequest> packageSteps;
     
-    @Size(max = 2000, message = "Terms and conditions must not exceed 2000 characters")
-    @JsonProperty("terms_and_conditions")
-    private String termsAndConditions;
+    @Valid
+    @JsonProperty("package_services")
+    private List<CreateServicePackageServiceRequest> packageServices;
 }

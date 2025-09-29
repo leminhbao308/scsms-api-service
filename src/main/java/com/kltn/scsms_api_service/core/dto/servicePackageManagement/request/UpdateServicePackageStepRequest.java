@@ -11,7 +11,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
+@EqualsAndHashCode
 public class UpdateServicePackageStepRequest {
+
+    private UUID packageStepId;
 
     @Size(max = 255, message = "Step name must not exceed 255 characters")
     private String stepName;
@@ -32,4 +36,13 @@ public class UpdateServicePackageStepRequest {
     private UUID referencedServiceId;
 
     private Integer stepOrder;
+    
+    // Manual getter for packageStepId to ensure it's available
+    public UUID getPackageStepId() {
+        return packageStepId;
+    }
+    
+    public void setPackageStepId(UUID packageStepId) {
+        this.packageStepId = packageStepId;
+    }
 }

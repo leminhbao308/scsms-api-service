@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.entity.ServicePackageStep;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Getter
@@ -22,6 +23,7 @@ public class ServicePackageStepInfoDto {
     private ServicePackageStep.StepType stepType;
     private UUID referencedServiceId;
     private String referencedServiceName;
+    private BigDecimal servicePrice; // Giá của dịch vụ được tham chiếu
     private Integer estimatedDuration;
     private String instructions;
     private Boolean isOptional;
@@ -32,7 +34,6 @@ public class ServicePackageStepInfoDto {
     private String safetyNotes;
     private String qualityCriteria;
     private Boolean photoRequired;
-    private Boolean customerApprovalRequired;
     private Boolean isActive;
     private Boolean isDeleted;
     private AuditDto audit;

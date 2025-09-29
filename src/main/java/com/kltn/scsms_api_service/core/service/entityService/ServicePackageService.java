@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -77,90 +76,9 @@ public class ServicePackageService {
         return servicePackageRepository.findByDurationRange(minDuration, maxDuration);
     }
     
-    public List<ServicePackage> findByMinDiscount(BigDecimal minDiscount) {
-        log.info("Finding service packages by minimum discount: {}", minDiscount);
-        return servicePackageRepository.findByMinDiscount(minDiscount);
-    }
-    
-    public List<ServicePackage> findPopularPackages() {
-        log.info("Finding popular service packages");
-        return servicePackageRepository.findByIsPopularTrueAndIsActiveTrue();
-    }
-    
-    public List<ServicePackage> findRecommendedPackages() {
-        log.info("Finding recommended service packages");
-        return servicePackageRepository.findByIsRecommendedTrueAndIsActiveTrue();
-    }
-    
-    public List<ServicePackage> findLimitedTimePackages() {
-        log.info("Finding limited time service packages");
-        return servicePackageRepository.findByIsLimitedTimeTrueAndIsActiveTrue();
-    }
-    
-    public List<ServicePackage> findByMaxValidityPeriod(Integer maxValidityDays) {
-        log.info("Finding service packages by maximum validity period: {}", maxValidityDays);
-        return servicePackageRepository.findByMaxValidityPeriod(maxValidityDays);
-    }
-    
-    public List<ServicePackage> findByMaxUsageCount(Integer maxUsage) {
-        log.info("Finding service packages by maximum usage count: {}", maxUsage);
-        return servicePackageRepository.findByMaxUsageCount(maxUsage);
-    }
-    
-    public List<ServicePackage> findByDateRange(LocalDate startDate, LocalDate endDate) {
-        log.info("Finding service packages by date range: {} - {}", startDate, endDate);
-        return servicePackageRepository.findByDateRange(startDate, endDate);
-    }
-    
-    public List<ServicePackage> findCurrentlyActivePackages() {
-        log.info("Finding currently active service packages");
-        return servicePackageRepository.findCurrentlyActivePackages();
-    }
-    
-    public List<ServicePackage> findExpiredPackages() {
-        log.info("Finding expired service packages");
-        return servicePackageRepository.findExpiredPackages();
-    }
-    
-    public List<ServicePackage> findUpcomingPackages() {
-        log.info("Finding upcoming service packages");
-        return servicePackageRepository.findUpcomingPackages();
-    }
-    
     public List<ServicePackage> searchByKeyword(String keyword) {
         log.info("Searching service packages by keyword: {}", keyword);
         return servicePackageRepository.searchByKeyword(keyword);
-    }
-    
-    public List<ServicePackage> findByTag(String tag) {
-        log.info("Finding service packages by tag: {}", tag);
-        return servicePackageRepository.findByTag(tag);
-    }
-    
-    public List<ServicePackage> findByTargetVehicleType(String vehicleType) {
-        log.info("Finding service packages by target vehicle type: {}", vehicleType);
-        return servicePackageRepository.findByTargetVehicleType(vehicleType);
-    }
-    
-    public List<ServicePackage> findByMultipleCriteria(
-        ServicePackage.PackageType packageType,
-        Boolean isPopular,
-        Boolean isRecommended,
-        Boolean isLimitedTime
-    ) {
-        log.info("Finding service packages by multiple criteria: packageType={}, isPopular={}, isRecommended={}, isLimitedTime={}", 
-                packageType, isPopular, isRecommended, isLimitedTime);
-        return servicePackageRepository.findByMultipleCriteria(packageType, isPopular, isRecommended, isLimitedTime);
-    }
-    
-    public List<ServicePackage> findPackagesWithBestSavings() {
-        log.info("Finding service packages with best savings");
-        return servicePackageRepository.findPackagesWithBestSavings();
-    }
-    
-    public List<ServicePackage> findPackagesWithHighestDiscount() {
-        log.info("Finding service packages with highest discount");
-        return servicePackageRepository.findPackagesWithHighestDiscount();
     }
     
     public boolean existsByPackageUrl(String packageUrl) {
@@ -188,10 +106,6 @@ public class ServicePackageService {
         return servicePackageRepository.getAverageDurationByPackageType(packageType);
     }
     
-    public BigDecimal getAverageDiscountByPackageType(ServicePackage.PackageType packageType) {
-        log.info("Getting average discount by package type: {}", packageType);
-        return servicePackageRepository.getAverageDiscountByPackageType(packageType);
-    }
     
     @Transactional
     public ServicePackage save(ServicePackage servicePackage) {

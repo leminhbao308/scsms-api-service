@@ -35,11 +35,17 @@ public enum ErrorCode {
     // Service related errors
     SERVICE_NOT_FOUND("SCS-2001", "SCS-2001", "SERVICE", "Service not found", "error.service_not_found"),
     SERVICE_URL_EXISTS("SCS-2002", "SCS-2002", "SERVICE", "Service URL already exists", "error.service_url_exists"),
+    SERVICE_PRODUCT_NOT_FOUND("SCS-2003", "SCS-2003", "SERVICE", "Service product not found", "error.service_product_not_found"),
+    SERVICE_PRODUCT_ALREADY_EXISTS("SCS-2004", "SCS-2004", "SERVICE", "Service product already exists", "error.service_product_already_exists"),
     
     // Service Package related errors
     SERVICE_PACKAGE_NOT_FOUND("SCS-3001", "SCS-3001", "SERVICE_PACKAGE", "Service package not found", "error.service_package_not_found"),
     SERVICE_PACKAGE_URL_EXISTS("SCS-3002", "SCS-3002", "SERVICE_PACKAGE", "Service package URL already exists", "error.service_package_url_exists"),
     SERVICE_PACKAGE_STEP_NOT_FOUND("SCS-3003", "SCS-3003", "SERVICE_PACKAGE", "Service package step not found", "error.service_package_step_not_found"),
+    SERVICE_PACKAGE_PRODUCT_NOT_FOUND("SCS-3004", "SCS-3004", "SERVICE_PACKAGE", "Service package product not found", "error.service_package_product_not_found"),
+    SERVICE_PACKAGE_PRODUCT_ALREADY_EXISTS("SCS-3005", "SCS-3005", "SERVICE_PACKAGE", "Service package product already exists", "error.service_package_product_already_exists"),
+    SERVICE_PACKAGE_SERVICE_NOT_FOUND("SCS-3006", "SCS-3006", "SERVICE_PACKAGE", "Service package service not found", "error.service_package_service_not_found"),
+    SERVICE_PACKAGE_SERVICE_ALREADY_EXISTS("SCS-3007", "SCS-3007", "SERVICE_PACKAGE", "Service package service already exists", "error.service_package_service_already_exists"),
     
     // Category related errors
     CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
