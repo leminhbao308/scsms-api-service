@@ -1,8 +1,6 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleModelFilterParam;
-import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.VehicleModel;
 import com.kltn.scsms_api_service.core.repository.VehicleModelRepository;
 import com.kltn.scsms_api_service.exception.ClientSideException;

@@ -3,7 +3,6 @@ package com.kltn.scsms_api_service.core.service.entityService;
 import com.kltn.scsms_api_service.core.dto.supplierManagement.param.SupplierFilterParam;
 import com.kltn.scsms_api_service.core.entity.Supplier;
 import com.kltn.scsms_api_service.core.repository.SupplierRepository;
-import com.kltn.scsms_api_service.mapper.SupplierMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;

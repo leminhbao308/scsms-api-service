@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -115,6 +116,27 @@ public class GlobalExceptionHandler {
         
         log.warn("Endpoint not found - Path: {}, Method: {}",
             getRequestPath(request), ex.getHttpMethod());
+        
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+    
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(
+        NoResourceFoundException ex, WebRequest request) {
+        
+        HttpStatus status = HttpStatus.NOT_FOUND;
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(status.value())
+            .error(status.getReasonPhrase())
+            .message("Resource not found")
+            .path(getRequestPath(request))
+            .errorCode(ErrorCode.NOT_FOUND.getCode())
+            .build();
+        
+        log.warn("Resource not found - Path: {}, Exception: {}",
+            getRequestPath(request), ex.getMessage());
         
         return ResponseEntity.status(status).body(errorResponse);
     }

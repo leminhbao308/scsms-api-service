@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
@@ -29,7 +28,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Product Management", description = "APIs for managing products")
-public class ProductManagementController extends BaseController {
+public class ProductManagementController {
     
     private final ProductManagementService productManagementService;
     

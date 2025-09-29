@@ -1,9 +1,9 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
+import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageStepInfoDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.param.ServicePackageFilterParam;
@@ -11,7 +11,6 @@ import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.Crea
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageStepRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageStepRequest;
-import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.businessService.ServicePackageManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -33,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Package Management", description = "APIs for managing service packages")
-public class ServicePackageManagementController extends BaseController {
+public class ServicePackageManagementController {
     
     private final ServicePackageManagementService servicePackageManagementService;
     

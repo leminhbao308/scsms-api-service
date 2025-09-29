@@ -1,14 +1,13 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
+import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.param.ServiceFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceRequest;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceRequest;
-import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Service;
 import com.kltn.scsms_api_service.core.service.businessService.ServiceManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -30,7 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Management", description = "APIs for managing services")
-public class ServiceManagementController extends BaseController {
+public class ServiceManagementController {
     
     private final ServiceManagementService serviceManagementService;
     

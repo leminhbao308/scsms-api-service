@@ -1,7 +1,10 @@
 package com.kltn.scsms_api_service.core.dto.productManagement;
 
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;

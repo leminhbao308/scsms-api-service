@@ -5,8 +5,8 @@ import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryHierarchyD
 import com.kltn.scsms_api_service.core.dto.categoryManagement.CategoryInfoDto;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.param.CategoryFilterParam;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryCreateRequest;
-import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryUpdateRequest;
 import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryStatusUpdateRequest;
+import com.kltn.scsms_api_service.core.dto.categoryManagement.request.CategoryUpdateRequest;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

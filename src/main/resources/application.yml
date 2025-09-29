@@ -3,6 +3,8 @@ spring:
     name: scsms-api-service
   profiles:
     active: dev  # dev/prod
+  main:
+    allow-bean-definition-overriding: true
 
 server:
   port: 8081

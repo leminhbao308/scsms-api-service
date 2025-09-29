@@ -3,7 +3,10 @@ package com.kltn.scsms_api_service.core.dto.supplierManagement.param;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.abstracts.BaseFilterParam;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
