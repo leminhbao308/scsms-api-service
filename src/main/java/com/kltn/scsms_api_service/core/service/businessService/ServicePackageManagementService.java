@@ -1,26 +1,21 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageStepInfoDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageProductDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.param.ServicePackageFilterParam;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageStepRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageStepRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageServiceDto;
 import com.kltn.scsms_api_service.core.entity.Category;
 import com.kltn.scsms_api_service.core.entity.ServicePackage;
-import com.kltn.scsms_api_service.core.entity.ServicePackageStep;
 import com.kltn.scsms_api_service.core.entity.ServicePackageProduct;
 import com.kltn.scsms_api_service.core.entity.ServicePackageService;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
-import com.kltn.scsms_api_service.core.service.entityService.ServicePackageStepService;
 import com.kltn.scsms_api_service.core.service.entityService.ServicePackageProductService;
 import com.kltn.scsms_api_service.core.service.entityService.ServicePackageServiceEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.ProductService;
@@ -40,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -50,7 +46,6 @@ import java.util.stream.Collectors;
 public class ServicePackageManagementService {
     
     private final com.kltn.scsms_api_service.core.service.entityService.ServicePackageService servicePackageEntityService;
-    private final ServicePackageStepService servicePackageStepService;
     private final ServicePackageProductService servicePackageProductService;
     private final ServicePackageServiceEntityService servicePackageServiceEntityService;
     private final CategoryService categoryService;
@@ -157,17 +152,12 @@ public class ServicePackageManagementService {
             processServicePackageProducts(savedServicePackage, createServicePackageRequest.getPackageProducts());
         }
         
-        // Process package steps if provided
-        if (createServicePackageRequest.getPackageSteps() != null && !createServicePackageRequest.getPackageSteps().isEmpty()) {
-            processServicePackageSteps(savedServicePackage, createServicePackageRequest.getPackageSteps());
-        }
-        
         // Process package services if provided
         if (createServicePackageRequest.getPackageServices() != null && !createServicePackageRequest.getPackageServices().isEmpty()) {
             processServicePackageServices(savedServicePackage, createServicePackageRequest.getPackageServices());
         }
         
-        // Update pricing after products, steps and services are processed
+        // Update pricing after products and services are processed
         savedServicePackage.updatePricing();
         ServicePackage finalServicePackage = servicePackageEntityService.update(savedServicePackage);
         
@@ -204,17 +194,12 @@ public class ServicePackageManagementService {
             processUpdateServicePackageProducts(savedServicePackage, updateServicePackageRequest.getPackageProducts());
         }
         
-        // Process package steps if provided
-        if (updateServicePackageRequest.getPackageSteps() != null && !updateServicePackageRequest.getPackageSteps().isEmpty()) {
-            processUpdateServicePackageSteps(savedServicePackage, updateServicePackageRequest.getPackageSteps());
-        }
-        
         // Process package services if provided
         if (updateServicePackageRequest.getPackageServices() != null && !updateServicePackageRequest.getPackageServices().isEmpty()) {
             processUpdateServicePackageServices(savedServicePackage, updateServicePackageRequest.getPackageServices());
         }
         
-        // Update pricing after products, steps and services are processed
+        // Update pricing after products and services are processed
         savedServicePackage.updatePricing();
         ServicePackage finalServicePackage = servicePackageEntityService.update(savedServicePackage);
         
@@ -232,6 +217,8 @@ public class ServicePackageManagementService {
         log.info("Updating service package status for ID: {} to active: {}", packageId, isActive);
         ServicePackage servicePackage = servicePackageEntityService.getById(packageId);
         servicePackage.setIsActive(isActive);
+        // Note: Only update isActive, do not touch isDeleted field
+        // isDeleted should only be updated when explicitly deleting the service package
         servicePackageEntityService.update(servicePackage);
     }
     
@@ -245,67 +232,6 @@ public class ServicePackageManagementService {
         return servicePackageEntityService.countByPackageType(packageType);
     }
     
-    // ServicePackageStep methods
-    public List<ServicePackageStepInfoDto> getServicePackageSteps(UUID packageId) {
-        log.info("Getting service package steps for package ID: {}", packageId);
-        List<ServicePackageStep> steps = servicePackageStepService.getActiveServicePackageStepsByPackageId(packageId);
-        return servicePackageMapper.toServicePackageStepInfoDtoList(steps);
-    }
-    
-    @Transactional
-    public ServicePackageStepInfoDto addServicePackageStep(UUID packageId, CreateServicePackageStepRequest createRequest) {
-        log.info("Adding service package step to package ID: {}", packageId);
-        
-        // Validate package exists
-        ServicePackage servicePackage = servicePackageEntityService.getById(packageId);
-        
-        // Create step
-        ServicePackageStep step = servicePackageMapper.toServicePackageStep(createRequest);
-        step.setServicePackage(servicePackage);
-        
-        // Set step order if not provided
-        if (step.getStepOrder() == null) {
-            Integer maxOrder = servicePackageStepService.getMaxStepOrderByPackageId(packageId);
-            step.setStepOrder(maxOrder != null ? maxOrder + 1 : 1);
-        }
-        
-        ServicePackageStep savedStep = servicePackageStepService.createServicePackageStep(step);
-        return servicePackageMapper.toServicePackageStepInfoDto(savedStep);
-    }
-    
-    @Transactional
-    public ServicePackageStepInfoDto updateServicePackageStep(UUID packageId, UUID stepId, UpdateServicePackageStepRequest updateRequest) {
-        log.info("Updating service package step with ID: {} for package ID: {}", stepId, packageId);
-        
-        // Validate package exists
-        servicePackageEntityService.getById(packageId);
-        
-        // Get existing step
-        ServicePackageStep existingStep = servicePackageStepService.getServicePackageStepById(stepId)
-            .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PACKAGE_STEP_NOT_FOUND, 
-                "Service package step not found with ID: " + stepId));
-        
-        // Update step
-        ServicePackageStep updatedStep = servicePackageMapper.updateServicePackageStep(existingStep, updateRequest);
-        ServicePackageStep savedStep = servicePackageStepService.updateServicePackageStep(updatedStep);
-        
-        return servicePackageMapper.toServicePackageStepInfoDto(savedStep);
-    }
-    
-    @Transactional
-    public void deleteServicePackageStep(UUID packageId, UUID stepId) {
-        log.info("Deleting service package step with ID: {} for package ID: {}", stepId, packageId);
-        
-        // Validate package exists
-        servicePackageEntityService.getById(packageId);
-        
-        // Validate step exists
-        servicePackageStepService.getServicePackageStepById(stepId)
-            .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PACKAGE_STEP_NOT_FOUND, 
-                "Service package step not found with ID: " + stepId));
-        
-        servicePackageStepService.softDeleteServicePackageStep(stepId);
-    }
     
     // ServicePackageProduct methods
     private void processServicePackageProducts(ServicePackage servicePackage, List<CreateServicePackageProductRequest> productRequests) {
@@ -334,35 +260,34 @@ public class ServicePackageManagementService {
         log.info("Processing {} product updates for service package: {}", productRequests.size(), servicePackage.getPackageName());
         
         for (UpdateServicePackageProductRequest productRequest : productRequests) {
-            if (productRequest.getServicePackageProductId() != null) {
-                // Update existing product
-                ServicePackageProduct existingProduct = servicePackageProductService.findByPackageIdAndProductId(
-                    servicePackage.getPackageId(), productRequest.getProductId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PACKAGE_PRODUCT_NOT_FOUND,
-                        "Service package product not found"));
+            if (productRequest.getProductId() != null) {
+                // Check if product already exists in package
+                Optional<ServicePackageProduct> existingProductOpt = servicePackageProductService.findByPackageIdAndProductId(
+                    servicePackage.getPackageId(), productRequest.getProductId());
                 
-                ServicePackageProduct updatedProduct = servicePackageProductMapper.updateEntity(existingProduct, productRequest);
-                servicePackageProductService.update(updatedProduct);
-            } else if (productRequest.getProductId() != null) {
-                // Add new product
-                Product product = productService.getById(productRequest.getProductId());
-                
-                if (servicePackageProductService.existsByPackageIdAndProductId(servicePackage.getPackageId(), productRequest.getProductId())) {
-                    throw new ClientSideException(ErrorCode.SERVICE_PACKAGE_PRODUCT_ALREADY_EXISTS,
-                        "Product already exists in service package: " + product.getProductName());
+                if (existingProductOpt.isPresent()) {
+                    // Update existing product
+                    ServicePackageProduct existingProduct = existingProductOpt.get();
+                    ServicePackageProduct updatedProduct = servicePackageProductMapper.updateEntity(existingProduct, productRequest);
+                    servicePackageProductService.update(updatedProduct);
+                    log.info("Updated existing product in service package: {}", productRequest.getProductId());
+                } else {
+                    // Add new product
+                    Product product = productService.getById(productRequest.getProductId());
+                    
+                    ServicePackageProduct servicePackageProduct = new ServicePackageProduct();
+                    servicePackageProduct.setServicePackage(servicePackage);
+                    servicePackageProduct.setProduct(product);
+                    servicePackageProduct.setQuantity(productRequest.getQuantity());
+                    servicePackageProduct.setUnitPrice(productRequest.getUnitPrice());
+                    servicePackageProduct.setNotes(productRequest.getNotes());
+                    servicePackageProduct.setIsRequired(productRequest.getIsRequired());
+                    servicePackageProduct.setIsActive(true);
+                    servicePackageProduct.setIsDeleted(false);
+                    
+                    servicePackageProductService.save(servicePackageProduct);
+                    log.info("Added new product to service package: {}", productRequest.getProductId());
                 }
-                
-                ServicePackageProduct servicePackageProduct = new ServicePackageProduct();
-                servicePackageProduct.setServicePackage(servicePackage);
-                servicePackageProduct.setProduct(product);
-                servicePackageProduct.setQuantity(productRequest.getQuantity());
-                servicePackageProduct.setUnitPrice(productRequest.getUnitPrice());
-                servicePackageProduct.setNotes(productRequest.getNotes());
-                servicePackageProduct.setIsRequired(productRequest.getIsRequired());
-                servicePackageProduct.setIsActive(true);
-                servicePackageProduct.setIsDeleted(false);
-                
-                servicePackageProductService.save(servicePackageProduct);
             }
         }
     }
@@ -445,60 +370,6 @@ public class ServicePackageManagementService {
         servicePackageEntityService.update(servicePackage);
     }
     
-    // ServicePackageStep methods
-    private void processServicePackageSteps(ServicePackage servicePackage, List<CreateServicePackageStepRequest> stepRequests) {
-        log.info("Processing {} steps for service package: {}", stepRequests.size(), servicePackage.getPackageName());
-        
-        for (CreateServicePackageStepRequest stepRequest : stepRequests) {
-            // Validate service exists if referenced
-            if (stepRequest.getReferencedServiceId() != null) {
-                serviceService.getById(stepRequest.getReferencedServiceId());
-            }
-            
-            // Create service package step
-            ServicePackageStep servicePackageStep = servicePackageMapper.toServicePackageStep(stepRequest);
-            servicePackageStep.setServicePackage(servicePackage);
-            
-            // Set referenced service if provided
-            if (stepRequest.getReferencedServiceId() != null) {
-                com.kltn.scsms_api_service.core.entity.Service referencedService = serviceService.getById(stepRequest.getReferencedServiceId());
-                servicePackageStep.setReferencedService(referencedService);
-            }
-            
-            servicePackageStepService.createServicePackageStep(servicePackageStep);
-        }
-    }
-    
-    private void processUpdateServicePackageSteps(ServicePackage servicePackage, List<UpdateServicePackageStepRequest> stepRequests) {
-        log.info("Processing {} step updates for service package: {}", stepRequests.size(), servicePackage.getPackageName());
-        
-        for (UpdateServicePackageStepRequest stepRequest : stepRequests) {
-            // For now, we'll only handle adding new steps
-            // Update existing steps can be handled through separate API endpoints
-            if (stepRequest.getReferencedServiceId() != null) {
-                serviceService.getById(stepRequest.getReferencedServiceId());
-            }
-            
-            ServicePackageStep servicePackageStep = new ServicePackageStep();
-            servicePackageStep.setServicePackage(servicePackage);
-            servicePackageStep.setStepName(stepRequest.getStepName());
-            servicePackageStep.setDescription(stepRequest.getDescription());
-            servicePackageStep.setStepOrder(stepRequest.getStepOrder());
-            servicePackageStep.setStepType(stepRequest.getStepType());
-            servicePackageStep.setEstimatedDuration(stepRequest.getEstimatedDuration());
-            servicePackageStep.setInstructions(stepRequest.getInstructions());
-            servicePackageStep.setIsOptional(stepRequest.getIsOptional());
-            servicePackageStep.setIsActive(true);
-            servicePackageStep.setIsDeleted(false);
-            
-            if (stepRequest.getReferencedServiceId() != null) {
-                com.kltn.scsms_api_service.core.entity.Service referencedService = serviceService.getById(stepRequest.getReferencedServiceId());
-                servicePackageStep.setReferencedService(referencedService);
-            }
-            
-            servicePackageStepService.createServicePackageStep(servicePackageStep);
-        }
-    }
     
     // ServicePackageService methods
     private void processServicePackageServices(ServicePackage servicePackage, List<CreateServicePackageServiceRequest> serviceRequests) {
@@ -532,35 +403,34 @@ public class ServicePackageManagementService {
         log.info("Processing {} service updates for service package: {}", serviceRequests.size(), servicePackage.getPackageName());
         
         for (UpdateServicePackageServiceRequest serviceRequest : serviceRequests) {
-            if (serviceRequest.getServicePackageServiceId() != null) {
-                // Update existing service
-                ServicePackageService existingService = servicePackageServiceEntityService.findByPackageIdAndServiceId(
-                    servicePackage.getPackageId(), serviceRequest.getServiceId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PACKAGE_SERVICE_NOT_FOUND,
-                        "Service package service not found"));
+            if (serviceRequest.getServiceId() != null) {
+                // Check if service already exists in package
+                Optional<ServicePackageService> existingServiceOpt = servicePackageServiceEntityService.findByPackageIdAndServiceId(
+                    servicePackage.getPackageId(), serviceRequest.getServiceId());
                 
-                ServicePackageService updatedService = servicePackageServiceMapper.updateEntity(existingService, serviceRequest);
-                servicePackageServiceEntityService.update(updatedService);
-            } else if (serviceRequest.getServiceId() != null) {
-                // Add new service
-                com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(serviceRequest.getServiceId());
-                
-                if (servicePackageServiceEntityService.existsByPackageIdAndServiceId(servicePackage.getPackageId(), serviceRequest.getServiceId())) {
-                    throw new ClientSideException(ErrorCode.SERVICE_PACKAGE_SERVICE_ALREADY_EXISTS,
-                        "Service already exists in service package: " + service.getServiceName());
+                if (existingServiceOpt.isPresent()) {
+                    // Update existing service
+                    ServicePackageService existingService = existingServiceOpt.get();
+                    ServicePackageService updatedService = servicePackageServiceMapper.updateEntity(existingService, serviceRequest);
+                    servicePackageServiceEntityService.update(updatedService);
+                    log.info("Updated existing service in service package: {}", serviceRequest.getServiceId());
+                } else {
+                    // Add new service
+                    com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(serviceRequest.getServiceId());
+                    
+                    ServicePackageService servicePackageEntityService = new ServicePackageService();
+                    servicePackageEntityService.setServicePackage(servicePackage);
+                    servicePackageEntityService.setService(service);
+                    servicePackageEntityService.setQuantity(serviceRequest.getQuantity());
+                    servicePackageEntityService.setUnitPrice(serviceRequest.getUnitPrice() != null ? serviceRequest.getUnitPrice() : service.getBasePrice());
+                    servicePackageEntityService.setNotes(serviceRequest.getNotes());
+                    servicePackageEntityService.setIsRequired(serviceRequest.getIsRequired());
+                    servicePackageEntityService.setIsActive(true);
+                    servicePackageEntityService.setIsDeleted(false);
+                    
+                    servicePackageServiceEntityService.save(servicePackageEntityService);
+                    log.info("Added new service to service package: {}", serviceRequest.getServiceId());
                 }
-                
-                ServicePackageService servicePackageEntityService = new ServicePackageService();
-                servicePackageEntityService.setServicePackage(servicePackage);
-                servicePackageEntityService.setService(service);
-                servicePackageEntityService.setQuantity(serviceRequest.getQuantity());
-                servicePackageEntityService.setUnitPrice(serviceRequest.getUnitPrice() != null ? serviceRequest.getUnitPrice() : service.getBasePrice());
-                servicePackageEntityService.setNotes(serviceRequest.getNotes());
-                servicePackageEntityService.setIsRequired(serviceRequest.getIsRequired());
-                servicePackageEntityService.setIsActive(true);
-                servicePackageEntityService.setIsDeleted(false);
-                
-                servicePackageServiceEntityService.save(servicePackageEntityService);
             }
         }
     }

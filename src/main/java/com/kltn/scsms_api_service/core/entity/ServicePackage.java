@@ -71,19 +71,6 @@ public class ServicePackage extends AuditEntity {
     private List<ServicePackageService> packageServices = new java.util.ArrayList<>();
     
     // Business methods
-    /**
-     * Tính tổng giá từ các service trong package (qua steps)
-     */
-    public BigDecimal calculateServiceCostFromSteps() {
-        if (packageSteps == null || packageSteps.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        return packageSteps.stream()
-                .filter(step -> step.getReferencedService() != null)
-                .map(step -> step.getReferencedService().getBasePrice() != null ? 
-                     step.getReferencedService().getBasePrice() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
     
     /**
      * Tính tổng giá từ các service trực tiếp trong package
@@ -99,10 +86,10 @@ public class ServicePackage extends AuditEntity {
     }
     
     /**
-     * Tính tổng giá từ tất cả service trong package (steps + direct services)
+     * Tính tổng giá từ tất cả service trong package (direct services only)
      */
     public BigDecimal calculateServiceCost() {
-        return calculateServiceCostFromSteps().add(calculateServiceCostFromServices());
+        return calculateServiceCostFromServices();
     }
     
     /**
@@ -125,19 +112,6 @@ public class ServicePackage extends AuditEntity {
         return calculateServiceCost().add(calculateProductCost());
     }
     
-    /**
-     * Tính tổng thời gian từ các service trong package (qua steps)
-     */
-    public Integer calculateDurationFromSteps() {
-        if (packageSteps == null || packageSteps.isEmpty()) {
-            return 0;
-        }
-        return packageSteps.stream()
-                .filter(step -> step.getReferencedService() != null)
-                .mapToInt(step -> step.getReferencedService().getStandardDuration() != null ? 
-                         step.getReferencedService().getStandardDuration() : 0)
-                .sum();
-    }
     
     /**
      * Tính tổng thời gian từ các service trực tiếp trong package
@@ -153,10 +127,10 @@ public class ServicePackage extends AuditEntity {
     }
     
     /**
-     * Tính tổng thời gian từ tất cả service trong package (steps + direct services)
+     * Tính tổng thời gian từ tất cả service trong package (direct services only)
      */
     public Integer calculateTotalDuration() {
-        return calculateDurationFromSteps() + calculateDurationFromServices();
+        return calculateDurationFromServices();
     }
     
     /**

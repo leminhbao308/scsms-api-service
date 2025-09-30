@@ -5,7 +5,6 @@ import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,7 +28,6 @@ public class ServicePackageInfoDto {
     private ServicePackage.PackageType packageType;
     private String imageUrls;
     private Boolean isActive;
-    private List<ServicePackageStepInfoDto> packageSteps;
     private List<ServicePackageProductDto> packageProducts;
     private List<ServicePackageServiceDto> packageServices;
     private AuditDto audit;

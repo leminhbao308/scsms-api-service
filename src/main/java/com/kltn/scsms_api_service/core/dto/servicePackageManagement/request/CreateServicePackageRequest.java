@@ -49,10 +49,6 @@ public class CreateServicePackageRequest {
     private List<CreateServicePackageProductRequest> packageProducts;
     
     @Valid
-    @JsonProperty("package_steps")
-    private List<CreateServicePackageStepRequest> packageSteps;
-    
-    @Valid
     @JsonProperty("package_services")
     private List<CreateServicePackageServiceRequest> packageServices;
 }

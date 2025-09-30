@@ -50,10 +50,6 @@ public class UpdateServicePackageRequest {
     private List<UpdateServicePackageProductRequest> packageProducts;
     
     @Valid
-    @JsonProperty("package_steps")
-    private List<UpdateServicePackageStepRequest> packageSteps;
-    
-    @Valid
     @JsonProperty("package_services")
     private List<UpdateServicePackageServiceRequest> packageServices;
 }

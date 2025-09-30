@@ -1,20 +1,16 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.abstracts.BaseController;
-import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageStepInfoDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageProductDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageServiceDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.param.ServicePackageFilterParam;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageStepRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageStepRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -143,7 +139,7 @@ public class ServicePackageManagementController extends BaseController {
         return ResponseBuilder.success("Service package deleted successfully");
     }
     
-    @PostMapping("/{packageId}/status")
+    @PostMapping(ApiConstant.SERVICE_PACKAGE_MANAGEMENT_PREFIX +"/{packageId}/status")
     @Operation(summary = "Update service package status", description = "Update the active status of a service package")
     @SwaggerOperation(summary = "Update service package status")
     // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
@@ -179,57 +175,9 @@ public class ServicePackageManagementController extends BaseController {
         return ResponseBuilder.success(count);
     }
     
-    // ServicePackageStep endpoints
-    @GetMapping(ApiConstant.GET_SERVICE_PACKAGE_STEPS_API)
-    @Operation(summary = "Get service package steps", description = "Retrieve all steps for a service package")
-    @SwaggerOperation(summary = "Get service package steps")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
-    public ResponseEntity<ApiResponse<List<ServicePackageStepInfoDto>>> getServicePackageSteps(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId) {
-        log.info("Getting service package steps for package ID: {}", packageId);
-        List<ServicePackageStepInfoDto> steps = servicePackageManagementService.getServicePackageSteps(packageId);
-        return ResponseBuilder.success(steps);
-    }
-    
-    @PostMapping(ApiConstant.ADD_SERVICE_PACKAGE_STEP_API)
-    @Operation(summary = "Add service package step", description = "Add a new step to a service package")
-    @SwaggerOperation(summary = "Add service package step")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<ServicePackageStepInfoDto>> addServicePackageStep(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Service package step creation request") @Valid @RequestBody CreateServicePackageStepRequest createRequest) {
-        log.info("Adding service package step to package ID: {}", packageId);
-        ServicePackageStepInfoDto step = servicePackageManagementService.addServicePackageStep(packageId, createRequest);
-        return ResponseBuilder.created(step);
-    }
-    
-    @PostMapping(ApiConstant.UPDATE_SERVICE_PACKAGE_STEP_API)
-    @Operation(summary = "Update service package step", description = "Update an existing service package step")
-    @SwaggerOperation(summary = "Update service package step")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<ServicePackageStepInfoDto>> updateServicePackageStep(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Service package step ID") @PathVariable UUID stepId,
-            @Parameter(description = "Service package step update request") @Valid @RequestBody UpdateServicePackageStepRequest updateRequest) {
-        log.info("Updating service package step with ID: {} for package ID: {}", stepId, packageId);
-        ServicePackageStepInfoDto step = servicePackageManagementService.updateServicePackageStep(packageId, stepId, updateRequest);
-        return ResponseBuilder.success(step);
-    }
-    
-    @PostMapping(ApiConstant.DELETE_SERVICE_PACKAGE_STEP_API)
-    @Operation(summary = "Delete service package step", description = "Delete a service package step")
-    @SwaggerOperation(summary = "Delete service package step")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<Void>> deleteServicePackageStep(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Service package step ID") @PathVariable UUID stepId) {
-        log.info("Deleting service package step with ID: {} for package ID: {}", stepId, packageId);
-        servicePackageManagementService.deleteServicePackageStep(packageId, stepId);
-        return ResponseBuilder.success("Service package step deleted successfully");
-    }
     
     // ServicePackageProduct endpoints
-    @GetMapping("/{packageId}/products")
+    @GetMapping(ApiConstant.SERVICE_PACKAGE_MANAGEMENT_PREFIX +"/{packageId}/products")
     @Operation(summary = "Get service package products", description = "Retrieve all products for a service package")
     @SwaggerOperation(summary = "Get service package products")
     // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})

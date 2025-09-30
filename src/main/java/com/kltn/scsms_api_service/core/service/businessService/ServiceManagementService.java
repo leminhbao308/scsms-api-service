@@ -243,11 +243,8 @@ public class ServiceManagementService {
         log.info("Updating service status for ID: {} to active: {}", serviceId, isActive);
         Service service = serviceService.getById(serviceId);
         service.setIsActive(isActive);
-        if (!isActive) {
-            service.setIsDeleted(true);
-        } else {
-            service.setIsDeleted(false);
-        }
+        // Note: Only update isActive, do not touch isDeleted field
+        // isDeleted should only be updated when explicitly deleting the service
         serviceService.update(service);
     }
     
