@@ -173,6 +173,26 @@ public class ApiConstant {
     public static final String DELETE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/delete";
     public static final String VALIDATE_CATEGORY_URL_API = CATEGORY_MANAGEMENT_PREFIX + "/validate-url";
     
+    // Promotion management module endpoints
+    public static final String PROMOTION_MANAGEMENT_PREFIX = "/promotions";
+    public static final String GET_ALL_PROMOTIONS_API = PROMOTION_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_PROMOTION_BY_ID_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}";
+    public static final String GET_PROMOTION_BY_CODE_API = PROMOTION_MANAGEMENT_PREFIX + "/code/{promotionCode}";
+    public static final String CREATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/update";
+    public static final String DELETE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/delete";
+    public static final String ACTIVATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/activate";
+    public static final String DEACTIVATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/deactivate";
+    public static final String MAKE_PROMOTION_VISIBLE_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/make-visible";
+    public static final String MAKE_PROMOTION_INVISIBLE_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/make-invisible";
+    public static final String RESTORE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/restore";
+    public static final String GET_PROMOTION_STATISTICS_API = PROMOTION_MANAGEMENT_PREFIX + "/statistics";
+    public static final String GET_ACTIVE_PROMOTIONS_API = PROMOTION_MANAGEMENT_PREFIX + "/active";
+    public static final String GET_VISIBLE_PROMOTIONS_API = PROMOTION_MANAGEMENT_PREFIX + "/visible";
+    public static final String GET_EXPIRED_PROMOTIONS_API = PROMOTION_MANAGEMENT_PREFIX + "/expired";
+    public static final String GET_PROMOTIONS_STARTING_SOON_API = PROMOTION_MANAGEMENT_PREFIX + "/starting-soon";
+    public static final String GET_PROMOTIONS_ENDING_SOON_API = PROMOTION_MANAGEMENT_PREFIX + "/ending-soon";
+    
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
             apiPrefix + VERIFY_TOKEN_API,
@@ -292,7 +312,25 @@ public class ApiConstant {
             apiPrefix + UPDATE_CATEGORY_API,
             apiPrefix + MOVE_CATEGORY_API,
             apiPrefix + DELETE_CATEGORY_API,
-            apiPrefix + VALIDATE_CATEGORY_URL_API
+            apiPrefix + VALIDATE_CATEGORY_URL_API,
+            // Promotion management APIs
+            apiPrefix + GET_ALL_PROMOTIONS_API,
+            apiPrefix + GET_PROMOTION_BY_ID_API,
+            apiPrefix + GET_PROMOTION_BY_CODE_API,
+            apiPrefix + CREATE_PROMOTION_API,
+            apiPrefix + UPDATE_PROMOTION_API,
+            apiPrefix + DELETE_PROMOTION_API,
+            apiPrefix + ACTIVATE_PROMOTION_API,
+            apiPrefix + DEACTIVATE_PROMOTION_API,
+            apiPrefix + MAKE_PROMOTION_VISIBLE_API,
+            apiPrefix + MAKE_PROMOTION_INVISIBLE_API,
+            apiPrefix + RESTORE_PROMOTION_API,
+            apiPrefix + GET_PROMOTION_STATISTICS_API,
+            apiPrefix + GET_ACTIVE_PROMOTIONS_API,
+            apiPrefix + GET_VISIBLE_PROMOTIONS_API,
+            apiPrefix + GET_EXPIRED_PROMOTIONS_API,
+            apiPrefix + GET_PROMOTIONS_STARTING_SOON_API,
+            apiPrefix + GET_PROMOTIONS_ENDING_SOON_API
         );
     }
 }

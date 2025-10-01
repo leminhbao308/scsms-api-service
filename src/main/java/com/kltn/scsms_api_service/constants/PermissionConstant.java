@@ -89,6 +89,16 @@ public final class PermissionConstant {
     public static final String WORKORDER_READ = "WORKORDER_READ";
     public static final String WORKORDER_UPDATE = "WORKORDER_UPDATE";
 
+    // PROMOTION_MANAGEMENT module
+    public static final String PROMOTION_CREATE = "PROMOTION_CREATE";
+    public static final String PROMOTION_READ = "PROMOTION_READ";
+    public static final String PROMOTION_UPDATE = "PROMOTION_UPDATE";
+    public static final String PROMOTION_DELETE = "PROMOTION_DELETE";
+    public static final String PROMOTION_ACTIVATE = "PROMOTION_ACTIVATE";
+    public static final String PROMOTION_DEACTIVATE = "PROMOTION_DEACTIVATE";
+    public static final String PROMOTION_VISIBILITY = "PROMOTION_VISIBILITY";
+    public static final String PROMOTION_STATISTICS = "PROMOTION_STATISTICS";
+
     // Module constants
     public static final class Modules {
         public static final String APPOINTMENT_MANAGEMENT = "APPOINTMENT_MANAGEMENT";
@@ -96,6 +106,7 @@ public final class PermissionConstant {
         public static final String CUSTOMER_MANAGEMENT = "CUSTOMER_MANAGEMENT";
         public static final String INVENTORY_MANAGEMENT = "INVENTORY_MANAGEMENT";
         public static final String PAYMENT_MANAGEMENT = "PAYMENT_MANAGEMENT";
+        public static final String PROMOTION_MANAGEMENT = "PROMOTION_MANAGEMENT";
         public static final String REPORTING = "REPORTING";
         public static final String SERVICE_MANAGEMENT = "SERVICE_MANAGEMENT";
         public static final String SYSTEM_CONFIG = "SYSTEM_CONFIG";
