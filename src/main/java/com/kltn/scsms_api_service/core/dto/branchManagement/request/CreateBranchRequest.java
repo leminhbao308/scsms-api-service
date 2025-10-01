@@ -47,17 +47,10 @@ public class CreateBranchRequest {
     @JsonProperty("email")
     private String email;
     
-    @JsonProperty("operating_hours")
-    private String operatingHours;
     
     @JsonProperty("service_capacity")
     private Integer serviceCapacity = 10;
     
-    @JsonProperty("latitude")
-    private Double latitude;
-    
-    @JsonProperty("longitude")
-    private Double longitude;
     
     @JsonProperty("area_sqm")
     private Double areaSqm;
@@ -78,15 +71,5 @@ public class CreateBranchRequest {
     @JsonProperty("operating_status")
     private Branch.OperatingStatus operatingStatus = Branch.OperatingStatus.ACTIVE;
     
-    @JsonProperty("branch_type")
-    private Branch.BranchType branchType = Branch.BranchType.STANDARD;
     
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("facilities")
-    private String facilities;
-    
-    @JsonProperty("services_offered")
-    private String servicesOffered;
 }

@@ -118,10 +118,9 @@ public class ApiConstant {
     public static final String GET_ALL_BRANCHES_DROPDOWN_API = BRANCH_MANAGEMENT_PREFIX + "/dropdown";
     public static final String GET_BRANCH_BY_ID_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}";
     public static final String GET_BRANCHES_BY_CENTER_API = BRANCH_MANAGEMENT_PREFIX + "/center/{centerId}";
-    public static final String GET_AVAILABLE_BRANCHES_API = BRANCH_MANAGEMENT_PREFIX + "/available";
-    public static final String GET_BRANCHES_BY_LOCATION_API = BRANCH_MANAGEMENT_PREFIX + "/location";
     public static final String CREATE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/update";
+    public static final String UPDATE_BRANCH_STATUS_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/status";
     public static final String DELETE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/delete";
 
 
@@ -280,10 +279,9 @@ public class ApiConstant {
             apiPrefix + GET_ALL_BRANCHES_DROPDOWN_API,
             apiPrefix + GET_BRANCH_BY_ID_API,
             apiPrefix + GET_BRANCHES_BY_CENTER_API,
-            apiPrefix + GET_AVAILABLE_BRANCHES_API,
-            apiPrefix + GET_BRANCHES_BY_LOCATION_API,
             apiPrefix + CREATE_BRANCH_API,
             apiPrefix + UPDATE_BRANCH_API,
+            apiPrefix + UPDATE_BRANCH_STATUS_API,
             apiPrefix + DELETE_BRANCH_API,
             apiPrefix + DELETE_SUPPLIER_API,
             apiPrefix + DELETE_VEHICLE_PROFILE_API,

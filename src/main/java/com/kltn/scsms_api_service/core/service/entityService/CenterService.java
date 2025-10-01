@@ -4,7 +4,6 @@ import com.kltn.scsms_api_service.core.dto.centerManagement.param.CenterFilterPa
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.CenterRepository;
-import com.kltn.scsms_api_service.core.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -27,7 +26,6 @@ import java.util.UUID;
 public class CenterService {
     
     private final CenterRepository centerRepository;
-    private final UserRepository userRepository;
     private final EntityManager entityManager;
     
     public Optional<Center> findById(UUID centerId) {

@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.branchManagement.param.BranchFilterPa
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.CreateBranchRequest;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchRequest;
+import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchStatusRequest;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
@@ -135,11 +136,6 @@ public class BranchManagementService {
         Branch existingBranch = branchService.findById(branchId).orElseThrow(() ->
             new ClientSideException(ErrorCode.NOT_FOUND, "Branch with ID " + branchId + " not found."));
         
-        // Check if branch has active services or bookings
-        if (existingBranch.getCurrentWorkload() > 0) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Cannot delete branch with active workload. Please complete or transfer services first.");
-        }
         
         branchService.deleteBranch(existingBranch);
     }
@@ -163,29 +159,24 @@ public class BranchManagementService {
             .toList();
     }
     
-    public List<BranchInfoDto> getAvailableBranches() {
-        List<Branch> branches = branchService.findAvailableBranches();
+    public BranchInfoDto updateBranchStatus(UUID branchId, UpdateBranchStatusRequest updateBranchStatusRequest) {
+        log.info("Updating branch status for ID: {}", branchId);
         
-        return branches.stream()
-            .map(branchMapper::toBranchInfoDtoWithRelations)
-            .toList();
+        Branch existingBranch = branchService.findById(branchId)
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
+                "Branch not found with ID: " + branchId));
+        
+        if (updateBranchStatusRequest.getIsActive() != null) {
+            existingBranch.setIsActive(updateBranchStatusRequest.getIsActive());
+        }
+        
+        Branch updatedBranch = branchService.saveBranch(existingBranch);
+        
+        return branchMapper.toBranchInfoDtoWithRelations(updatedBranch);
     }
     
-    public List<BranchInfoDto> getBranchesWithinRadius(Double latitude, Double longitude, Double radiusKm) {
-        if (latitude == null || longitude == null || radiusKm == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Latitude, longitude, and radius are required for location-based search.");
-        }
-        
-        if (radiusKm <= 0 || radiusKm > 100) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Radius must be between 0 and 100 kilometers.");
-        }
-        
-        List<Branch> branches = branchService.findBranchesWithinRadius(latitude, longitude, radiusKm);
-        
-        return branches.stream()
-            .map(branchMapper::toBranchInfoDtoWithRelations)
-            .toList();
+    // Alternative method name for testing
+    public BranchInfoDto updateBranchActiveStatus(UUID branchId, UpdateBranchStatusRequest updateBranchStatusRequest) {
+        return updateBranchStatus(branchId, updateBranchStatusRequest);
     }
 }

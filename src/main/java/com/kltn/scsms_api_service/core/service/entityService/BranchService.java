@@ -5,8 +5,6 @@ import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.BranchRepository;
-import com.kltn.scsms_api_service.core.repository.CenterRepository;
-import com.kltn.scsms_api_service.core.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -29,8 +27,6 @@ import java.util.UUID;
 public class BranchService {
     
     private final BranchRepository branchRepository;
-    private final CenterRepository centerRepository;
-    private final UserRepository userRepository;
     private final EntityManager entityManager;
     
     public Optional<Branch> findById(UUID branchId) {
@@ -75,11 +71,7 @@ public class BranchService {
             ? Sort.Direction.ASC : Sort.Direction.DESC;
         
         Order order;
-        if ("center.centerName".equals(filterParam.getSort())) {
-            order = sortDirection == Sort.Direction.ASC
-                ? cb.asc(centerJoin.get("centerName"))
-                : cb.desc(centerJoin.get("centerName"));
-        } else if ("manager.fullName".equals(filterParam.getSort())) {
+        if ("manager.fullName".equals(filterParam.getSort())) {
             order = sortDirection == Sort.Direction.ASC
                 ? cb.asc(managerJoin.get("fullName"))
                 : cb.desc(managerJoin.get("fullName"));
@@ -121,10 +113,6 @@ public class BranchService {
             predicates.add(cb.equal(branchRoot.get("operatingStatus"), filterParam.getOperatingStatus()));
         }
         
-        // Branch type filter
-        if (filterParam.getBranchType() != null) {
-            predicates.add(cb.equal(branchRoot.get("branchType"), filterParam.getBranchType()));
-        }
         
         // Center filter
         if (filterParam.getCenterId() != null) {
@@ -136,20 +124,6 @@ public class BranchService {
             predicates.add(cb.equal(managerJoin.get("userId"), filterParam.getManagerId()));
         }
         
-        // Boolean field filters
-        if (filterParam.getHasLocation() != null) {
-            if (filterParam.getHasLocation()) {
-                predicates.add(cb.and(
-                    cb.isNotNull(branchRoot.get("latitude")),
-                    cb.isNotNull(branchRoot.get("longitude"))
-                ));
-            } else {
-                predicates.add(cb.or(
-                    cb.isNull(branchRoot.get("latitude")),
-                    cb.isNull(branchRoot.get("longitude"))
-                ));
-            }
-        }
         
         if (filterParam.getHasManager() != null) {
             if (filterParam.getHasManager()) {
@@ -175,27 +149,7 @@ public class BranchService {
             }
         }
         
-        if (filterParam.getIsAtCapacity() != null) {
-            if (filterParam.getIsAtCapacity()) {
-                predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("currentWorkload"), branchRoot.get("serviceCapacity")));
-            } else {
-                predicates.add(cb.lessThan(branchRoot.get("currentWorkload"), branchRoot.get("serviceCapacity")));
-            }
-        }
         
-        if (filterParam.getIsAvailable() != null) {
-            if (filterParam.getIsAvailable()) {
-                predicates.add(cb.and(
-                    cb.equal(branchRoot.get("operatingStatus"), Branch.OperatingStatus.ACTIVE),
-                    cb.lessThan(branchRoot.get("currentWorkload"), branchRoot.get("serviceCapacity"))
-                ));
-            } else {
-                predicates.add(cb.or(
-                    cb.notEqual(branchRoot.get("operatingStatus"), Branch.OperatingStatus.ACTIVE),
-                    cb.greaterThanOrEqualTo(branchRoot.get("currentWorkload"), branchRoot.get("serviceCapacity"))
-                ));
-            }
-        }
         
         // Search filters
         if (filterParam.getSearch() != null) {
@@ -206,7 +160,6 @@ public class BranchService {
                 cb.like(cb.lower(branchRoot.get("description")), searchPattern),
                 cb.like(cb.lower(branchRoot.get("address")), searchPattern),
                 cb.like(cb.lower(branchRoot.get("email")), searchPattern),
-                cb.like(cb.lower(centerJoin.get("centerName")), searchPattern),
                 cb.like(cb.lower(managerJoin.get("fullName")), searchPattern)
             );
             predicates.add(searchPredicate);
@@ -242,15 +195,7 @@ public class BranchService {
                 "%" + filterParam.getEmail().toLowerCase() + "%"));
         }
         
-        if (filterParam.getCenterName() != null) {
-            predicates.add(cb.like(cb.lower(centerJoin.get("centerName")),
-                "%" + filterParam.getCenterName().toLowerCase() + "%"));
-        }
         
-        if (filterParam.getManagerName() != null) {
-            predicates.add(cb.like(cb.lower(managerJoin.get("fullName")),
-                "%" + filterParam.getManagerName().toLowerCase() + "%"));
-        }
         
         // Numeric range filters
         if (filterParam.getMinServiceCapacity() != null) {
@@ -260,33 +205,9 @@ public class BranchService {
             predicates.add(cb.lessThanOrEqualTo(branchRoot.get("serviceCapacity"), filterParam.getMaxServiceCapacity()));
         }
         
-        if (filterParam.getMinCurrentWorkload() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("currentWorkload"), filterParam.getMinCurrentWorkload()));
-        }
-        if (filterParam.getMaxCurrentWorkload() != null) {
-            predicates.add(cb.lessThanOrEqualTo(branchRoot.get("currentWorkload"), filterParam.getMaxCurrentWorkload()));
-        }
         
-        if (filterParam.getMinEmployees() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("totalEmployees"), filterParam.getMinEmployees()));
-        }
-        if (filterParam.getMaxEmployees() != null) {
-            predicates.add(cb.lessThanOrEqualTo(branchRoot.get("totalEmployees"), filterParam.getMaxEmployees()));
-        }
         
-        if (filterParam.getMinCustomers() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("totalCustomers"), filterParam.getMinCustomers()));
-        }
-        if (filterParam.getMaxCustomers() != null) {
-            predicates.add(cb.lessThanOrEqualTo(branchRoot.get("totalCustomers"), filterParam.getMaxCustomers()));
-        }
         
-        if (filterParam.getMinMonthlyRevenue() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("monthlyRevenue"), filterParam.getMinMonthlyRevenue()));
-        }
-        if (filterParam.getMaxMonthlyRevenue() != null) {
-            predicates.add(cb.lessThanOrEqualTo(branchRoot.get("monthlyRevenue"), filterParam.getMaxMonthlyRevenue()));
-        }
         
         // Date range filters
         addDateRangePredicates(cb, branchRoot, predicates, filterParam);
@@ -363,20 +284,5 @@ public class BranchService {
         return branchRepository.findByCenterId(centerId);
     }
     
-    public List<Branch> findAvailableBranches() {
-        return branchRepository.findAvailableBranches();
-    }
     
-    public List<Branch> findBranchesWithinRadius(Double latitude, Double longitude, Double radiusKm) {
-        return branchRepository.findBranchesWithinRadius(latitude, longitude, radiusKm);
-    }
-    
-    public void updateBranchStatistics(UUID branchId) {
-        Optional<Branch> branchOpt = findById(branchId);
-        if (branchOpt.isPresent()) {
-            Branch branch = branchOpt.get();
-            // You can add more statistics calculations here
-            branchRepository.save(branch);
-        }
-    }
 }

@@ -30,8 +30,6 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT b FROM Branch b WHERE b.operatingStatus = :operatingStatus")
     List<Branch> findByOperatingStatus(@Param("operatingStatus") Branch.OperatingStatus operatingStatus);
     
-    @Query("SELECT b FROM Branch b WHERE b.branchType = :branchType")
-    List<Branch> findByBranchType(@Param("branchType") Branch.BranchType branchType);
     
     @Query("SELECT b FROM Branch b WHERE b.center.centerId = :centerId")
     List<Branch> findByCenterId(@Param("centerId") UUID centerId);
@@ -42,26 +40,11 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT b FROM Branch b WHERE b.serviceCapacity >= :minCapacity")
     List<Branch> findByMinServiceCapacity(@Param("minCapacity") Integer minCapacity);
     
-    @Query("SELECT b FROM Branch b WHERE b.currentWorkload < b.serviceCapacity")
-    List<Branch> findAvailableBranches();
-    
-    @Query("SELECT b FROM Branch b WHERE b.currentWorkload >= b.serviceCapacity")
-    List<Branch> findAtCapacityBranches();
     
     @Query("SELECT b FROM Branch b WHERE b.establishedDate >= :fromDate AND b.establishedDate <= :toDate")
     List<Branch> findByEstablishedDateRange(@Param("fromDate") java.time.LocalDate fromDate, 
                                            @Param("toDate") java.time.LocalDate toDate);
     
-    @Query("SELECT b FROM Branch b WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL")
-    List<Branch> findBranchesWithLocation();
-    
-    @Query("SELECT b FROM Branch b WHERE " +
-           "6371 * acos(cos(radians(:latitude)) * cos(radians(b.latitude)) * " +
-           "cos(radians(b.longitude) - radians(:longitude)) + " +
-           "sin(radians(:latitude)) * sin(radians(b.latitude))) <= :radiusKm")
-    List<Branch> findBranchesWithinRadius(@Param("latitude") Double latitude, 
-                                         @Param("longitude") Double longitude, 
-                                         @Param("radiusKm") Double radiusKm);
     
     @Query("SELECT b FROM Branch b LEFT JOIN FETCH b.center WHERE b.branchId = :branchId")
     Optional<Branch> findByIdWithCenter(@Param("branchId") UUID branchId);
@@ -81,21 +64,8 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT SUM(b.serviceCapacity) FROM Branch b WHERE b.isActive = true")
     Long sumTotalServiceCapacity();
     
-    @Query("SELECT SUM(b.currentWorkload) FROM Branch b WHERE b.isActive = true")
-    Long sumTotalCurrentWorkload();
-    
-    @Query("SELECT SUM(b.totalEmployees) FROM Branch b WHERE b.isActive = true")
-    Long sumTotalEmployees();
-    
-    @Query("SELECT SUM(b.totalCustomers) FROM Branch b WHERE b.isActive = true")
-    Long sumTotalCustomers();
-    
-    @Query("SELECT SUM(b.monthlyRevenue) FROM Branch b WHERE b.isActive = true")
-    Double sumTotalMonthlyRevenue();
     
     @Query("SELECT b FROM Branch b WHERE b.center.centerId = :centerId ORDER BY b.branchName")
     List<Branch> findByCenterIdOrderByBranchName(@Param("centerId") UUID centerId);
     
-    @Query("SELECT b FROM Branch b WHERE b.operatingStatus = 'ACTIVE' AND b.currentWorkload < b.serviceCapacity ORDER BY b.currentWorkload ASC")
-    List<Branch> findAvailableBranchesOrderByWorkload();
 }

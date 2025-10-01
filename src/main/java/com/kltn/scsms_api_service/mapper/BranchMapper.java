@@ -16,23 +16,13 @@ import org.mapstruct.ReportingPolicy;
 public interface BranchMapper {
     
     @Mapping(target = "centerId", source = "center.centerId")
-    @Mapping(target = "centerName", source = "center.centerName")
-    @Mapping(target = "centerCode", source = "center.centerCode")
     @Mapping(target = "managerId", source = "manager.userId")
-    @Mapping(target = "managerName", source = "manager.fullName")
-    @Mapping(target = "managerEmail", source = "manager.email")
-    @Mapping(target = "utilizationRate", expression = "java(branch.getUtilizationRate())")
-    @Mapping(target = "isAtCapacity", expression = "java(branch.isAtCapacity())")
     BranchInfoDto toBranchInfoDto(Branch branch);
     
     @Mapping(target = "center", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "managerAssignedAt", ignore = true)
     @Mapping(target = "managerAssignedBy", ignore = true)
-    @Mapping(target = "currentWorkload", ignore = true)
-    @Mapping(target = "totalEmployees", ignore = true)
-    @Mapping(target = "totalCustomers", ignore = true)
-    @Mapping(target = "monthlyRevenue", ignore = true)
     Branch toEntity(CreateBranchRequest createBranchRequest);
     
     default Branch updateEntity(Branch existingBranch, UpdateBranchRequest updateRequest) {
@@ -58,20 +48,8 @@ public interface BranchMapper {
         if (updateRequest.getEmail() != null) {
             existingBranch.setEmail(updateRequest.getEmail());
         }
-        if (updateRequest.getOperatingHours() != null) {
-            existingBranch.setOperatingHours(updateRequest.getOperatingHours());
-        }
         if (updateRequest.getServiceCapacity() != null) {
             existingBranch.setServiceCapacity(updateRequest.getServiceCapacity());
-        }
-        if (updateRequest.getCurrentWorkload() != null) {
-            existingBranch.setCurrentWorkload(updateRequest.getCurrentWorkload());
-        }
-        if (updateRequest.getLatitude() != null) {
-            existingBranch.setLatitude(updateRequest.getLatitude());
-        }
-        if (updateRequest.getLongitude() != null) {
-            existingBranch.setLongitude(updateRequest.getLongitude());
         }
         if (updateRequest.getAreaSqm() != null) {
             existingBranch.setAreaSqm(updateRequest.getAreaSqm());
@@ -84,18 +62,6 @@ public interface BranchMapper {
         }
         if (updateRequest.getOperatingStatus() != null) {
             existingBranch.setOperatingStatus(updateRequest.getOperatingStatus());
-        }
-        if (updateRequest.getBranchType() != null) {
-            existingBranch.setBranchType(updateRequest.getBranchType());
-        }
-        if (updateRequest.getContactInfo() != null) {
-            existingBranch.setContactInfo(updateRequest.getContactInfo());
-        }
-        if (updateRequest.getFacilities() != null) {
-            existingBranch.setFacilities(updateRequest.getFacilities());
-        }
-        if (updateRequest.getServicesOffered() != null) {
-            existingBranch.setServicesOffered(updateRequest.getServicesOffered());
         }
         if (updateRequest.getIsActive() != null) {
             existingBranch.setIsActive(updateRequest.getIsActive());
@@ -110,22 +76,14 @@ public interface BranchMapper {
         // Set center information
         if (branch.getCenter() != null) {
             dto.setCenterId(branch.getCenter().getCenterId());
-            dto.setCenterName(branch.getCenter().getCenterName());
-            dto.setCenterCode(branch.getCenter().getCenterCode());
         }
         
         // Set manager information
         if (branch.getManager() != null) {
             dto.setManagerId(branch.getManager().getUserId());
-            dto.setManagerName(branch.getManager().getFullName());
-            dto.setManagerEmail(branch.getManager().getEmail());
             dto.setManagerAssignedAt(branch.getManagerAssignedAt());
             dto.setManagerAssignedBy(branch.getManagerAssignedBy());
         }
-        
-        // Set calculated fields
-        dto.setUtilizationRate(branch.getUtilizationRate());
-        dto.setIsAtCapacity(branch.isAtCapacity());
         
         return dto;
     }

@@ -9,6 +9,7 @@ import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.param.BranchFilterParam;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.CreateBranchRequest;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchRequest;
+import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchStatusRequest;
 import com.kltn.scsms_api_service.core.service.businessService.BranchManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,15 +27,14 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping(ApiConstant.BRANCH_MANAGEMENT_PREFIX)
+@RequestMapping
 @RequiredArgsConstructor
 @Tag(name = "Branch Management", description = "API endpoints for managing car care branches")
 public class BranchManagementController {
     
     private final BranchManagementService branchManagementService;
     
-    @GetMapping("/get-all")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @GetMapping(ApiConstant.GET_ALL_BRANCHES_API)
     @SwaggerOperation(summary = "Get all branches with filtering and pagination")
     @Operation(summary = "Get all branches with filtering and pagination",
                description = "Retrieve a paginated list of branches with optional filtering")
@@ -60,8 +60,7 @@ public class BranchManagementController {
         return ResponseBuilder.success("Branches retrieved successfully", paginatedResponse);
     }
     
-    @GetMapping("/{branchId}")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @GetMapping(ApiConstant.GET_BRANCH_BY_ID_API)
     @SwaggerOperation(summary = "Get branch by ID")
     @Operation(summary = "Get branch by ID",
                description = "Retrieve a specific branch by its ID")
@@ -76,8 +75,7 @@ public class BranchManagementController {
         return ResponseBuilder.success("Branch retrieved successfully", branch);
     }
     
-    @GetMapping("/center/{centerId}")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @GetMapping(ApiConstant.GET_BRANCHES_BY_CENTER_API)
     @SwaggerOperation(summary = "Get branches by center ID")
     @Operation(summary = "Get branches by center ID",
                description = "Retrieve all branches belonging to a specific center")
@@ -92,43 +90,9 @@ public class BranchManagementController {
         return ResponseBuilder.success("Branches retrieved successfully", branches);
     }
     
-    @GetMapping("/available")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "STAFF"})
-    @SwaggerOperation(summary = "Get available branches")
-    @Operation(summary = "Get available branches",
-               description = "Retrieve all branches that are available for service (not at capacity)")
-    public ResponseEntity<ApiResponse<List<BranchInfoDto>>> getAvailableBranches() {
-        
-        log.info("Getting available branches");
-        
-        List<BranchInfoDto> branches = branchManagementService.getAvailableBranches();
-        
-        return ResponseBuilder.success("Available branches retrieved successfully", branches);
-    }
     
-    @GetMapping("/location")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "STAFF", "CUSTOMER"})
-    @SwaggerOperation(summary = "Get branches by location")
-    @Operation(summary = "Get branches by location",
-               description = "Retrieve branches within a specified radius from given coordinates")
-    public ResponseEntity<ApiResponse<List<BranchInfoDto>>> getBranchesByLocation(
-            @Parameter(description = "Latitude")
-            @RequestParam Double latitude,
-            @Parameter(description = "Longitude")
-            @RequestParam Double longitude,
-            @Parameter(description = "Radius in kilometers")
-            @RequestParam Double radiusKm) {
-        
-        log.info("Getting branches by location: lat={}, lng={}, radius={}km", latitude, longitude, radiusKm);
-        
-        List<BranchInfoDto> branches = branchManagementService.getBranchesWithinRadius(
-            latitude, longitude, radiusKm);
-        
-        return ResponseBuilder.success("Branches by location retrieved successfully", branches);
-    }
     
-    @PostMapping("/create")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @PostMapping(ApiConstant.CREATE_BRANCH_API)
     @SwaggerOperation(summary = "Create new branch")
     @Operation(summary = "Create new branch",
                description = "Create a new branch for a car care center")
@@ -143,8 +107,7 @@ public class BranchManagementController {
         return ResponseBuilder.created("Branch created successfully", createdBranch);
     }
     
-    @PostMapping("/{branchId}/update")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @PostMapping(ApiConstant.UPDATE_BRANCH_API)
     @SwaggerOperation(summary = "Update branch")
     @Operation(summary = "Update branch",
                description = "Update an existing branch")
@@ -161,8 +124,24 @@ public class BranchManagementController {
         return ResponseBuilder.success("Branch updated successfully", updatedBranch);
     }
     
-    @PostMapping("/{branchId}/delete")
-    @RequireRole(roles = {"ADMIN"})
+    @PostMapping(ApiConstant.UPDATE_BRANCH_STATUS_API)
+    @SwaggerOperation(summary = "Update branch status")
+    @Operation(summary = "Update branch status",
+               description = "Update the active status of a branch")
+    public ResponseEntity<ApiResponse<BranchInfoDto>> updateBranchStatus(
+            @Parameter(description = "Branch ID")
+            @PathVariable UUID branchId,
+            @Parameter(description = "Branch status update request")
+            @Valid @RequestBody UpdateBranchStatusRequest updateBranchStatusRequest) {
+        
+        log.info("Updating branch status for ID: {}", branchId);
+        
+        BranchInfoDto updatedBranch = branchManagementService.updateBranchActiveStatus(branchId, updateBranchStatusRequest);
+        
+        return ResponseBuilder.success("Branch status updated successfully", updatedBranch);
+    }
+    
+    @PostMapping(ApiConstant.DELETE_BRANCH_API)
     @SwaggerOperation(summary = "Delete branch")
     @Operation(summary = "Delete branch",
                description = "Delete a branch (soft delete)")

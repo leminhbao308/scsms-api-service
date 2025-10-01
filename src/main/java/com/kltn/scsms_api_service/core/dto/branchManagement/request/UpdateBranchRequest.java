@@ -42,20 +42,11 @@ public class UpdateBranchRequest {
     @JsonProperty("email")
     private String email;
     
-    @JsonProperty("operating_hours")
-    private String operatingHours;
     
     @JsonProperty("service_capacity")
     private Integer serviceCapacity;
     
-    @JsonProperty("current_workload")
-    private Integer currentWorkload;
     
-    @JsonProperty("latitude")
-    private Double latitude;
-    
-    @JsonProperty("longitude")
-    private Double longitude;
     
     @JsonProperty("area_sqm")
     private Double areaSqm;
@@ -75,17 +66,7 @@ public class UpdateBranchRequest {
     @JsonProperty("operating_status")
     private Branch.OperatingStatus operatingStatus;
     
-    @JsonProperty("branch_type")
-    private Branch.BranchType branchType;
     
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("facilities")
-    private String facilities;
-    
-    @JsonProperty("services_offered")
-    private String servicesOffered;
     
     @JsonProperty("is_active")
     private Boolean isActive;

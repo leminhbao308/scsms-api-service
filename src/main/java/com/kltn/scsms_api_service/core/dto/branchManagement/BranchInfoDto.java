@@ -40,22 +40,12 @@ public class BranchInfoDto extends AuditDto {
     @JsonProperty("email")
     private String email;
     
-    @JsonProperty("operating_hours")
-    private String operatingHours;
     
     @JsonProperty("service_capacity")
     @Builder.Default
     private Integer serviceCapacity = 10;
     
-    @JsonProperty("current_workload")
-    @Builder.Default
-    private Integer currentWorkload = 0;
     
-    @JsonProperty("latitude")
-    private Double latitude;
-    
-    @JsonProperty("longitude")
-    private Double longitude;
     
     @JsonProperty("area_sqm")
     private Double areaSqm;
@@ -67,52 +57,21 @@ public class BranchInfoDto extends AuditDto {
     @JsonProperty("established_date")
     private LocalDate establishedDate;
     
-    @JsonProperty("total_employees")
-    @Builder.Default
-    private Integer totalEmployees = 0;
-    
-    @JsonProperty("total_customers")
-    @Builder.Default
-    private Integer totalCustomers = 0;
-    
-    @JsonProperty("monthly_revenue")
-    @Builder.Default
-    private Double monthlyRevenue = 0.0;
     
     @JsonProperty("operating_status")
     private Branch.OperatingStatus operatingStatus;
     
-    @JsonProperty("branch_type")
-    private Branch.BranchType branchType;
     
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("facilities")
-    private String facilities;
-    
-    @JsonProperty("services_offered")
-    private String servicesOffered;
     
     // Center information
     @JsonProperty("center_id")
     private UUID centerId;
     
-    @JsonProperty("center_name")
-    private String centerName;
-    
-    @JsonProperty("center_code")
-    private String centerCode;
     
     // Manager information
     @JsonProperty("manager_id")
     private UUID managerId;
     
-    @JsonProperty("manager_name")
-    private String managerName;
-    
-    @JsonProperty("manager_email")
-    private String managerEmail;
     
     @JsonProperty("manager_assigned_at")
     private LocalDateTime managerAssignedAt;
@@ -120,10 +79,4 @@ public class BranchInfoDto extends AuditDto {
     @JsonProperty("manager_assigned_by")
     private String managerAssignedBy;
     
-    // Calculated fields
-    @JsonProperty("utilization_rate")
-    private Double utilizationRate;
-    
-    @JsonProperty("is_at_capacity")
-    private Boolean isAtCapacity;
 }
