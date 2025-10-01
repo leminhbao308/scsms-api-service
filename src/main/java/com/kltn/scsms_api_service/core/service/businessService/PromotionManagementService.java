@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionInfoDto;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionFilterParam;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.CreatePromotionRequest;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionRequest;
+import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionStatusRequest;
 import com.kltn.scsms_api_service.core.entity.Category;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.Promotion;
@@ -173,27 +174,15 @@ public class PromotionManagementService {
     }
     
     /**
-     * Activate promotion
+     * Update promotion status (activate/deactivate)
      */
     @Transactional
-    public void activatePromotion(UUID promotionId) {
-        log.info("Activating promotion with ID: {}", promotionId);
+    public void updatePromotionStatus(UUID promotionId, UpdatePromotionStatusRequest request) {
+        log.info("Updating promotion status with ID: {} to active: {}", promotionId, request.getIsActive());
         
-        promotionService.updatePromotionStatus(promotionId, true);
+        promotionService.updatePromotionStatus(promotionId, request.getIsActive());
         
-        log.info("Activated promotion with ID: {}", promotionId);
-    }
-    
-    /**
-     * Deactivate promotion
-     */
-    @Transactional
-    public void deactivatePromotion(UUID promotionId) {
-        log.info("Deactivating promotion with ID: {}", promotionId);
-        
-        promotionService.updatePromotionStatus(promotionId, false);
-        
-        log.info("Deactivated promotion with ID: {}", promotionId);
+        log.info("Updated promotion status with ID: {} to active: {}", promotionId, request.getIsActive());
     }
     
     /**

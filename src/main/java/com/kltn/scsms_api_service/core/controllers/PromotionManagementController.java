@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionInfoDto;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionFilterParam;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.CreatePromotionRequest;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionRequest;
+import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionStatusRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.service.businessService.PromotionManagementService;
@@ -125,33 +126,20 @@ public class PromotionManagementController {
     }
 
     /**
-     * Activate promotion
+     * Update promotion status (activate/deactivate)
      */
-    @PostMapping(ApiConstant.ACTIVATE_PROMOTION_API)
-    @SwaggerOperation(summary = "Activate a promotion", description = "Activate a promotion by setting its status to active")
+    @PostMapping(ApiConstant.UPDATE_PROMOTION_STATUS_API)
+    @SwaggerOperation(summary = "Update promotion status", description = "Update promotion status to active or inactive")
     // @RequirePermission(permissions = PermissionConstant.PROMOTION_UPDATE)
-    public ResponseEntity<ApiResponse<Void>> activatePromotion(
-            @PathVariable(value = "promotionId") String promotionId) {
-        log.info("Activating promotion with ID: {}", promotionId);
+    public ResponseEntity<ApiResponse<Void>> updatePromotionStatus(
+            @PathVariable(value = "promotionId") String promotionId,
+            @RequestBody UpdatePromotionStatusRequest request) {
+        log.info("Updating promotion status with ID: {} to active: {}", promotionId, request.getIsActive());
 
-        promotionManagementService.activatePromotion(UUID.fromString(promotionId));
+        promotionManagementService.updatePromotionStatus(UUID.fromString(promotionId), request);
 
-        return ResponseBuilder.success("Promotion activated successfully");
-    }
-
-    /**
-     * Deactivate promotion
-     */
-    @PostMapping(ApiConstant.DEACTIVATE_PROMOTION_API)
-    @SwaggerOperation(summary = "Deactivate a promotion", description = "Deactivate a promotion by setting its status to inactive")
-    // @RequirePermission(permissions = PermissionConstant.PROMOTION_UPDATE)
-    public ResponseEntity<ApiResponse<Void>> deactivatePromotion(
-            @PathVariable(value = "promotionId") String promotionId) {
-        log.info("Deactivating promotion with ID: {}", promotionId);
-
-        promotionManagementService.deactivatePromotion(UUID.fromString(promotionId));
-
-        return ResponseBuilder.success("Promotion deactivated successfully");
+        String statusMessage = request.getIsActive() ? "activated" : "deactivated";
+        return ResponseBuilder.success("Promotion " + statusMessage + " successfully");
     }
 
     /**

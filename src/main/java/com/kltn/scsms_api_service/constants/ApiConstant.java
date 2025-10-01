@@ -181,8 +181,7 @@ public class ApiConstant {
     public static final String CREATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/update";
     public static final String DELETE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/delete";
-    public static final String ACTIVATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/activate";
-    public static final String DEACTIVATE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/deactivate";
+    public static final String UPDATE_PROMOTION_STATUS_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/status";
     public static final String MAKE_PROMOTION_VISIBLE_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/make-visible";
     public static final String MAKE_PROMOTION_INVISIBLE_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/make-invisible";
     public static final String RESTORE_PROMOTION_API = PROMOTION_MANAGEMENT_PREFIX + "/{promotionId}/restore";
@@ -320,8 +319,6 @@ public class ApiConstant {
             apiPrefix + CREATE_PROMOTION_API,
             apiPrefix + UPDATE_PROMOTION_API,
             apiPrefix + DELETE_PROMOTION_API,
-            apiPrefix + ACTIVATE_PROMOTION_API,
-            apiPrefix + DEACTIVATE_PROMOTION_API,
             apiPrefix + MAKE_PROMOTION_VISIBLE_API,
             apiPrefix + MAKE_PROMOTION_INVISIBLE_API,
             apiPrefix + RESTORE_PROMOTION_API,
