@@ -64,16 +64,4 @@ public class CreateCenterRequest {
     
     @JsonProperty("manager_id")
     private java.util.UUID managerId;
-    
-    @JsonProperty("business_hours")
-    private String businessHours;
-    
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("social_media")
-    private String socialMedia;
-    
-    @JsonProperty("service_areas")
-    private String serviceAreas;
 }

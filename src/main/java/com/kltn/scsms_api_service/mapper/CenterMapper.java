@@ -16,18 +16,15 @@ import org.mapstruct.ReportingPolicy;
 public interface CenterMapper {
     
     @Mapping(target = "managerId", source = "manager.userId")
-    @Mapping(target = "managerName", source = "manager.fullName")
-    @Mapping(target = "managerEmail", source = "manager.email")
     CenterInfoDto toCenterInfoDto(Center center);
     
     @Mapping(target = "branches", ignore = true)
+    @Mapping(target = "businessHours", ignore = true)
+    @Mapping(target = "socialMedia", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "managerAssignedAt", ignore = true)
     @Mapping(target = "managerAssignedBy", ignore = true)
     @Mapping(target = "operatingStatus", ignore = true)
-    @Mapping(target = "totalBranches", ignore = true)
-    @Mapping(target = "totalEmployees", ignore = true)
-    @Mapping(target = "totalCustomers", ignore = true)
     Center toEntity(CreateCenterRequest createCenterRequest);
     
     default Center updateEntity(Center existingCenter, UpdateCenterRequest updateRequest) {
@@ -71,18 +68,6 @@ public interface CenterMapper {
         if (updateRequest.getOperatingStatus() != null) {
             existingCenter.setOperatingStatus(updateRequest.getOperatingStatus());
         }
-        if (updateRequest.getBusinessHours() != null) {
-            existingCenter.setBusinessHours(updateRequest.getBusinessHours());
-        }
-        if (updateRequest.getContactInfo() != null) {
-            existingCenter.setContactInfo(updateRequest.getContactInfo());
-        }
-        if (updateRequest.getSocialMedia() != null) {
-            existingCenter.setSocialMedia(updateRequest.getSocialMedia());
-        }
-        if (updateRequest.getServiceAreas() != null) {
-            existingCenter.setServiceAreas(updateRequest.getServiceAreas());
-        }
         if (updateRequest.getIsActive() != null) {
             existingCenter.setIsActive(updateRequest.getIsActive());
         }
@@ -95,8 +80,6 @@ public interface CenterMapper {
         
         if (center.getManager() != null) {
             dto.setManagerId(center.getManager().getUserId());
-            dto.setManagerName(center.getManager().getFullName());
-            dto.setManagerEmail(center.getManager().getEmail());
             dto.setManagerAssignedAt(center.getManagerAssignedAt());
             dto.setManagerAssignedBy(center.getManagerAssignedBy());
         }

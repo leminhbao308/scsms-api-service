@@ -55,42 +55,14 @@ public class CenterInfoDto extends AuditDto {
     @JsonProperty("established_date")
     private LocalDate establishedDate;
     
-    @JsonProperty("total_branches")
-    @Builder.Default
-    private Integer totalBranches = 0;
-    
-    @JsonProperty("total_employees")
-    @Builder.Default
-    private Integer totalEmployees = 0;
-    
-    @JsonProperty("total_customers")
-    @Builder.Default
-    private Integer totalCustomers = 0;
     
     @JsonProperty("operating_status")
     private Center.OperatingStatus operatingStatus;
     
-    @JsonProperty("business_hours")
-    private String businessHours;
-    
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("social_media")
-    private String socialMedia;
-    
-    @JsonProperty("service_areas")
-    private String serviceAreas;
     
     // Manager information
     @JsonProperty("manager_id")
     private UUID managerId;
-    
-    @JsonProperty("manager_name")
-    private String managerName;
-    
-    @JsonProperty("manager_email")
-    private String managerEmail;
     
     @JsonProperty("manager_assigned_at")
     private LocalDateTime managerAssignedAt;

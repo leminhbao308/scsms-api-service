@@ -54,23 +54,6 @@ public class CenterFilterParam extends BaseFilterParam<CenterFilterParam> {
     @JsonProperty("established_date_to")
     private LocalDate establishedDateTo;
     
-    @JsonProperty("min_branches")
-    private Integer minBranches;
-    
-    @JsonProperty("max_branches")
-    private Integer maxBranches;
-    
-    @JsonProperty("min_employees")
-    private Integer minEmployees;
-    
-    @JsonProperty("max_employees")
-    private Integer maxEmployees;
-    
-    @JsonProperty("min_customers")
-    private Integer minCustomers;
-    
-    @JsonProperty("max_customers")
-    private Integer maxCustomers;
     
     @JsonProperty("has_manager")
     private Boolean hasManager;

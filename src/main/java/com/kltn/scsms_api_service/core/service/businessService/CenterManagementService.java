@@ -150,7 +150,7 @@ public class CenterManagementService {
             new ClientSideException(ErrorCode.NOT_FOUND, "Center with ID " + centerId + " not found."));
         
         // Check if center has active branches
-        if (existingCenter.getTotalBranches() > 0) {
+        if (!existingCenter.getBranches().isEmpty()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, 
                 "Cannot delete center with active branches. Please delete or transfer branches first.");
         }

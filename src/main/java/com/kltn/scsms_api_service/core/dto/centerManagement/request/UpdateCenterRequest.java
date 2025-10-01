@@ -67,18 +67,6 @@ public class UpdateCenterRequest {
     @JsonProperty("operating_status")
     private Center.OperatingStatus operatingStatus;
     
-    @JsonProperty("business_hours")
-    private String businessHours;
-    
-    @JsonProperty("contact_info")
-    private String contactInfo;
-    
-    @JsonProperty("social_media")
-    private String socialMedia;
-    
-    @JsonProperty("service_areas")
-    private String serviceAreas;
-    
     @JsonProperty("is_active")
     private Boolean isActive;
 }

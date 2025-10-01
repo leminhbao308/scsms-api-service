@@ -93,6 +93,24 @@ public class ApiConstant {
     public static final String CREATE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}/update";
     public static final String DELETE_CENTER_API = CENTER_MANAGEMENT_PREFIX + "/{centerId}/delete";
+    
+    // Center Business Hours management module endpoints
+    public static final String CENTER_BUSINESS_HOURS_PREFIX = "/center-business-hours";
+    public static final String GET_ALL_CENTER_BUSINESS_HOURS_API = CENTER_BUSINESS_HOURS_PREFIX + "/center/{centerId}";
+    public static final String GET_CENTER_BUSINESS_HOURS_BY_ID_API = CENTER_BUSINESS_HOURS_PREFIX + "/{businessHoursId}";
+    public static final String CREATE_CENTER_BUSINESS_HOURS_API = CENTER_BUSINESS_HOURS_PREFIX + "/create";
+    public static final String UPDATE_CENTER_BUSINESS_HOURS_API = CENTER_BUSINESS_HOURS_PREFIX + "/{businessHoursId}/update";
+    public static final String DELETE_CENTER_BUSINESS_HOURS_API = CENTER_BUSINESS_HOURS_PREFIX + "/{businessHoursId}/delete";
+    public static final String UPDATE_CENTER_BUSINESS_HOURS_STATUS_API = CENTER_BUSINESS_HOURS_PREFIX + "/{businessHoursId}/status";
+    
+    // Center Social Media management module endpoints
+    public static final String CENTER_SOCIAL_MEDIA_PREFIX = "/center-social-media";
+    public static final String GET_ALL_CENTER_SOCIAL_MEDIA_API = CENTER_SOCIAL_MEDIA_PREFIX + "/center/{centerId}";
+    public static final String GET_CENTER_SOCIAL_MEDIA_BY_ID_API = CENTER_SOCIAL_MEDIA_PREFIX + "/{socialMediaId}";
+    public static final String CREATE_CENTER_SOCIAL_MEDIA_API = CENTER_SOCIAL_MEDIA_PREFIX + "/create";
+    public static final String UPDATE_CENTER_SOCIAL_MEDIA_API = CENTER_SOCIAL_MEDIA_PREFIX + "/{socialMediaId}/update";
+    public static final String DELETE_CENTER_SOCIAL_MEDIA_API = CENTER_SOCIAL_MEDIA_PREFIX + "/{socialMediaId}/delete";
+    public static final String UPDATE_CENTER_SOCIAL_MEDIA_STATUS_API = CENTER_SOCIAL_MEDIA_PREFIX + "/{socialMediaId}/status";
 
     // Branch management module endpoints
     public static final String BRANCH_MANAGEMENT_PREFIX = "/branches";
@@ -244,6 +262,20 @@ public class ApiConstant {
             apiPrefix + CREATE_CENTER_API,
             apiPrefix + UPDATE_CENTER_API,
             apiPrefix + DELETE_CENTER_API,
+            // Center Business Hours APIs
+            apiPrefix + GET_ALL_CENTER_BUSINESS_HOURS_API,
+            apiPrefix + GET_CENTER_BUSINESS_HOURS_BY_ID_API,
+            apiPrefix + CREATE_CENTER_BUSINESS_HOURS_API,
+            apiPrefix + UPDATE_CENTER_BUSINESS_HOURS_API,
+            apiPrefix + DELETE_CENTER_BUSINESS_HOURS_API,
+            apiPrefix + UPDATE_CENTER_BUSINESS_HOURS_STATUS_API,
+            // Center Social Media APIs
+            apiPrefix + GET_ALL_CENTER_SOCIAL_MEDIA_API,
+            apiPrefix + GET_CENTER_SOCIAL_MEDIA_BY_ID_API,
+            apiPrefix + CREATE_CENTER_SOCIAL_MEDIA_API,
+            apiPrefix + UPDATE_CENTER_SOCIAL_MEDIA_API,
+            apiPrefix + DELETE_CENTER_SOCIAL_MEDIA_API,
+            apiPrefix + UPDATE_CENTER_SOCIAL_MEDIA_STATUS_API,
             apiPrefix + GET_ALL_BRANCHES_API,
             apiPrefix + GET_ALL_BRANCHES_DROPDOWN_API,
             apiPrefix + GET_BRANCH_BY_ID_API,

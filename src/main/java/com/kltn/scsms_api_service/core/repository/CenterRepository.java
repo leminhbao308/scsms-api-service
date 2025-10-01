@@ -41,11 +41,6 @@ public interface CenterRepository extends JpaRepository<Center, UUID> {
     @Query("SELECT c FROM Center c WHERE c.manager.userId = :managerId")
     List<Center> findByManagerId(@Param("managerId") UUID managerId);
     
-    @Query("SELECT c FROM Center c WHERE c.totalBranches >= :minBranches")
-    List<Center> findByMinBranches(@Param("minBranches") Integer minBranches);
-    
-    @Query("SELECT c FROM Center c WHERE c.totalEmployees >= :minEmployees")
-    List<Center> findByMinEmployees(@Param("minEmployees") Integer minEmployees);
     
     @Query("SELECT c FROM Center c WHERE c.establishedDate >= :fromDate AND c.establishedDate <= :toDate")
     List<Center> findByEstablishedDateRange(@Param("fromDate") java.time.LocalDate fromDate, 
@@ -63,12 +58,4 @@ public interface CenterRepository extends JpaRepository<Center, UUID> {
     @Query("SELECT COUNT(c) FROM Center c WHERE c.isActive = true")
     Long countActiveCenters();
     
-    @Query("SELECT SUM(c.totalBranches) FROM Center c WHERE c.isActive = true")
-    Long sumTotalBranches();
-    
-    @Query("SELECT SUM(c.totalEmployees) FROM Center c WHERE c.isActive = true")
-    Long sumTotalEmployees();
-    
-    @Query("SELECT SUM(c.totalCustomers) FROM Center c WHERE c.isActive = true")
-    Long sumTotalCustomers();
 }

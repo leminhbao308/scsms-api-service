@@ -5,8 +5,6 @@ import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -59,22 +57,21 @@ public class Center extends AuditEntity {
     @Column(name = "established_date")
     private java.time.LocalDate establishedDate;
     
-    @Column(name = "total_branches")
-    @Builder.Default
-    private Integer totalBranches = 0;
-    
-    @Column(name = "total_employees")
-    @Builder.Default
-    private Integer totalEmployees = 0;
-    
-    @Column(name = "total_customers")
-    @Builder.Default
-    private Integer totalCustomers = 0;
     
     // One-to-many relationship with branches
     @OneToMany(mappedBy = "center", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private Set<Branch> branches = new HashSet<>();
+    
+    // One-to-many relationship with business hours
+    @OneToMany(mappedBy = "center", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<CenterBusinessHours> businessHours = new HashSet<>();
+    
+    // One-to-many relationship with social media
+    @OneToMany(mappedBy = "center", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<CenterSocialMedia> socialMedia = new HashSet<>();
     
     // Many-to-one relationship with manager (User)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -87,25 +84,6 @@ public class Center extends AuditEntity {
     @Column(name = "manager_assigned_by")
     private String managerAssignedBy;
     
-    // Business hours as JSON
-    @Column(name = "business_hours")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String businessHours;
-    
-    // Contact information as JSON
-    @Column(name = "contact_info")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String contactInfo;
-    
-    // Social media links as JSON
-    @Column(name = "social_media")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String socialMedia;
-    
-    // Service areas as JSON array
-    @Column(name = "service_areas")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String serviceAreas;
     
     // Operating status
     @Column(name = "operating_status")
@@ -123,7 +101,6 @@ public class Center extends AuditEntity {
         if (branch != null) {
             branch.setCenter(this);
         }
-        totalBranches = branches.size();
     }
     
     public void removeBranch(Branch branch) {
@@ -131,7 +108,6 @@ public class Center extends AuditEntity {
         if (branch != null) {
             branch.setCenter(null);
         }
-        totalBranches = branches.size();
     }
     
     public void setManager(User manager) {

@@ -217,26 +217,6 @@ public class CenterService {
         }
         
         // Numeric range filters
-        if (filterParam.getMinBranches() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(centerRoot.get("totalBranches"), filterParam.getMinBranches()));
-        }
-        if (filterParam.getMaxBranches() != null) {
-            predicates.add(cb.lessThanOrEqualTo(centerRoot.get("totalBranches"), filterParam.getMaxBranches()));
-        }
-        
-        if (filterParam.getMinEmployees() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(centerRoot.get("totalEmployees"), filterParam.getMinEmployees()));
-        }
-        if (filterParam.getMaxEmployees() != null) {
-            predicates.add(cb.lessThanOrEqualTo(centerRoot.get("totalEmployees"), filterParam.getMaxEmployees()));
-        }
-        
-        if (filterParam.getMinCustomers() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(centerRoot.get("totalCustomers"), filterParam.getMinCustomers()));
-        }
-        if (filterParam.getMaxCustomers() != null) {
-            predicates.add(cb.lessThanOrEqualTo(centerRoot.get("totalCustomers"), filterParam.getMaxCustomers()));
-        }
         
         // Date range filters
         addDateRangePredicates(cb, centerRoot, predicates, filterParam);
@@ -324,13 +304,4 @@ public class CenterService {
         return centerRepository.existsByBusinessLicense(businessLicense);
     }
     
-    public void updateCenterStatistics(UUID centerId) {
-        Optional<Center> centerOpt = findByIdWithBranches(centerId);
-        if (centerOpt.isPresent()) {
-            Center center = centerOpt.get();
-            center.setTotalBranches(center.getBranches().size());
-            // You can add more statistics calculations here
-            centerRepository.save(center);
-        }
-    }
 }

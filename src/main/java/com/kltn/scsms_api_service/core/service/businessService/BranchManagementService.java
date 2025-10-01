@@ -76,9 +76,6 @@ public class BranchManagementService {
         
         Branch createdBranch = branchService.saveBranch(newBranch);
         
-        // Update center statistics
-        centerService.updateCenterStatistics(center.getCenterId());
-        
         log.info("Created new branch with name: {} for center: {}", 
             createdBranch.getBranchName(), center.getCenterName());
         
@@ -130,11 +127,6 @@ public class BranchManagementService {
         // Save updated branch
         Branch savedBranch = branchService.saveBranch(updatedBranch);
         
-        // Update center statistics if center changed
-        if (updateBranchRequest.getCenterId() != null) {
-            centerService.updateCenterStatistics(savedBranch.getCenter().getCenterId());
-        }
-        
         return branchMapper.toBranchInfoDtoWithRelations(savedBranch);
     }
     
@@ -149,12 +141,7 @@ public class BranchManagementService {
                 "Cannot delete branch with active workload. Please complete or transfer services first.");
         }
         
-        UUID centerId = existingBranch.getCenter().getCenterId();
-        
         branchService.deleteBranch(existingBranch);
-        
-        // Update center statistics
-        centerService.updateCenterStatistics(centerId);
     }
     
     public BranchInfoDto getBranchById(UUID branchId) {
