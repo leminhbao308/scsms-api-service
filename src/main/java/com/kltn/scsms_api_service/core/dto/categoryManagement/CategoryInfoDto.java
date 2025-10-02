@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,20 +24,29 @@ public class CategoryInfoDto extends AuditDto {
     @JsonProperty("category_id")
     private UUID categoryId;
     
-    @JsonProperty("category_url")
-    private String categoryUrl;
+    @JsonProperty("category_code")
+    private String categoryCode;
     
     @JsonProperty("category_name")
     private String categoryName;
     
-    @JsonProperty("parent_category")
-    private CategoryFlatDto parentCategory;
+    @JsonProperty("category_url")
+    private String categoryUrl;
+    
+    @JsonProperty("parent_category_id")
+    private UUID parentCategoryId;
     
     @JsonProperty("description")
     private String description;
     
-    @JsonProperty("type")
-    private CategoryType type;
+    @JsonProperty("category_type")
+    private CategoryType categoryType;
+    
+    @JsonProperty("level")
+    private Integer level;
+    
+    @JsonProperty("sort_order")
+    private Integer sortOrder;
     
     @JsonProperty("subcategories")
     private List<CategoryFlatDto> subcategories;

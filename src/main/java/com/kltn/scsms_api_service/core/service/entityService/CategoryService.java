@@ -50,7 +50,7 @@ public class CategoryService {
         // Left join with parent category for filtering and response mapping
         Join<Category, Category> parentJoin = categoryRoot.join("parentCategory", JoinType.LEFT);
         // Left join with subcategories for counting
-        Join<Category, Category> subcategoriesJoin = categoryRoot.join("subcategories", JoinType.LEFT);
+        // Join<Category, Category> subcategoriesJoin = categoryRoot.join("subcategories", JoinType.LEFT);
         
         List<Predicate> predicates = buildPredicates(cb, categoryRoot, parentJoin, filterParam);
         
@@ -108,7 +108,7 @@ public class CategoryService {
         } else if (type != null) {
             // Get categories of specific type
             CategoryType categoryType = CategoryType.valueOf(type.toUpperCase());
-            categories = categoryRepository.findByType(categoryType);
+            categories = categoryRepository.findByCategoryType(categoryType);
         } else {
             // Get all categories
             categories = categoryRepository.findAll();
@@ -129,7 +129,7 @@ public class CategoryService {
             categories = categoryRepository.findByParentCategoryCategoryId(parentId);
         } else if (type != null) {
             CategoryType categoryType = CategoryType.valueOf(type.toUpperCase());
-            categories = categoryRepository.findByType(categoryType);
+            categories = categoryRepository.findByCategoryType(categoryType);
         } else {
             categories = categoryRepository.findAll();
         }
@@ -144,6 +144,30 @@ public class CategoryService {
         log.debug("Getting category by ID: {}", categoryId);
         
         Category category = categoryRepository.findById(categoryId)
+            .orElseThrow(() -> new EntityNotFoundException("Category not found with ID: " + categoryId));
+        
+        return categoryMapper.toDetailedInfoDto(category);
+    }
+    
+    /**
+     * Get category by ID with subcategories loaded (for better performance)
+     */
+    public CategoryInfoDto getCategoryByIdWithSubcategories(UUID categoryId) {
+        log.debug("Getting category by ID with subcategories: {}", categoryId);
+        
+        Category category = categoryRepository.findByIdWithSubcategories(categoryId)
+            .orElseThrow(() -> new EntityNotFoundException("Category not found with ID: " + categoryId));
+        
+        return categoryMapper.toDetailedInfoDto(category);
+    }
+    
+    /**
+     * Get category by ID with parent and subcategories loaded (for complete hierarchy)
+     */
+    public CategoryInfoDto getCategoryByIdWithFullHierarchy(UUID categoryId) {
+        log.debug("Getting category by ID with full hierarchy: {}", categoryId);
+        
+        Category category = categoryRepository.findByIdWithParentAndSubcategories(categoryId)
             .orElseThrow(() -> new EntityNotFoundException("Category not found with ID: " + categoryId));
         
         return categoryMapper.toDetailedInfoDto(category);
@@ -198,6 +222,32 @@ public class CategoryService {
             Category parentCategory = categoryRepository.findById(createRequest.getParentCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Parent category not found: " + createRequest.getParentCategoryId()));
             category.setParentCategory(parentCategory);
+            
+            // Set level based on parent (handle null parent level)
+            Integer parentLevel = parentCategory.getLevel();
+            category.setLevel(parentLevel != null ? parentLevel + 1 : 1);
+        } else {
+            // Root category
+            category.setLevel(0);
+        }
+        
+        // Set sort order if not provided
+        if (category.getSortOrder() == null) {
+            category.setSortOrder(0);
+        }
+        
+        // Set category code if not provided
+        if (category.getCategoryCode() == null || category.getCategoryCode().trim().isEmpty()) {
+            // Generate a default category code
+            category.setCategoryCode("CAT_" + System.currentTimeMillis());
+        }
+        
+        // Ensure is_active and is_deleted are never null (fallback protection)
+        if (category.getIsActive() == null) {
+            category.setIsActive(true);
+        }
+        if (category.getIsDeleted() == null) {
+            category.setIsDeleted(false);
         }
         
         Category savedCategory = categoryRepository.save(category);
@@ -217,11 +267,35 @@ public class CategoryService {
         // Use mapper to update entity from request
         categoryMapper.updateEntityFromRequest(updateRequest, existingCategory);
         
+        // Ensure is_active and is_deleted are never null (fallback protection)
+        if (existingCategory.getIsActive() == null) {
+            existingCategory.setIsActive(true);
+        }
+        if (existingCategory.getIsDeleted() == null) {
+            existingCategory.setIsDeleted(false);
+        }
+        
         // Update parent category if provided
         if (updateRequest.getParentCategoryId() != null) {
             Category newParent = categoryRepository.findById(updateRequest.getParentCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Parent category not found: " + updateRequest.getParentCategoryId()));
             existingCategory.setParentCategory(newParent);
+            
+            // Update level based on new parent (handle null parent level)
+            Integer parentLevel = newParent.getLevel();
+            existingCategory.setLevel(parentLevel != null ? parentLevel + 1 : 1);
+        } else if (updateRequest.getParentCategoryId() == null && existingCategory.getParentCategory() != null) {
+            // Moving to root level
+            existingCategory.setParentCategory(null);
+            existingCategory.setLevel(0);
+        }
+        
+        // Note: Level should be calculated automatically based on parent hierarchy
+        // Manual level updates are not allowed to maintain hierarchy integrity
+        
+        // Update sort order if provided
+        if (updateRequest.getSortOrder() != null) {
+            existingCategory.setSortOrder(updateRequest.getSortOrder());
         }
         
         Category updatedCategory = categoryRepository.save(existingCategory);
@@ -229,25 +303,19 @@ public class CategoryService {
     }
     
     /**
-     * Delete category (soft delete)
+     * Delete category (soft delete only)
      */
     @Transactional
     public void deleteCategory(UUID categoryId, boolean force) {
-        log.info("Deleting category: {}, force: {}", categoryId, force);
+        log.info("Soft deleting category: {}", categoryId);
         
         Category category = categoryRepository.findById(categoryId)
             .orElseThrow(() -> new EntityNotFoundException("Category not found: " + categoryId));
         
-        if (force) {
-            // Delete all descendants first
-            List<UUID> descendantIds = categoryRepository.findAllDescendantIds(categoryId);
-            descendantIds.add(categoryId);
-            categoryRepository.deleteAllByIdIn(descendantIds);
-        } else {
-            // Soft delete
-            category.setIsDeleted(true);
-            categoryRepository.save(category);
-        }
+        // Always soft delete - just mark as deleted
+        category.setIsDeleted(true);
+        category.setIsActive(false); // Also deactivate when deleted
+        categoryRepository.save(category);
     }
     
     /**
@@ -296,6 +364,17 @@ public class CategoryService {
     }
     
     /**
+     * Check if category code is unique
+     */
+    public boolean isCategoryCodeUnique(String categoryCode, UUID excludeCategoryId) {
+        if (excludeCategoryId != null) {
+            return !categoryRepository.existsByCategoryCodeAndCategoryIdNot(categoryCode, excludeCategoryId);
+        } else {
+            return !categoryRepository.existsByCategoryCode(categoryCode);
+        }
+    }
+    
+    /**
      * Get root categories
      */
     public List<CategoryInfoDto> getRootCategories(String type) {
@@ -304,7 +383,7 @@ public class CategoryService {
         List<Category> rootCategories;
         if (type != null) {
             CategoryType categoryType = CategoryType.valueOf(type.toUpperCase());
-            rootCategories = categoryRepository.findByParentCategoryIsNullAndType(categoryType);
+            rootCategories = categoryRepository.findByParentCategoryIsNullAndCategoryType(categoryType);
         } else {
             rootCategories = categoryRepository.findByParentCategoryIsNull();
         }
@@ -333,6 +412,20 @@ public class CategoryService {
      */
     public boolean hasSubcategories(UUID categoryId) {
         return categoryRepository.existsByParentCategoryCategoryId(categoryId);
+    }
+    
+    /**
+     * Check if category has active subcategories (not deleted)
+     */
+    public boolean hasActiveSubcategories(UUID categoryId) {
+        return categoryRepository.existsByParentCategoryCategoryIdAndIsDeletedFalse(categoryId);
+    }
+    
+    /**
+     * Get subcategory count for a category (using repository query for better performance)
+     */
+    public long getSubcategoryCount(UUID categoryId) {
+        return categoryRepository.countByParentCategoryCategoryId(categoryId);
     }
     
     /**
@@ -377,6 +470,19 @@ public class CategoryService {
                 if (request.getParentCategoryId() != null) {
                     Category parent = categoryRepository.getReferenceById(request.getParentCategoryId());
                     category.setParentCategory(parent);
+                    // Set level based on parent
+                    Integer parentLevel = parent.getLevel();
+                    category.setLevel(parentLevel != null ? parentLevel + 1 : 1);
+                } else {
+                    category.setLevel(0);
+                }
+                
+                // Ensure is_active and is_deleted are never null (fallback protection)
+                if (category.getIsActive() == null) {
+                    category.setIsActive(true);
+                }
+                if (category.getIsDeleted() == null) {
+                    category.setIsDeleted(false);
                 }
                 
                 return category;
@@ -452,8 +558,8 @@ public class CategoryService {
         }
         
         // Type filter
-        if (filterParam.getType() != null) {
-            predicates.add(cb.equal(categoryRoot.get("type"), filterParam.getType()));
+        if (filterParam.getCategoryType() != null) {
+            predicates.add(cb.equal(categoryRoot.get("categoryType"), filterParam.getCategoryType()));
         }
         
         // Parent category filter
@@ -616,7 +722,7 @@ public class CategoryService {
      * Get categories by type
      */
     public List<CategoryInfoDto> getCategoriesByType(CategoryType type) {
-        List<Category> categories = categoryRepository.findByType(type);
+        List<Category> categories = categoryRepository.findByCategoryType(type);
         return categories.stream()
             .map(categoryMapper::toDetailedInfoDto)
             .collect(Collectors.toList());
@@ -629,7 +735,7 @@ public class CategoryService {
         Sort.Direction sortDirection = "ASC".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(sortDirection, sort));
         
-        Page<Category> categoryPage = categoryRepository.findByType(type, pageRequest);
+        Page<Category> categoryPage = categoryRepository.findByCategoryType(type, pageRequest);
         
         List<CategoryInfoDto> categoryDtos = categoryPage.getContent().stream()
             .map(categoryMapper::toDetailedInfoDto)

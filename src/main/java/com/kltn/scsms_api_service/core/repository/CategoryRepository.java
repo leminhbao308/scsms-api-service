@@ -34,6 +34,16 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
     boolean existsByCategoryUrl(String categoryUrl);
     
     /**
+     * Check if category code exists
+     */
+    boolean existsByCategoryCode(String categoryCode);
+    
+    /**
+     * Check if category code exists, excluding specific category ID
+     */
+    boolean existsByCategoryCodeAndCategoryIdNot(String categoryCode, UUID categoryId);
+    
+    /**
      * Find all root categories (categories without parent)
      */
     List<Category> findByParentCategoryIsNull();
@@ -41,7 +51,7 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
     /**
      * Find root categories by type
      */
-    List<Category> findByParentCategoryIsNullAndType(CategoryType type);
+    List<Category> findByParentCategoryIsNullAndCategoryType(CategoryType categoryType);
     
     /**
      * Find all subcategories of a parent category
@@ -49,14 +59,37 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
     List<Category> findByParentCategoryCategoryId(UUID parentCategoryId);
     
     /**
+     * Find all subcategories of a parent category with subcategories loaded
+     */
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.subcategories WHERE c.parentCategory.categoryId = :parentCategoryId")
+    List<Category> findByParentCategoryCategoryIdWithSubcategories(@Param("parentCategoryId") UUID parentCategoryId);
+    
+    /**
+     * Find category by ID with subcategories loaded
+     */
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.subcategories WHERE c.categoryId = :categoryId")
+    Optional<Category> findByIdWithSubcategories(@Param("categoryId") UUID categoryId);
+    
+    /**
+     * Find category by ID with parent and subcategories loaded
+     */
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parentCategory LEFT JOIN FETCH c.subcategories WHERE c.categoryId = :categoryId")
+    Optional<Category> findByIdWithParentAndSubcategories(@Param("categoryId") UUID categoryId);
+    
+    /**
      * Find subcategories by parent and type
      */
-    List<Category> findByParentCategoryCategoryIdAndType(UUID parentCategoryId, CategoryType type);
+    List<Category> findByParentCategoryCategoryIdAndCategoryType(UUID parentCategoryId, CategoryType categoryType);
     
     /**
      * Check if a category has subcategories
      */
     boolean existsByParentCategoryCategoryId(UUID parentCategoryId);
+    
+    /**
+     * Check if a category has active subcategories (not deleted)
+     */
+    boolean existsByParentCategoryCategoryIdAndIsDeletedFalse(UUID parentCategoryId);
     
     /**
      * Count subcategories for a parent category
@@ -66,12 +99,12 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
     /**
      * Find categories by type
      */
-    List<Category> findByType(CategoryType type);
+    List<Category> findByCategoryType(CategoryType categoryType);
     
     /**
      * Find categories by type with pagination
      */
-    Page<Category> findByType(CategoryType type, Pageable pageable);
+    Page<Category> findByCategoryType(CategoryType categoryType, Pageable pageable);
     
     /**
      * Search categories by name (case-insensitive)
@@ -100,14 +133,14 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
      */
     @Query(value = "WITH RECURSIVE category_hierarchy AS (" +
         "    SELECT c.category_id, c.category_name, c.category_url, c.parent_category_id, " +
-        "           c.type, c.description, 0 as level, " +
+        "           c.category_type, c.description, 0 as level, " +
         "           CAST(c.category_name AS TEXT) as path " +
         "    FROM categories c " +
         "    WHERE c.parent_category_id IS NULL " +
-        "    AND (:type IS NULL OR c.type = :type) " +
+        "    AND (:type IS NULL OR c.category_type = :type) " +
         "    UNION ALL " +
         "    SELECT c.category_id, c.category_name, c.category_url, c.parent_category_id, " +
-        "           c.type, c.description, ch.level + 1, " +
+        "           c.category_type, c.description, ch.level + 1, " +
         "           CONCAT(ch.path, ' > ', c.category_name) " +
         "    FROM categories c " +
         "    INNER JOIN category_hierarchy ch ON c.parent_category_id = ch.category_id " +
@@ -158,10 +191,10 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
     @Query("SELECT COUNT(c) FROM Category c WHERE c.parentCategory IS NULL")
     long getRootCategoriesCount();
     
-    @Query("SELECT COUNT(c) FROM Category c WHERE SIZE(c.subcategories) = 0")
+    @Query("SELECT COUNT(c) FROM Category c WHERE c.categoryId NOT IN (SELECT DISTINCT sc.parentCategory.categoryId FROM Category sc WHERE sc.parentCategory IS NOT NULL)")
     long getLeafCategoriesCount();
     
-    @Query("SELECT COUNT(c) FROM Category c WHERE SIZE(c.subcategories) > 0")
+    @Query("SELECT COUNT(c) FROM Category c WHERE c.categoryId IN (SELECT DISTINCT sc.parentCategory.categoryId FROM Category sc WHERE sc.parentCategory IS NOT NULL)")
     long getCategoriesWithSubcategoriesCount();
     
     /**

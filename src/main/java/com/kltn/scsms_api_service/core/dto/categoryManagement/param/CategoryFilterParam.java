@@ -20,7 +20,8 @@ import java.util.UUID;
 public class CategoryFilterParam extends BaseFilterParam<CategoryFilterParam> {
     
     // Category-specific filters
-    private CategoryType type;
+    @JsonProperty("category_type")
+    private CategoryType categoryType;
     
     @JsonProperty("parent_category_id")
     private UUID parentCategoryId;

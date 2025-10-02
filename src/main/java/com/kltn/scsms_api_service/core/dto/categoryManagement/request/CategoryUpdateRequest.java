@@ -16,11 +16,14 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CategoryUpdateRequest {
     
-    @JsonProperty("category_url")
-    private String categoryUrl;
+    @JsonProperty("category_code")
+    private String categoryCode;
     
     @JsonProperty("category_name")
     private String categoryName;
+    
+    @JsonProperty("category_url")
+    private String categoryUrl;
     
     @JsonProperty("parent_category_id")
     private UUID parentCategoryId;
@@ -28,9 +31,16 @@ public class CategoryUpdateRequest {
     @JsonProperty("description")
     private String description;
     
-    @JsonProperty("type")
-    private CategoryType type;
+    @JsonProperty("category_type")
+    private CategoryType categoryType;
+    
+    @JsonProperty("level")
+    private Integer level;
+    
+    @JsonProperty("sort_order")
+    private Integer sortOrder;
     
     @JsonProperty("is_active")
-    private Boolean isActive;
+    @Builder.Default
+    private Boolean isActive = true;
 }

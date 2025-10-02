@@ -19,11 +19,14 @@ public class CategoryBreadcrumbDto extends AuditDto {
     @JsonProperty("category_id")
     private UUID categoryId;
     
-    @JsonProperty("category_url")
-    private String categoryUrl;
+    @JsonProperty("category_code")
+    private String categoryCode;
     
     @JsonProperty("category_name")
     private String categoryName;
+    
+    @JsonProperty("category_url")
+    private String categoryUrl;
     
     @JsonProperty("parent_category_id")
     private UUID parentCategoryId;

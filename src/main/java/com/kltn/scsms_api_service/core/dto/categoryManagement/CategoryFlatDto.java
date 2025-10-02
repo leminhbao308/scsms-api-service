@@ -19,23 +19,29 @@ public class CategoryFlatDto extends AuditDto {
     @JsonProperty("category_id")
     private UUID categoryId;
     
-    @JsonProperty("category_url")
-    private String categoryUrl;
+    @JsonProperty("category_code")
+    private String categoryCode;
     
     @JsonProperty("category_name")
     private String categoryName;
     
+    @JsonProperty("category_url")
+    private String categoryUrl;
+    
     @JsonProperty("parent_category_id")
     private UUID parentCategoryId;
-    
-    @JsonProperty("parent_category_name")
-    private String parentCategoryName;
     
     @JsonProperty("description")
     private String description;
     
-    @JsonProperty("type")
-    private CategoryType type;
+    @JsonProperty("category_type")
+    private CategoryType categoryType;
+    
+    @JsonProperty("level")
+    private Integer level;
+    
+    @JsonProperty("sort_order")
+    private Integer sortOrder;
     
     @JsonProperty("subcategory_count")
     private Integer subcategoryCount;

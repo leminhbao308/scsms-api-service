@@ -23,11 +23,14 @@ public class Category extends AuditEntity {
     @Column(name = "category_id", nullable = false)
     private UUID categoryId;
     
-    @Column(name = "category_url", unique = true, nullable = false, length = Integer.MAX_VALUE)
-    private String categoryUrl;
+    @Column(name = "category_code", unique = true, nullable = true, length = 50)
+    private String categoryCode;
     
     @Column(name = "category_name", nullable = false)
     private String categoryName;
+    
+    @Column(name = "category_url", unique = true, nullable = false, length = Integer.MAX_VALUE)
+    private String categoryUrl;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_category_id")
@@ -37,8 +40,16 @@ public class Category extends AuditEntity {
     private String description;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "type")
-    private CategoryType type;
+    @Column(name = "category_type", length = 50)
+    private CategoryType categoryType;
+    
+    @Column(name = "level", nullable = true)
+    @Builder.Default
+    private Integer level = 0;
+    
+    @Column(name = "sort_order", nullable = true)
+    @Builder.Default
+    private Integer sortOrder = 0;
     
     // One-to-many relationship for subcategories
     @OneToMany(mappedBy = "parentCategory", fetch = FetchType.LAZY, cascade = CascadeType.ALL)

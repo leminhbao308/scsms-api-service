@@ -90,6 +90,11 @@ public class CategoryManagementService {
             throw new IllegalArgumentException("Category URL already exists: " + createRequest.getCategoryUrl());
         }
         
+        // Check category code uniqueness
+        if (!validateCategoryCode(createRequest.getCategoryCode(), null)) {
+            throw new IllegalArgumentException("Category code already exists: " + createRequest.getCategoryCode());
+        }
+        
         return categoryService.createCategory(createRequest);
     }
     
@@ -109,22 +114,25 @@ public class CategoryManagementService {
             throw new IllegalArgumentException("Category URL already exists: " + updateRequest.getCategoryUrl());
         }
         
+        // Check category code uniqueness if code is being changed
+        if (updateRequest.getCategoryCode() != null
+            && !validateCategoryCode(updateRequest.getCategoryCode(), categoryId)) {
+            throw new IllegalArgumentException("Category code already exists: " + updateRequest.getCategoryCode());
+        }
+        
         return categoryService.updateCategory(categoryId, updateRequest);
     }
     
     /**
-     * Delete a category (soft delete)
+     * Delete a category (soft delete only)
      */
     @Transactional
     public void deleteCategory(UUID categoryId, boolean force) {
-        log.info("Deleting category: {}, force: {}", categoryId, force);
+        log.info("Soft deleting category: {}", categoryId);
         
-        // Validate deletion
-        if (!force && hasSubcategories(categoryId)) {
-            throw new IllegalArgumentException("Cannot delete category with subcategories. Use force=true to delete anyway.");
-        }
-        
-        categoryService.deleteCategory(categoryId, force);
+        // For soft delete, we don't need to check subcategories
+        // Just mark the category as deleted
+        categoryService.deleteCategory(categoryId, false);
     }
     
     /**
@@ -157,6 +165,14 @@ public class CategoryManagementService {
     }
     
     /**
+     * Validate category code uniqueness
+     */
+    public boolean validateCategoryCode(String categoryCode, UUID excludeCategoryId) {
+        log.debug("Validating category code: {}, excluding: {}", categoryCode, excludeCategoryId);
+        return categoryService.isCategoryCodeUnique(categoryCode, excludeCategoryId);
+    }
+    
+    /**
      * Get root categories (categories without parent)
      */
     public List<CategoryInfoDto> getRootCategories(String type) {
@@ -167,12 +183,18 @@ public class CategoryManagementService {
     // Private validation methods
     
     private void validateCategoryCreateRequest(CategoryCreateRequest request) {
+        // Category code is optional - will be auto-generated if not provided
+        
         if (request.getCategoryName() == null || request.getCategoryName().trim().isEmpty()) {
             throw new IllegalArgumentException("Category name is required");
         }
         
         if (request.getCategoryUrl() == null || request.getCategoryUrl().trim().isEmpty()) {
             throw new IllegalArgumentException("Category URL is required");
+        }
+        
+        if (request.getCategoryType() == null) {
+            throw new IllegalArgumentException("Category type is required");
         }
         
         // Validate parent category exists
@@ -264,9 +286,6 @@ public class CategoryManagementService {
         return categoryService.wouldCreateCircularReference(categoryId, potentialParentId);
     }
     
-    private boolean hasSubcategories(UUID categoryId) {
-        return categoryService.hasSubcategories(categoryId);
-    }
     
     /**
      * Get category statistics for dashboard
