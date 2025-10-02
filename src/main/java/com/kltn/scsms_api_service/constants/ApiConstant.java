@@ -138,6 +138,21 @@ public class ApiConstant {
     public static final String VALIDATE_PRODUCT_TYPE_CODE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/validate-code";
     public static final String GET_PRODUCT_TYPE_STATISTICS_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/statistics";
 
+    // Media management module endpoints
+    public static final String MEDIA_MANAGEMENT_PREFIX = "/media";
+    public static final String GET_ALL_MEDIA_API = MEDIA_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_MEDIA_BY_ID_API = MEDIA_MANAGEMENT_PREFIX + "/{mediaId}";
+    public static final String GET_MEDIA_BY_ENTITY_API = MEDIA_MANAGEMENT_PREFIX + "/entity/{entityType}/{entityId}";
+    public static final String GET_MAIN_MEDIA_BY_ENTITY_API = MEDIA_MANAGEMENT_PREFIX + "/entity/{entityType}/{entityId}/main";
+    public static final String GET_MEDIA_BY_TYPE_API = MEDIA_MANAGEMENT_PREFIX + "/type/{mediaType}";
+    public static final String CREATE_MEDIA_API = MEDIA_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_MEDIA_API = MEDIA_MANAGEMENT_PREFIX + "/{mediaId}/update";
+    public static final String UPDATE_MEDIA_MAIN_STATUS_API = MEDIA_MANAGEMENT_PREFIX + "/{mediaId}/main-status";
+    public static final String DELETE_MEDIA_API = MEDIA_MANAGEMENT_PREFIX + "/{mediaId}/delete";
+    public static final String BULK_UPDATE_MEDIA_ORDER_API = MEDIA_MANAGEMENT_PREFIX + "/bulk-update-order";
+    public static final String VALIDATE_MEDIA_URL_API = MEDIA_MANAGEMENT_PREFIX + "/validate-url";
+    public static final String GET_MEDIA_STATISTICS_API = MEDIA_MANAGEMENT_PREFIX + "/statistics";
+
     // Product management module endpoints
     public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
     public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
