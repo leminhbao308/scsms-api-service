@@ -124,6 +124,20 @@ public class ApiConstant {
     public static final String DELETE_BRANCH_API = BRANCH_MANAGEMENT_PREFIX + "/{branchId}/delete";
 
 
+    // Product Type management module endpoints
+    public static final String PRODUCT_TYPE_MANAGEMENT_PREFIX = "/product-types";
+    public static final String GET_ALL_PRODUCT_TYPES_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_PRODUCT_TYPE_BY_ID_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/{productTypeId}";
+    public static final String GET_PRODUCT_TYPE_BY_CODE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/code/{productTypeCode}";
+    public static final String GET_PRODUCT_TYPES_BY_CATEGORY_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/category/{categoryId}";
+    public static final String GET_ACTIVE_PRODUCT_TYPES_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/active";
+    public static final String CREATE_PRODUCT_TYPE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_PRODUCT_TYPE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/{productTypeId}/update";
+    public static final String UPDATE_PRODUCT_TYPE_STATUS_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/{productTypeId}/status";
+    public static final String DELETE_PRODUCT_TYPE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/{productTypeId}/delete";
+    public static final String VALIDATE_PRODUCT_TYPE_CODE_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/validate-code";
+    public static final String GET_PRODUCT_TYPE_STATISTICS_API = PRODUCT_TYPE_MANAGEMENT_PREFIX + "/statistics";
+
     // Product management module endpoints
     public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
     public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
