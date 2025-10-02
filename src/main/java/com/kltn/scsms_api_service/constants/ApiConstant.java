@@ -153,6 +153,21 @@ public class ApiConstant {
     public static final String VALIDATE_MEDIA_URL_API = MEDIA_MANAGEMENT_PREFIX + "/validate-url";
     public static final String GET_MEDIA_STATISTICS_API = MEDIA_MANAGEMENT_PREFIX + "/statistics";
 
+    // Product Attribute management module endpoints
+    public static final String PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX = "/product-attributes";
+    public static final String GET_ALL_PRODUCT_ATTRIBUTES_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_PRODUCT_ATTRIBUTE_BY_ID_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/{attributeId}";
+    public static final String GET_PRODUCT_ATTRIBUTE_BY_CODE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/code/{attributeCode}";
+    public static final String GET_PRODUCT_ATTRIBUTES_BY_DATA_TYPE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/data-type/{dataType}";
+    public static final String GET_REQUIRED_PRODUCT_ATTRIBUTES_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/required";
+    public static final String GET_ACTIVE_PRODUCT_ATTRIBUTES_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/active";
+    public static final String CREATE_PRODUCT_ATTRIBUTE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_PRODUCT_ATTRIBUTE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/{attributeId}/update";
+    public static final String UPDATE_PRODUCT_ATTRIBUTE_STATUS_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/{attributeId}/status";
+    public static final String DELETE_PRODUCT_ATTRIBUTE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/{attributeId}/delete";
+    public static final String VALIDATE_PRODUCT_ATTRIBUTE_CODE_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/validate-code";
+    public static final String GET_PRODUCT_ATTRIBUTE_STATISTICS_API = PRODUCT_ATTRIBUTE_MANAGEMENT_PREFIX + "/statistics";
+
     // Product management module endpoints
     public static final String PRODUCT_MANAGEMENT_PREFIX = "/products";
     public static final String GET_ALL_PRODUCTS_API = PRODUCT_MANAGEMENT_PREFIX + "/get-all";
