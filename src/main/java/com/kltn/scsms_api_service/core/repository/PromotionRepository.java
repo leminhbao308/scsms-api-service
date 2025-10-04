@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.Promotion;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -35,57 +34,35 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
     boolean existsByPromotionCode(String promotionCode);
     
     /**
-     * Find promotions by category
+     * Find promotions by promotion type
      */
-    List<Promotion> findByCategoryCategoryId(UUID categoryId);
-    
-    /**
-     * Find promotions by category with pagination
-     */
-    Page<Promotion> findByCategoryCategoryId(UUID categoryId, Pageable pageable);
-    
-    /**
-     * Find promotions by type
-     */
-    List<Promotion> findByPromotionType(String promotionType);
-    
-    /**
-     * Find promotions by discount type
-     */
-    List<Promotion> findByDiscountType(Promotion.DiscountType discountType);
+    List<Promotion> findByPromotionTypePromotionTypeId(UUID promotionTypeId);
     
     /**
      * Find active promotions (within date range and not deleted)
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.startDate <= :now AND p.endDate >= :now")
+           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
     List<Promotion> findActivePromotions(@Param("now") LocalDateTime now);
-    
-    /**
-     * Find visible promotions
-     */
-    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.isVisible = true AND p.startDate <= :now AND p.endDate >= :now")
-    List<Promotion> findVisiblePromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find auto-apply promotions
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.autoApply = true AND p.startDate <= :now AND p.endDate >= :now")
+           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
     List<Promotion> findAutoApplyPromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find expired promotions
      */
-    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.endDate < :now")
+    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.endAt < :now")
     List<Promotion> findExpiredPromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find promotions starting soon
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.startDate > :now AND p.startDate <= :futureTime")
+           "AND p.startAt > :now AND p.startAt <= :futureTime")
     List<Promotion> findPromotionsStartingSoon(@Param("now") LocalDateTime now, 
                                                @Param("futureTime") LocalDateTime futureTime);
     
@@ -97,61 +74,37 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
     /**
      * Find stackable promotions
      */
-    List<Promotion> findByStackableTrue();
-    
-    /**
-     * Find promotions that don't require coupon code
-     */
-    List<Promotion> findByRequireCouponCodeFalse();
+    List<Promotion> findByIsStackableTrue();
     
     /**
      * Search promotions by name (case-insensitive)
      */
-    @Query("SELECT p FROM Promotion p WHERE LOWER(p.promotionName) LIKE LOWER(CONCAT('%', :name, '%'))")
-    List<Promotion> findByPromotionNameContainingIgnoreCase(@Param("name") String name);
+    @Query("SELECT p FROM Promotion p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))")
+    List<Promotion> findByNameContainingIgnoreCase(@Param("name") String name);
     
     /**
      * Search promotions by name with limit
      */
-    @Query("SELECT p FROM Promotion p WHERE LOWER(p.promotionName) LIKE LOWER(CONCAT('%', :name, '%')) " +
-           "ORDER BY p.promotionName")
-    List<Promotion> findByPromotionNameContainingIgnoreCase(@Param("name") String name, Pageable pageable);
+    @Query("SELECT p FROM Promotion p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
+           "ORDER BY p.name")
+    List<Promotion> findByNameContainingIgnoreCase(@Param("name") String name, Pageable pageable);
     
     /**
      * Find promotions for autocomplete suggestions
      */
-    @Query("SELECT p FROM Promotion p WHERE LOWER(p.promotionName) LIKE LOWER(CONCAT(:partial, '%')) " +
-           "AND (:categoryId IS NULL OR p.category.categoryId = :categoryId) " +
-           "ORDER BY p.promotionName")
+    @Query("SELECT p FROM Promotion p WHERE LOWER(p.name) LIKE LOWER(CONCAT(:partial, '%')) " +
+           "AND (:promotionTypeId IS NULL OR p.promotionType.promotionTypeId = :promotionTypeId) " +
+           "ORDER BY p.name")
     List<Promotion> findPromotionSuggestions(@Param("partial") String partial,
-                                             @Param("categoryId") UUID categoryId,
+                                             @Param("promotionTypeId") UUID promotionTypeId,
                                              Pageable pageable);
     
     /**
-     * Find promotions by usage limit status
+     * Find promotions with available usage (usage limit not exceeded)
      */
-    @Query("SELECT p FROM Promotion p WHERE p.usageLimit IS NOT NULL AND p.usedCount >= p.usageLimit")
-    List<Promotion> findPromotionsWithExceededUsageLimit();
-    
-    /**
-     * Find promotions with available usage
-     */
-    @Query("SELECT p FROM Promotion p WHERE p.usageLimit IS NULL OR p.usedCount < p.usageLimit")
+    @Query("SELECT p FROM Promotion p WHERE p.usageLimit IS NULL OR SIZE(p.usages) < p.usageLimit")
     List<Promotion> findPromotionsWithAvailableUsage();
     
-    /**
-     * Find promotions by minimum order amount range
-     */
-    @Query("SELECT p FROM Promotion p WHERE p.minOrderAmount BETWEEN :minAmount AND :maxAmount")
-    List<Promotion> findByMinOrderAmountBetween(@Param("minAmount") Double minAmount, 
-                                                @Param("maxAmount") Double maxAmount);
-    
-    /**
-     * Find promotions by discount value range
-     */
-    @Query("SELECT p FROM Promotion p WHERE p.discountValue BETWEEN :minValue AND :maxValue")
-    List<Promotion> findByDiscountValueBetween(@Param("minValue") Double minValue, 
-                                               @Param("maxValue") Double maxValue);
     
     /**
      * Get promotion statistics
@@ -165,20 +118,20 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
     @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true")
     long getActiveAndNotDeletedPromotionsCount();
     
-    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.isVisible = true")
+    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true")
     long getVisiblePromotionsCount();
     
-    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.autoApply = true")
+    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true")
     long getAutoApplyPromotionsCount();
     
-    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.stackable = true")
+    @Query("SELECT COUNT(p) FROM Promotion p WHERE p.isDeleted = false AND p.isStackable = true")
     long getStackablePromotionsCount();
     
     /**
      * Get promotions by date range
      */
-    @Query("SELECT p FROM Promotion p WHERE p.startDate BETWEEN :startDate AND :endDate " +
-           "OR p.endDate BETWEEN :startDate AND :endDate")
+    @Query("SELECT p FROM Promotion p WHERE p.startAt BETWEEN :startDate AND :endDate " +
+           "OR p.endAt BETWEEN :startDate AND :endDate")
     List<Promotion> findPromotionsByDateRange(@Param("startDate") LocalDateTime startDate,
                                               @Param("endDate") LocalDateTime endDate);
     
@@ -186,107 +139,55 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Get promotions ending soon
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.endDate > :now AND p.endDate <= :futureTime")
+           "AND p.endAt > :now AND p.endAt <= :futureTime")
     List<Promotion> findPromotionsEndingSoon(@Param("now") LocalDateTime now,
                                              @Param("futureTime") LocalDateTime futureTime);
     
     /**
      * Get most used promotions
      */
-    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false ORDER BY p.usedCount DESC")
+    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false ORDER BY SIZE(p.usages) DESC")
     List<Promotion> findMostUsedPromotions(Pageable pageable);
     
     /**
      * Get least used promotions
      */
-    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false ORDER BY p.usedCount ASC")
+    @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false ORDER BY SIZE(p.usages) ASC")
     List<Promotion> findLeastUsedPromotions(Pageable pageable);
     
-    /**
-     * Get promotions by customer rank
-     */
-    @Query(value = "SELECT * FROM dev.promotions p WHERE p.is_deleted = false AND p.is_active = true " +
-           "AND (p.target_customer_ranks IS NULL OR p.target_customer_ranks::text LIKE CONCAT('%', :rank, '%'))", 
-           nativeQuery = true)
-    List<Promotion> findPromotionsByCustomerRank(@Param("rank") String rank);
-    
-    /**
-     * Get promotions by vehicle type
-     */
-    @Query(value = "SELECT * FROM dev.promotions p WHERE p.is_deleted = false AND p.is_active = true " +
-           "AND (p.target_vehicle_types IS NULL OR p.target_vehicle_types::text LIKE CONCAT('%', :vehicleType, '%'))", 
-           nativeQuery = true)
-    List<Promotion> findPromotionsByVehicleType(@Param("vehicleType") String vehicleType);
-    
-    /**
-     * Get promotions by branch
-     */
-    @Query(value = "SELECT * FROM dev.promotions p WHERE p.is_deleted = false AND p.is_active = true " +
-           "AND (p.target_branches IS NULL OR p.target_branches::text LIKE CONCAT('%', :branchId, '%'))", 
-           nativeQuery = true)
-    List<Promotion> findPromotionsByBranch(@Param("branchId") String branchId);
-    
-    /**
-     * Get promotions by service
-     */
-    @Query(value = "SELECT * FROM dev.promotions p WHERE p.is_deleted = false AND p.is_active = true " +
-           "AND (p.target_services IS NULL OR p.target_services::text LIKE CONCAT('%', :serviceId, '%'))", 
-           nativeQuery = true)
-    List<Promotion> findPromotionsByService(@Param("serviceId") String serviceId);
-    
-    /**
-     * Get promotions by product
-     */
-    @Query(value = "SELECT * FROM dev.promotions p WHERE p.is_deleted = false AND p.is_active = true " +
-           "AND (p.target_products IS NULL OR p.target_products::text LIKE CONCAT('%', :productId, '%'))", 
-           nativeQuery = true)
-    List<Promotion> findPromotionsByProduct(@Param("productId") String productId);
-    
-    /**
-     * Increment usage count for a promotion
-     */
-    @Modifying
-    @Query("UPDATE Promotion p SET p.usedCount = p.usedCount + 1 WHERE p.promotionId = :promotionId")
-    void incrementUsageCount(@Param("promotionId") UUID promotionId);
     
     /**
      * Get promotion usage statistics
      */
-    @Query("SELECT SUM(p.usedCount) FROM Promotion p WHERE p.isDeleted = false")
+    @Query("SELECT SUM(SIZE(p.usages)) FROM Promotion p WHERE p.isDeleted = false")
     Long getTotalUsageCount();
     
-    @Query("SELECT AVG(p.usedCount) FROM Promotion p WHERE p.isDeleted = false")
+    @Query("SELECT AVG(SIZE(p.usages)) FROM Promotion p WHERE p.isDeleted = false")
     Double getAverageUsageCount();
     
-    @Query("SELECT MAX(p.usedCount) FROM Promotion p WHERE p.isDeleted = false")
+    @Query("SELECT MAX(SIZE(p.usages)) FROM Promotion p WHERE p.isDeleted = false")
     Integer getMaxUsageCount();
     
     /**
      * Find promotions that can be applied to an order
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.startDate <= :now AND p.endDate >= :now " +
-           "AND (p.usageLimit IS NULL OR p.usedCount < p.usageLimit) " +
-           "AND (p.minOrderAmount IS NULL OR p.minOrderAmount <= :orderAmount)")
-    List<Promotion> findApplicablePromotions(@Param("now") LocalDateTime now,
-                                             @Param("orderAmount") Double orderAmount);
+           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now) " +
+           "AND (p.usageLimit IS NULL OR SIZE(p.usages) < p.usageLimit)")
+    List<Promotion> findApplicablePromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find promotions by multiple criteria
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND (:categoryId IS NULL OR p.category.categoryId = :categoryId) " +
-           "AND (:promotionType IS NULL OR p.promotionType = :promotionType) " +
-           "AND (:discountType IS NULL OR p.discountType = :discountType) " +
-           "AND (:isVisible IS NULL OR p.isVisible = :isVisible) " +
-           "AND (:autoApply IS NULL OR p.autoApply = :autoApply) " +
-           "AND (:stackable IS NULL OR p.stackable = :stackable)")
-    List<Promotion> findPromotionsByMultipleCriteria(@Param("categoryId") UUID categoryId,
-                                                     @Param("promotionType") String promotionType,
-                                                     @Param("discountType") Promotion.DiscountType discountType,
-                                                     @Param("isVisible") Boolean isVisible,
-                                                     @Param("autoApply") Boolean autoApply,
-                                                     @Param("stackable") Boolean stackable);
+           "AND (:promotionTypeId IS NULL OR p.promotionType.promotionTypeId = :promotionTypeId) " +
+           "AND (:branchId IS NULL OR p.branch.branchId = :branchId) " +
+           "AND (:isStackable IS NULL OR p.isStackable = :isStackable) " +
+           "AND (:couponRedeemOnce IS NULL OR p.couponRedeemOnce = :couponRedeemOnce)")
+    List<Promotion> findPromotionsByMultipleCriteria(@Param("promotionTypeId") UUID promotionTypeId,
+                                                     @Param("branchId") UUID branchId,
+                                                     @Param("isStackable") Boolean isStackable,
+                                                     @Param("couponRedeemOnce") Boolean couponRedeemOnce);
     
     /**
      * Get promotion reference by ID (for lazy loading)
@@ -336,9 +237,9 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
     void updatePromotionStatus(@Param("promotionId") UUID promotionId, @Param("isActive") Boolean isActive);
     
     /**
-     * Update promotion visibility
+     * Update promotion visibility (using isActive instead of isVisible)
      */
     @Modifying
-    @Query("UPDATE Promotion p SET p.isVisible = :isVisible WHERE p.promotionId = :promotionId")
-    void updatePromotionVisibility(@Param("promotionId") UUID promotionId, @Param("isVisible") Boolean isVisible);
+    @Query("UPDATE Promotion p SET p.isActive = :isActive WHERE p.promotionId = :promotionId")
+    void updatePromotionVisibility(@Param("promotionId") UUID promotionId, @Param("isActive") Boolean isActive);
 }

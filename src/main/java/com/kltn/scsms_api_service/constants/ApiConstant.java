@@ -238,6 +238,21 @@ public class ApiConstant {
     public static final String DELETE_CATEGORY_API = CATEGORY_MANAGEMENT_PREFIX + "/{categoryId}/delete";
     public static final String VALIDATE_CATEGORY_CODE_API = CATEGORY_MANAGEMENT_PREFIX + "/validate-code";
     
+    // Promotion Type management module endpoints
+    public static final String PROMOTION_TYPE_MANAGEMENT_PREFIX = "/promotion-types";
+    public static final String GET_ALL_PROMOTION_TYPES_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_PROMOTION_TYPE_BY_ID_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}";
+    public static final String GET_PROMOTION_TYPE_BY_TYPE_CODE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/code/{typeCode}";
+    public static final String GET_ACTIVE_PROMOTION_TYPES_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/active";
+    public static final String SEARCH_PROMOTION_TYPES_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_PROMOTION_TYPE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_PROMOTION_TYPE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}/update";
+    public static final String UPDATE_PROMOTION_TYPE_STATUS_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}/status";
+    public static final String DELETE_PROMOTION_TYPE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}/delete";
+    public static final String ACTIVATE_PROMOTION_TYPE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}/activate";
+    public static final String DEACTIVATE_PROMOTION_TYPE_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/{promotionTypeId}/deactivate";
+    public static final String GET_PROMOTION_TYPE_STATISTICS_API = PROMOTION_TYPE_MANAGEMENT_PREFIX + "/statistics";
+
     // Promotion management module endpoints
     public static final String PROMOTION_MANAGEMENT_PREFIX = "/promotions";
     public static final String GET_ALL_PROMOTIONS_API = PROMOTION_MANAGEMENT_PREFIX + "/get-all";
@@ -381,6 +396,19 @@ public class ApiConstant {
             apiPrefix + UPDATE_CATEGORY_STATUS_API,
             apiPrefix + DELETE_CATEGORY_API,
             apiPrefix + VALIDATE_CATEGORY_CODE_API,
+            // Promotion Type management APIs
+            apiPrefix + GET_ALL_PROMOTION_TYPES_API,
+            apiPrefix + GET_PROMOTION_TYPE_BY_ID_API,
+            apiPrefix + GET_PROMOTION_TYPE_BY_TYPE_CODE_API,
+            apiPrefix + GET_ACTIVE_PROMOTION_TYPES_API,
+            apiPrefix + SEARCH_PROMOTION_TYPES_API,
+            apiPrefix + CREATE_PROMOTION_TYPE_API,
+            apiPrefix + UPDATE_PROMOTION_TYPE_API,
+            apiPrefix + UPDATE_PROMOTION_TYPE_STATUS_API,
+            apiPrefix + DELETE_PROMOTION_TYPE_API,
+            apiPrefix + ACTIVATE_PROMOTION_TYPE_API,
+            apiPrefix + DEACTIVATE_PROMOTION_TYPE_API,
+            apiPrefix + GET_PROMOTION_TYPE_STATISTICS_API,
             // Promotion management APIs
             apiPrefix + GET_ALL_PROMOTIONS_API,
             apiPrefix + GET_PROMOTION_BY_ID_API,

@@ -5,14 +5,12 @@ import com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionFi
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.CreatePromotionRequest;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionRequest;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionStatusRequest;
-import com.kltn.scsms_api_service.core.entity.Category;
-import com.kltn.scsms_api_service.core.entity.Product;
+import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Promotion;
-import com.kltn.scsms_api_service.core.entity.Service;
-import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
-import com.kltn.scsms_api_service.core.service.entityService.ProductService;
+import com.kltn.scsms_api_service.core.entity.PromotionType;
+import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.PromotionService;
-import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
+import com.kltn.scsms_api_service.core.service.entityService.PromotionTypeService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.PromotionMapper;
@@ -30,9 +28,8 @@ public class PromotionManagementService {
     
     private final PromotionMapper promotionMapper;
     private final PromotionService promotionService;
-    private final CategoryService categoryService;
-    private final ProductService productService;
-    private final ServiceService serviceService;
+    private final PromotionTypeService promotionTypeService;
+    private final BranchService branchService;
     
     /**
      * Get all promotions with filters
@@ -42,7 +39,7 @@ public class PromotionManagementService {
         
         Page<Promotion> promotionPage = promotionService.getAllPromotionsWithFilters(filterParam);
         
-        return promotionPage.map(promotionMapper::toDetailedInfoDto);
+        return promotionPage.map(promotionMapper::toPromotionInfoDto);
     }
     
     /**
@@ -53,7 +50,7 @@ public class PromotionManagementService {
         
         Promotion promotion = promotionService.getById(promotionId);
         
-        return promotionMapper.toDetailedInfoDto(promotion);
+        return promotionMapper.toPromotionInfoDto(promotion);
     }
     
     /**
@@ -66,7 +63,7 @@ public class PromotionManagementService {
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
                 "Promotion with code " + promotionCode + " not found."));
         
-        return promotionMapper.toDetailedInfoDto(promotion);
+        return promotionMapper.toPromotionInfoDto(promotion);
     }
     
     /**
@@ -82,18 +79,26 @@ public class PromotionManagementService {
                 "Promotion code " + createPromotionRequest.getPromotionCode() + " already exists.");
         }
         
-        // Validate category exists
-        Category category = categoryService.getById(createPromotionRequest.getCategoryId());
-        if (category == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Category with ID " + createPromotionRequest.getCategoryId() + " not found.");
+        // Validate promotion type exists
+        if (createPromotionRequest.getPromotionTypeId() != null) {
+            PromotionType promotionType = promotionTypeService.getById(createPromotionRequest.getPromotionTypeId());
+            if (promotionType == null) {
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                    "Promotion type with ID " + createPromotionRequest.getPromotionTypeId() + " not found.");
+            }
+        }
+        
+        // Validate branch exists if provided
+        if (createPromotionRequest.getBranchId() != null) {
+            Branch branch = branchService.findById(createPromotionRequest.getBranchId()).orElse(null);
+            if (branch == null) {
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                    "Branch with ID " + createPromotionRequest.getBranchId() + " not found.");
+            }
         }
         
         // Create promotion entity
         Promotion newPromotion = promotionMapper.toEntity(createPromotionRequest);
-        
-        // Set category
-        newPromotion.setCategory(category);
         
         // Set related entities if provided
         setRelatedEntities(newPromotion, createPromotionRequest);
@@ -103,7 +108,7 @@ public class PromotionManagementService {
         
         log.info("Created new promotion with ID: {}", createdPromotion.getPromotionId());
         
-        return promotionMapper.toDetailedInfoDto(createdPromotion);
+        return promotionMapper.toPromotionInfoDto(createdPromotion);
     }
     
     /**
@@ -130,14 +135,24 @@ public class PromotionManagementService {
         // Update promotion entity
         promotionMapper.updateEntityFromRequest(updatePromotionRequest, existingPromotion);
         
-        // Update category if provided
-        if (updatePromotionRequest.getCategoryId() != null) {
-            Category category = categoryService.getById(updatePromotionRequest.getCategoryId());
-            if (category == null) {
+        // Update promotion type if provided
+        if (updatePromotionRequest.getPromotionTypeId() != null) {
+            PromotionType promotionType = promotionTypeService.getById(updatePromotionRequest.getPromotionTypeId());
+            if (promotionType == null) {
                 throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Category with ID " + updatePromotionRequest.getCategoryId() + " not found.");
+                    "Promotion type with ID " + updatePromotionRequest.getPromotionTypeId() + " not found.");
             }
-            existingPromotion.setCategory(category);
+            existingPromotion.setPromotionType(promotionType);
+        }
+        
+        // Update branch if provided
+        if (updatePromotionRequest.getBranchId() != null) {
+            Branch branch = branchService.findById(updatePromotionRequest.getBranchId()).orElse(null);
+            if (branch == null) {
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                    "Branch with ID " + updatePromotionRequest.getBranchId() + " not found.");
+            }
+            existingPromotion.setBranch(branch);
         }
         
         // Update related entities if provided
@@ -148,7 +163,7 @@ public class PromotionManagementService {
         
         log.info("Updated promotion with ID: {}", updatedPromotion.getPromotionId());
         
-        return promotionMapper.toDetailedInfoDto(updatedPromotion);
+        return promotionMapper.toPromotionInfoDto(updatedPromotion);
     }
     
     /**
@@ -162,9 +177,9 @@ public class PromotionManagementService {
         Promotion existingPromotion = promotionService.getById(promotionId);
         
         // Check if promotion is being used
-        if (existingPromotion.getUsedCount() > 0) {
+        if (existingPromotion.getUsages() != null && !existingPromotion.getUsages().isEmpty()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Cannot delete promotion that has been used. Used count: " + existingPromotion.getUsedCount());
+                "Cannot delete promotion that has been used. Used count: " + existingPromotion.getUsages().size());
         }
         
         // Soft delete promotion
@@ -256,7 +271,6 @@ public class PromotionManagementService {
         log.info("Getting visible promotions");
         
         // Set filter to only show visible promotions
-        filterParam.setIsVisible(true);
         filterParam.setIsActive(true);
         filterParam.setIsExpired(false);
         
@@ -303,90 +317,48 @@ public class PromotionManagementService {
      * Set related entities for new promotion
      */
     private void setRelatedEntities(Promotion promotion, CreatePromotionRequest request) {
-        // Set free product if provided
-        if (request.getFreeProductId() != null) {
-            Product freeProduct = productService.getById(request.getFreeProductId());
-            if (freeProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Free product with ID " + request.getFreeProductId() + " not found.");
+        // Set promotion type if provided
+        if (request.getPromotionTypeId() != null) {
+            PromotionType promotionType = promotionTypeService.getById(request.getPromotionTypeId());
+            if (promotionType != null) {
+                promotion.setPromotionType(promotionType);
             }
-            promotion.setFreeProduct(freeProduct);
         }
         
-        // Set free service if provided
-        if (request.getFreeServiceId() != null) {
-            Service freeService = serviceService.getById(request.getFreeServiceId());
-            if (freeService == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Free service with ID " + request.getFreeServiceId() + " not found.");
+        // Set branch if provided
+        if (request.getBranchId() != null) {
+            Branch branch = branchService.findById(request.getBranchId()).orElse(null);
+            if (branch != null) {
+                promotion.setBranch(branch);
             }
-            promotion.setFreeService(freeService);
         }
         
-        // Set buy product if provided
-        if (request.getBuyProductId() != null) {
-            Product buyProduct = productService.getById(request.getBuyProductId());
-            if (buyProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Buy product with ID " + request.getBuyProductId() + " not found.");
-            }
-            promotion.setBuyProduct(buyProduct);
-        }
-        
-        // Set get product if provided
-        if (request.getGetProductId() != null) {
-            Product getProduct = productService.getById(request.getGetProductId());
-            if (getProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Get product with ID " + request.getGetProductId() + " not found.");
-            }
-            promotion.setGetProduct(getProduct);
-        }
+        // TODO: Handle promotion lines if provided
+        // This will be implemented when we add promotion line management
     }
     
     /**
      * Update related entities for existing promotion
      */
     private void updateRelatedEntities(Promotion promotion, UpdatePromotionRequest request) {
-        // Update free product if provided
-        if (request.getFreeProductId() != null) {
-            Product freeProduct = productService.getById(request.getFreeProductId());
-            if (freeProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Free product with ID " + request.getFreeProductId() + " not found.");
+        // Update promotion type if provided
+        if (request.getPromotionTypeId() != null) {
+            PromotionType promotionType = promotionTypeService.getById(request.getPromotionTypeId());
+            if (promotionType != null) {
+                promotion.setPromotionType(promotionType);
             }
-            promotion.setFreeProduct(freeProduct);
         }
         
-        // Update free service if provided
-        if (request.getFreeServiceId() != null) {
-            Service freeService = serviceService.getById(request.getFreeServiceId());
-            if (freeService == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Free service with ID " + request.getFreeServiceId() + " not found.");
+        // Update branch if provided
+        if (request.getBranchId() != null) {
+            Branch branch = branchService.findById(request.getBranchId()).orElse(null);
+            if (branch != null) {
+                promotion.setBranch(branch);
             }
-            promotion.setFreeService(freeService);
         }
         
-        // Update buy product if provided
-        if (request.getBuyProductId() != null) {
-            Product buyProduct = productService.getById(request.getBuyProductId());
-            if (buyProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Buy product with ID " + request.getBuyProductId() + " not found.");
-            }
-            promotion.setBuyProduct(buyProduct);
-        }
-        
-        // Update get product if provided
-        if (request.getGetProductId() != null) {
-            Product getProduct = productService.getById(request.getGetProductId());
-            if (getProduct == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Get product with ID " + request.getGetProductId() + " not found.");
-            }
-            promotion.setGetProduct(getProduct);
-        }
+        // TODO: Handle promotion lines if provided
+        // This will be implemented when we add promotion line management
     }
     
     /**

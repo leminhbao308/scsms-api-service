@@ -3,7 +3,7 @@ package com.kltn.scsms_api_service.core.dto.promotionManagement.param;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.abstracts.BaseFilterParam;
-import com.kltn.scsms_api_service.core.entity.Promotion;
+import com.kltn.scsms_api_service.core.entity.PromotionLine;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Pattern;
@@ -28,34 +28,24 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
     // === PROMOTION-SPECIFIC FILTERS ===
     
     @JsonProperty("promotion_code")
-    @Size(max = 50, message = "Promotion code must not exceed 50 characters")
+    @Size(max = 100, message = "Promotion code must not exceed 100 characters")
     private String promotionCode;
     
-    @JsonProperty("promotion_name")
-    @Size(max = 255, message = "Promotion name must not exceed 255 characters")
-    private String promotionName;
+    @JsonProperty("name")
+    @Size(max = 255, message = "Name must not exceed 255 characters")
+    private String name;
     
-    @JsonProperty("promotion_type")
-    @Size(max = 255, message = "Promotion type must not exceed 255 characters")
-    private String promotionType;
+    @JsonProperty("promotion_type_id")
+    private UUID promotionTypeId;
     
-    @JsonProperty("category_id")
-    private UUID categoryId;
+    @JsonProperty("branch_id")
+    private UUID branchId;
     
-    @JsonProperty("discount_type")
-    private Promotion.DiscountType discountType;
+    @JsonProperty("is_stackable")
+    private Boolean isStackable;
     
-    @JsonProperty("is_visible")
-    private Boolean isVisible;
-    
-    @JsonProperty("auto_apply")
-    private Boolean autoApply;
-    
-    @JsonProperty("stackable")
-    private Boolean stackable;
-    
-    @JsonProperty("require_coupon_code")
-    private Boolean requireCouponCode;
+    @JsonProperty("coupon_redeem_once")
+    private Boolean couponRedeemOnce;
     
     @JsonProperty("is_active")
     private Boolean isActive;
@@ -114,21 +104,21 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
     
     // === DATE RANGES ===
     
-    @JsonProperty("start_date_from")
+    @JsonProperty("start_at_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime startDateFrom;
+    private LocalDateTime startAtFrom;
     
-    @JsonProperty("start_date_to")
+    @JsonProperty("start_at_to")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime startDateTo;
+    private LocalDateTime startAtTo;
     
-    @JsonProperty("end_date_from")
+    @JsonProperty("end_at_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime endDateFrom;
+    private LocalDateTime endAtFrom;
     
-    @JsonProperty("end_date_to")
+    @JsonProperty("end_at_to")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime endDateTo;
+    private LocalDateTime endAtTo;
     
     // === STATUS FILTERS ===
     
@@ -227,16 +217,9 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
     
     @Override
     protected void standardizeSpecificFields(PromotionFilterParam request) {
-        // Chuẩn hóa enum fields
-        request.setPromotionType(standardizeEnumField(request.getPromotionType()));
-        request.setTargetCustomerRank(standardizeEnumField(request.getTargetCustomerRank()));
-        request.setTargetVehicleType(standardizeEnumField(request.getTargetVehicleType()));
-        
         // Chuẩn hóa search terms
         request.setPromotionCode(trimAndNullify(request.getPromotionCode()));
-        request.setPromotionName(trimAndNullify(request.getPromotionName()));
-        request.setDescription(trimAndNullify(request.getDescription()));
-        request.setSearch(trimAndNullify(request.getSearch()));
+        // Note: name, description, search fields will be handled by Lombok getters/setters
         
         // Chuẩn hóa numeric fields (no standardization needed for BigDecimal)
         // request.setMinDiscountValue(request.getMinDiscountValue());
@@ -263,8 +246,8 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
      * Check if filter has any date range filters
      */
     public boolean hasDateRangeFilters() {
-        return startDateFrom != null || startDateTo != null || 
-               endDateFrom != null || endDateTo != null;
+        return startAtFrom != null || startAtTo != null || 
+               endAtFrom != null || endAtTo != null;
     }
     
     /**

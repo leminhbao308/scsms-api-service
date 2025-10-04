@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.entity;
 
-import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,8 +15,8 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "promotion_usages", schema = GeneralConstant.DB_SCHEMA_DEV)
-public class PromotionUsage extends AuditEntity {
+@Table(name = "promotion_usage", schema = GeneralConstant.DB_SCHEMA_DEV)
+public class PromotionUsage {
     
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -29,19 +28,27 @@ public class PromotionUsage extends AuditEntity {
     private Promotion promotion;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "promotion_line_id")
+    private PromotionLine promotionLine;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private User customer; // customer sử dụng KM (nếu có)
     
     @Column(name = "order_id")
-    private UUID orderId; // Reference to order if applicable
+    private UUID orderId; // order tham chiếu
     
-    @Column(name = "discount_amount", precision = 15, scale = 2)
-    private BigDecimal discountAmount; // Actual discount applied
+    @Column(name = "coupon_code", length = 100)
+    private String couponCode;
+    
+    @Column(name = "discount_amount", precision = 18, scale = 4, nullable = false)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
     
     @Column(name = "used_at", nullable = false)
     @Builder.Default
     private LocalDateTime usedAt = LocalDateTime.now();
     
-    @Column(name = "notes", length = 500)
-    private String notes; // Additional notes about usage
+    @Column(name = "created_by", length = 150)
+    private String createdBy;
 }

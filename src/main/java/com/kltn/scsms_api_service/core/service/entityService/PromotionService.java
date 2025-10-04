@@ -3,7 +3,6 @@ package com.kltn.scsms_api_service.core.service.entityService;
 import com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionFilterParam;
 import com.kltn.scsms_api_service.core.entity.Promotion;
 import com.kltn.scsms_api_service.core.repository.PromotionRepository;
-import com.kltn.scsms_api_service.mapper.PromotionMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
@@ -15,7 +14,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,17 +43,17 @@ public class PromotionService {
     }
     
     /**
-     * Get promotion reference by ID (for lazy loading)
-     */
-    public Promotion getReferenceById(UUID promotionId) {
-        return promotionRepository.getReferenceById(promotionId);
-    }
-    
-    /**
      * Find promotion by code
      */
     public Optional<Promotion> findByPromotionCode(String promotionCode) {
         return promotionRepository.findByPromotionCode(promotionCode);
+    }
+    
+    /**
+     * Get promotion reference by ID (for lazy loading)
+     */
+    public Promotion getReferenceById(UUID promotionId) {
+        return promotionRepository.getReferenceById(promotionId);
     }
     
     /**
@@ -115,12 +113,6 @@ public class PromotionService {
         promotionRepository.updatePromotionVisibility(promotionId, isVisible);
     }
     
-    /**
-     * Increment usage count for a promotion
-     */
-    public void incrementUsageCount(UUID promotionId) {
-        promotionRepository.incrementUsageCount(promotionId);
-    }
     
     /**
      * Get all promotions with filters
@@ -132,20 +124,14 @@ public class PromotionService {
         CriteriaQuery<Promotion> query = cb.createQuery(Promotion.class);
         Root<Promotion> promotionRoot = query.from(Promotion.class);
         
-        // Join with Category entity for category-based filtering
-        Join<Object, Object> categoryJoin = promotionRoot.join("category", JoinType.LEFT);
+        // Join with PromotionType entity for promotion type-based filtering
+        Join<Object, Object> promotionTypeJoin = promotionRoot.join("promotionType", JoinType.LEFT);
         
-        // Join with Product entities for product-based filtering
-        Join<Object, Object> freeProductJoin = promotionRoot.join("freeProduct", JoinType.LEFT);
-        Join<Object, Object> buyProductJoin = promotionRoot.join("buyProduct", JoinType.LEFT);
-        Join<Object, Object> getProductJoin = promotionRoot.join("getProduct", JoinType.LEFT);
+        // Join with Branch entity for branch-based filtering
+        Join<Object, Object> branchJoin = promotionRoot.join("branch", JoinType.LEFT);
         
-        // Join with Service entities for service-based filtering
-        Join<Object, Object> freeServiceJoin = promotionRoot.join("freeService", JoinType.LEFT);
-        
-        List<Predicate> predicates = buildPredicates(cb, promotionRoot, categoryJoin, 
-                                                   freeProductJoin, buyProductJoin, getProductJoin, 
-                                                   freeServiceJoin, filterParam);
+        List<Predicate> predicates = buildPredicates(cb, promotionRoot, promotionTypeJoin, 
+                                                   branchJoin, filterParam);
         
         if (!predicates.isEmpty()) {
             query.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -156,10 +142,14 @@ public class PromotionService {
             ? Sort.Direction.ASC : Sort.Direction.DESC;
         
         Order order;
-        if ("category.categoryName".equals(filterParam.getSort())) {
+        if ("promotionType.typeName".equals(filterParam.getSort())) {
             order = sortDirection == Sort.Direction.ASC
-                ? cb.asc(categoryJoin.get("categoryName"))
-                : cb.desc(categoryJoin.get("categoryName"));
+                ? cb.asc(promotionTypeJoin.get("typeName"))
+                : cb.desc(promotionTypeJoin.get("typeName"));
+        } else if ("branch.branchName".equals(filterParam.getSort())) {
+            order = sortDirection == Sort.Direction.ASC
+                ? cb.asc(branchJoin.get("branchName"))
+                : cb.desc(branchJoin.get("branchName"));
         } else {
             order = sortDirection == Sort.Direction.ASC
                 ? cb.asc(promotionRoot.get(filterParam.getSort()))
@@ -187,11 +177,8 @@ public class PromotionService {
      * Build predicates for filtering
      */
     private List<Predicate> buildPredicates(CriteriaBuilder cb, Root<Promotion> promotionRoot,
-                                          Join<Object, Object> categoryJoin,
-                                          Join<Object, Object> freeProductJoin,
-                                          Join<Object, Object> buyProductJoin,
-                                          Join<Object, Object> getProductJoin,
-                                          Join<Object, Object> freeServiceJoin,
+                                          Join<Object, Object> promotionTypeJoin,
+                                          Join<Object, Object> branchJoin,
                                           PromotionFilterParam filterParam) {
         List<Predicate> predicates = new ArrayList<>();
         
@@ -201,61 +188,31 @@ public class PromotionService {
                 "%" + filterParam.getPromotionCode().toLowerCase() + "%"));
         }
         
-        if (filterParam.getPromotionName() != null) {
-            predicates.add(cb.like(cb.lower(promotionRoot.get("promotionName")),
-                "%" + filterParam.getPromotionName().toLowerCase() + "%"));
+        if (filterParam.getName() != null) {
+            predicates.add(cb.like(cb.lower(promotionRoot.get("name")),
+                "%" + filterParam.getName().toLowerCase() + "%"));
         }
         
-        if (filterParam.getPromotionType() != null) {
-            predicates.add(cb.equal(cb.upper(promotionRoot.get("promotionType")), 
-                filterParam.getPromotionType().toUpperCase()));
+        if (filterParam.getPromotionTypeId() != null) {
+            predicates.add(cb.equal(promotionTypeJoin.get("promotionTypeId"), filterParam.getPromotionTypeId()));
         }
         
-        if (filterParam.getCategoryId() != null) {
-            predicates.add(cb.equal(categoryJoin.get("categoryId"), filterParam.getCategoryId()));
+        if (filterParam.getBranchId() != null) {
+            predicates.add(cb.equal(branchJoin.get("branchId"), filterParam.getBranchId()));
         }
         
-        if (filterParam.getDiscountType() != null) {
-            predicates.add(cb.equal(promotionRoot.get("discountType"), filterParam.getDiscountType()));
+        if (filterParam.getIsStackable() != null) {
+            predicates.add(cb.equal(promotionRoot.get("isStackable"), filterParam.getIsStackable()));
         }
         
-        // Boolean filters
-        if (filterParam.getIsVisible() != null) {
-            predicates.add(cb.equal(promotionRoot.get("isVisible"), filterParam.getIsVisible()));
-        }
-        
-        if (filterParam.getAutoApply() != null) {
-            predicates.add(cb.equal(promotionRoot.get("autoApply"), filterParam.getAutoApply()));
-        }
-        
-        if (filterParam.getStackable() != null) {
-            predicates.add(cb.equal(promotionRoot.get("stackable"), filterParam.getStackable()));
-        }
-        
-        if (filterParam.getRequireCouponCode() != null) {
-            predicates.add(cb.equal(promotionRoot.get("requireCouponCode"), filterParam.getRequireCouponCode()));
+        if (filterParam.getCouponRedeemOnce() != null) {
+            predicates.add(cb.equal(promotionRoot.get("couponRedeemOnce"), filterParam.getCouponRedeemOnce()));
         }
         
         if (filterParam.getIsActive() != null) {
             predicates.add(cb.equal(promotionRoot.get("isActive"), filterParam.getIsActive()));
         }
         
-        // Value range filters
-        if (filterParam.getMinDiscountValue() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("discountValue"), filterParam.getMinDiscountValue()));
-        }
-        
-        if (filterParam.getMaxDiscountValue() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("discountValue"), filterParam.getMaxDiscountValue()));
-        }
-        
-        if (filterParam.getMinOrderAmount() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("minOrderAmount"), filterParam.getMinOrderAmount()));
-        }
-        
-        if (filterParam.getMaxOrderAmount() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("minOrderAmount"), filterParam.getMaxOrderAmount()));
-        }
         
         // Usage filters
         if (filterParam.getHasUsageLimit() != null) {
@@ -270,22 +227,22 @@ public class PromotionService {
             if (filterParam.getUsageLimitExceeded()) {
                 predicates.add(cb.and(
                     cb.isNotNull(promotionRoot.get("usageLimit")),
-                    cb.greaterThanOrEqualTo(promotionRoot.get("usedCount"), promotionRoot.get("usageLimit"))
+                    cb.greaterThanOrEqualTo(cb.size(promotionRoot.get("usages")), promotionRoot.get("usageLimit"))
                 ));
             } else {
                 predicates.add(cb.or(
                     cb.isNull(promotionRoot.get("usageLimit")),
-                    cb.lessThan(promotionRoot.get("usedCount"), promotionRoot.get("usageLimit"))
+                    cb.lessThan(cb.size(promotionRoot.get("usages")), promotionRoot.get("usageLimit"))
                 ));
             }
         }
         
         if (filterParam.getMinUsageCount() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("usedCount"), filterParam.getMinUsageCount()));
+            predicates.add(cb.greaterThanOrEqualTo(cb.size(promotionRoot.get("usages")), filterParam.getMinUsageCount()));
         }
         
         if (filterParam.getMaxUsageCount() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("usedCount"), filterParam.getMaxUsageCount()));
+            predicates.add(cb.lessThanOrEqualTo(cb.size(promotionRoot.get("usages")), filterParam.getMaxUsageCount()));
         }
         
         // Date range filters
@@ -293,23 +250,6 @@ public class PromotionService {
         
         // Status filters
         addStatusPredicates(cb, promotionRoot, predicates, filterParam);
-        
-        // Product/Service filters
-        if (filterParam.getFreeProductId() != null) {
-            predicates.add(cb.equal(freeProductJoin.get("productId"), filterParam.getFreeProductId()));
-        }
-        
-        if (filterParam.getFreeServiceId() != null) {
-            predicates.add(cb.equal(freeServiceJoin.get("serviceId"), filterParam.getFreeServiceId()));
-        }
-        
-        if (filterParam.getBuyProductId() != null) {
-            predicates.add(cb.equal(buyProductJoin.get("productId"), filterParam.getBuyProductId()));
-        }
-        
-        if (filterParam.getGetProductId() != null) {
-            predicates.add(cb.equal(getProductJoin.get("productId"), filterParam.getGetProductId()));
-        }
         
         // Priority filters
         if (filterParam.getMinPriority() != null) {
@@ -324,7 +264,7 @@ public class PromotionService {
         if (filterParam.getSearch() != null) {
             String searchPattern = "%" + filterParam.getSearch().toLowerCase() + "%";
             Predicate searchPredicate = cb.or(
-                cb.like(cb.lower(promotionRoot.get("promotionName")), searchPattern),
+                cb.like(cb.lower(promotionRoot.get("name")), searchPattern),
                 cb.like(cb.lower(promotionRoot.get("promotionCode")), searchPattern),
                 cb.like(cb.lower(promotionRoot.get("description")), searchPattern)
             );
@@ -340,27 +280,27 @@ public class PromotionService {
     private void addDateRangePredicates(CriteriaBuilder cb, Root<Promotion> promotionRoot,
                                       List<Predicate> predicates, PromotionFilterParam filterParam) {
         // Start date range
-        if (filterParam.getStartDateFrom() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("startDate"), filterParam.getStartDateFrom()));
+        if (filterParam.getStartAtFrom() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("startAt"), filterParam.getStartAtFrom()));
         }
-        if (filterParam.getStartDateTo() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("startDate"), filterParam.getStartDateTo()));
+        if (filterParam.getStartAtTo() != null) {
+            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("startAt"), filterParam.getStartAtTo()));
         }
         
         // End date range
-        if (filterParam.getEndDateFrom() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("endDate"), filterParam.getEndDateFrom()));
+        if (filterParam.getEndAtFrom() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("endAt"), filterParam.getEndAtFrom()));
         }
-        if (filterParam.getEndDateTo() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("endDate"), filterParam.getEndDateTo()));
+        if (filterParam.getEndAtTo() != null) {
+            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("endAt"), filterParam.getEndAtTo()));
         }
         
         // Created date range
         if (filterParam.getCreatedDateFrom() != null) {
-            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("createDate"), filterParam.getCreatedDateFrom()));
+            predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("createdDate"), filterParam.getCreatedDateFrom()));
         }
         if (filterParam.getCreatedDateTo() != null) {
-            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("createDate"), filterParam.getCreatedDateTo()));
+            predicates.add(cb.lessThanOrEqualTo(promotionRoot.get("createdDate"), filterParam.getCreatedDateTo()));
         }
         
         // Modified date range
@@ -381,9 +321,9 @@ public class PromotionService {
         
         if (filterParam.getIsExpired() != null) {
             if (filterParam.getIsExpired()) {
-                predicates.add(cb.lessThan(promotionRoot.get("endDate"), now));
+                predicates.add(cb.lessThan(promotionRoot.get("endAt"), now));
             } else {
-                predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("endDate"), now));
+                predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("endAt"), now));
             }
         }
         
@@ -392,22 +332,34 @@ public class PromotionService {
                 predicates.add(cb.and(
                     cb.equal(promotionRoot.get("isActive"), true),
                     cb.equal(promotionRoot.get("isDeleted"), false),
-                    cb.lessThanOrEqualTo(promotionRoot.get("startDate"), now),
-                    cb.greaterThanOrEqualTo(promotionRoot.get("endDate"), now),
+                    cb.or(
+                        cb.isNull(promotionRoot.get("startAt")),
+                        cb.lessThanOrEqualTo(promotionRoot.get("startAt"), now)
+                    ),
+                    cb.or(
+                        cb.isNull(promotionRoot.get("endAt")),
+                        cb.greaterThanOrEqualTo(promotionRoot.get("endAt"), now)
+                    ),
                     cb.or(
                         cb.isNull(promotionRoot.get("usageLimit")),
-                        cb.lessThan(promotionRoot.get("usedCount"), promotionRoot.get("usageLimit"))
+                        cb.lessThan(cb.size(promotionRoot.get("usages")), promotionRoot.get("usageLimit"))
                     )
                 ));
             } else {
                 predicates.add(cb.or(
                     cb.equal(promotionRoot.get("isActive"), false),
                     cb.equal(promotionRoot.get("isDeleted"), true),
-                    cb.greaterThan(promotionRoot.get("startDate"), now),
-                    cb.lessThan(promotionRoot.get("endDate"), now),
+                    cb.and(
+                        cb.isNotNull(promotionRoot.get("startAt")),
+                        cb.greaterThan(promotionRoot.get("startAt"), now)
+                    ),
+                    cb.and(
+                        cb.isNotNull(promotionRoot.get("endAt")),
+                        cb.lessThan(promotionRoot.get("endAt"), now)
+                    ),
                     cb.and(
                         cb.isNotNull(promotionRoot.get("usageLimit")),
-                        cb.greaterThanOrEqualTo(promotionRoot.get("usedCount"), promotionRoot.get("usageLimit"))
+                        cb.greaterThanOrEqualTo(cb.size(promotionRoot.get("usages")), promotionRoot.get("usageLimit"))
                     )
                 ));
             }
@@ -416,16 +368,16 @@ public class PromotionService {
         if (filterParam.getIsStartingSoon() != null && filterParam.getIsStartingSoon()) {
             LocalDateTime futureTime = now.plusDays(7); // Starting within 7 days
             predicates.add(cb.and(
-                cb.greaterThan(promotionRoot.get("startDate"), now),
-                cb.lessThanOrEqualTo(promotionRoot.get("startDate"), futureTime)
+                cb.greaterThan(promotionRoot.get("startAt"), now),
+                cb.lessThanOrEqualTo(promotionRoot.get("startAt"), futureTime)
             ));
         }
         
         if (filterParam.getIsEndingSoon() != null && filterParam.getIsEndingSoon()) {
             LocalDateTime futureTime = now.plusDays(7); // Ending within 7 days
             predicates.add(cb.and(
-                cb.greaterThan(promotionRoot.get("endDate"), now),
-                cb.lessThanOrEqualTo(promotionRoot.get("endDate"), futureTime)
+                cb.greaterThan(promotionRoot.get("endAt"), now),
+                cb.lessThanOrEqualTo(promotionRoot.get("endAt"), futureTime)
             ));
         }
     }
@@ -437,17 +389,13 @@ public class PromotionService {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<Promotion> promotionRoot = countQuery.from(Promotion.class);
-        Join<Object, Object> categoryJoin = promotionRoot.join("category", JoinType.LEFT);
-        Join<Object, Object> freeProductJoin = promotionRoot.join("freeProduct", JoinType.LEFT);
-        Join<Object, Object> buyProductJoin = promotionRoot.join("buyProduct", JoinType.LEFT);
-        Join<Object, Object> getProductJoin = promotionRoot.join("getProduct", JoinType.LEFT);
-        Join<Object, Object> freeServiceJoin = promotionRoot.join("freeService", JoinType.LEFT);
+        Join<Object, Object> promotionTypeJoin = promotionRoot.join("promotionType", JoinType.LEFT);
+        Join<Object, Object> branchJoin = promotionRoot.join("branch", JoinType.LEFT);
         
         countQuery.select(cb.count(promotionRoot));
         
-        List<Predicate> predicates = buildPredicates(cb, promotionRoot, categoryJoin,
-                                                   freeProductJoin, buyProductJoin, getProductJoin,
-                                                   freeServiceJoin, filterParam);
+        List<Predicate> predicates = buildPredicates(cb, promotionRoot, promotionTypeJoin,
+                                                   branchJoin, filterParam);
         if (!predicates.isEmpty()) {
             countQuery.where(cb.and(predicates.toArray(new Predicate[0])));
         }
@@ -466,7 +414,7 @@ public class PromotionService {
      * Get visible promotions
      */
     public List<Promotion> getVisiblePromotions() {
-        return promotionRepository.findVisiblePromotions(LocalDateTime.now());
+        return promotionRepository.findActivePromotions(LocalDateTime.now());
     }
     
     /**
