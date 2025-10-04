@@ -5,11 +5,9 @@ import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
-import java.math.BigDecimal;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -33,8 +31,8 @@ public class Product extends AuditEntity {
     private String productName;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
+    @JoinColumn(name = "product_type_id")
+    private ProductType productType;
     
     @Column(name = "description", length = 1000)
     private String description;
@@ -54,36 +52,6 @@ public class Product extends AuditEntity {
     @Column(name = "barcode", length = 100)
     private String barcode;
     
-    @Column(name = "cost_price", precision = 15, scale = 2)
-    private BigDecimal costPrice;
-    
-    @Column(name = "selling_price", precision = 15, scale = 2)
-    private BigDecimal sellingPrice;
-    
-    // Inventory Management
-    @Column(name = "min_stock_level")
-    @Builder.Default
-    private Integer minStockLevel = 0;
-    
-    @Column(name = "max_stock_level")
-    private Integer maxStockLevel;
-    
-    // Physical Properties
-    @Column(name = "weight", precision = 10, scale = 3)
-    private BigDecimal weight; // in kg
-    
-    @Column(name = "dimensions")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> dimensions; // {"length": "10cm", "width": "5cm", "height": "3cm"}
-    
-    // Warranty Information
-    @Column(name = "warranty_period_months")
-    private Integer warrantyPeriodMonths;
-    
-    // Media and Display
-    @Column(name = "image_urls")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> imageUrls; // {"main": "url1", "thumbnail": "url2", "gallery": ["url3", "url4"]}
     
     // Business Relations
     @Column(name = "supplier_id")
@@ -94,8 +62,26 @@ public class Product extends AuditEntity {
     @Builder.Default
     private Boolean isFeatured = false;
     
-    // Additional Specifications (for complex products like LED lights)
-    @Column(name = "specifications")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, String> specifications; // {"brightness": "3000lm", "color_temp": "6000K", "power": "50W"}
+    // Relationship with ProductAttribute through ProductAttributeValue
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductAttributeValue> attributeValues = new ArrayList<>();
+    
+    // Utility methods
+    public void addAttributeValue(ProductAttributeValue attributeValue) {
+        attributeValues.add(attributeValue);
+        attributeValue.setProduct(this);
+    }
+    
+    public void removeAttributeValue(ProductAttributeValue attributeValue) {
+        attributeValues.remove(attributeValue);
+        attributeValue.setProduct(null);
+    }
+    
+    public ProductAttributeValue getAttributeValue(UUID attributeId) {
+        return attributeValues.stream()
+                .filter(av -> av.getAttributeId().equals(attributeId))
+                .findFirst()
+                .orElse(null);
+    }
 }

@@ -2,58 +2,46 @@ package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ProductRepository extends JpaRepository<Product, UUID> {
+public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpecificationExecutor<Product> {
     
     // Find by unique fields
-    Optional<Product> findByProductUrl(String productUrl);
-    Optional<Product> findBySku(String sku);
-    Optional<Product> findByBarcode(String barcode);
+    Optional<Product> findByProductUrlAndIsDeletedFalse(String productUrl);
+    Optional<Product> findBySkuAndIsDeletedFalse(String sku);
+    Optional<Product> findByBarcodeAndIsDeletedFalse(String barcode);
     
     // Existence checks
-    boolean existsByProductUrl(String productUrl);
-    boolean existsBySku(String sku);
-    boolean existsByBarcode(String barcode);
+    boolean existsByProductUrlAndIsDeletedFalse(String productUrl);
+    boolean existsBySkuAndIsDeletedFalse(String sku);
+    boolean existsByBarcodeAndIsDeletedFalse(String barcode);
     
-    // Find by category
-    List<Product> findByCategoryCategoryId(UUID categoryId);
-    List<Product> findByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
+    // Find by product type
+    @Query("SELECT p FROM Product p JOIN FETCH p.productType pt WHERE pt.productTypeId = :productTypeId AND p.isDeleted = false")
+    List<Product> findByProductTypeProductTypeIdAndIsDeletedFalse(@Param("productTypeId") UUID productTypeId);
+    
+    @Query("SELECT p FROM Product p JOIN FETCH p.productType pt WHERE pt.productTypeId = :productTypeId AND p.isActive = true AND p.isDeleted = false")
+    List<Product> findByProductTypeProductTypeIdAndIsActiveTrueAndIsDeletedFalse(@Param("productTypeId") UUID productTypeId);
     
     // Find by supplier
-    List<Product> findBySupplierId(UUID supplierId);
-    List<Product> findBySupplierIdAndIsActiveTrue(UUID supplierId);
+    List<Product> findBySupplierIdAndIsDeletedFalse(UUID supplierId);
+    List<Product> findBySupplierIdAndIsActiveTrueAndIsDeletedFalse(UUID supplierId);
     
     // Find by brand
-    List<Product> findByBrand(String brand);
-    List<Product> findByBrandAndIsActiveTrue(String brand);
-    
-    // Find by price range
-    @Query("SELECT p FROM Product p WHERE p.sellingPrice BETWEEN :minPrice AND :maxPrice AND p.isActive = true")
-    List<Product> findByPriceRange(@Param("minPrice") BigDecimal minPrice, @Param("maxPrice") BigDecimal maxPrice);
+    List<Product> findByBrandAndIsDeletedFalse(String brand);
+    List<Product> findByBrandAndIsActiveTrueAndIsDeletedFalse(String brand);
     
     // Find featured products
-    List<Product> findByIsFeaturedTrueAndIsActiveTrue();
+    List<Product> findByIsFeaturedTrueAndIsActiveTrueAndIsDeletedFalse();
     
-    // Find low stock products (current stock <= min stock level)
-    @Query("SELECT p FROM Product p WHERE p.minStockLevel > 0 AND p.isActive = true")
-    List<Product> findLowStockProducts();
-    
-    // Find products with warranty
-    @Query("SELECT p FROM Product p WHERE p.warrantyPeriodMonths > 0 AND p.isActive = true")
-    List<Product> findProductsWithWarranty();
-    
-    // Find by weight range
-    @Query("SELECT p FROM Product p WHERE p.weight BETWEEN :minWeight AND :maxWeight AND p.isActive = true")
-    List<Product> findByWeightRange(@Param("minWeight") BigDecimal minWeight, @Param("maxWeight") BigDecimal maxWeight);
     
     // Search by name, description, brand, or SKU
     @Query("SELECT p FROM Product p WHERE " +
@@ -61,24 +49,21 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.brand) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-           "p.isActive = true")
+           "p.isActive = true AND p.isDeleted = false")
     List<Product> searchByKeyword(@Param("keyword") String keyword);
     
-    // Find by specifications (JSON search) - for products like LED lights
-    @Query(value = "SELECT * FROM dev.products p WHERE " +
-           "JSON_EXTRACT(p.specifications, '$.brightness') LIKE CONCAT('%', :brightness, '%') " +
-           "AND p.is_active = true", nativeQuery = true)
-    List<Product> findByBrightness(@Param("brightness") String brightness);
-    
-    // Count by category
-    long countByCategoryCategoryId(UUID categoryId);
-    long countByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
+    // Count by product type
+    long countByProductTypeProductTypeIdAndIsDeletedFalse(UUID productTypeId);
+    long countByProductTypeProductTypeIdAndIsActiveTrueAndIsDeletedFalse(UUID productTypeId);
     
     // Count by supplier
-    long countBySupplierId(UUID supplierId);
-    long countBySupplierIdAndIsActiveTrue(UUID supplierId);
+    long countBySupplierIdAndIsDeletedFalse(UUID supplierId);
+    long countBySupplierIdAndIsActiveTrueAndIsDeletedFalse(UUID supplierId);
     
-    // Count products with warranty
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.warrantyPeriodMonths > 0 AND p.isActive = true")
-    long countProductsWithWarranty();
+    
+    // Count all active products
+    long countByIsActiveTrueAndIsDeletedFalse();
+    
+    // Count all products
+    long countByIsDeletedFalse();
 }

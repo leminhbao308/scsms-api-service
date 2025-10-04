@@ -49,7 +49,11 @@ public enum ErrorCode {
     
     // Category related errors
     CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
-    CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists");
+    CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists"),
+    
+    // General entity errors
+    ENTITY_NOT_FOUND("SCS-5001", "SCS-5001", "ENTITY", "Entity not found", "error.entity_not_found"),
+    INVALID_INPUT("SCS-5002", "SCS-5002", "ENTITY", "Invalid input", "error.invalid_input");
     private final String code;
     private final String rawCode;
     private final String category;

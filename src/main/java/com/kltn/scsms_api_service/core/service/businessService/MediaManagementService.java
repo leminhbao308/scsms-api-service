@@ -83,11 +83,7 @@ public class MediaManagementService {
         // Validate request
         validateMediaCreateRequest(createRequest);
         
-        // Check if media URL is unique
-        if (!mediaService.isMediaUrlUnique(createRequest.getMediaUrl())) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                "Media URL '" + createRequest.getMediaUrl() + "' already exists");
-        }
+        // Media URL uniqueness check removed - allow duplicate URLs
         
         // Create media entity
         Media media = mediaMapper.toEntity(createRequest);
@@ -110,14 +106,7 @@ public class MediaManagementService {
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
                 "Media not found with ID: " + mediaId));
         
-        // Check if media URL is unique (if being updated)
-        if (updateRequest.getMediaUrl() != null && 
-            !updateRequest.getMediaUrl().equals(existingMedia.getMediaUrl())) {
-            if (!mediaService.isMediaUrlUnique(updateRequest.getMediaUrl(), mediaId)) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Media URL '" + updateRequest.getMediaUrl() + "' already exists");
-            }
-        }
+        // Media URL uniqueness check removed - allow duplicate URLs
         
         // Update media
         mediaMapper.updateEntityFromRequest(updateRequest, existingMedia);

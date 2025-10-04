@@ -2,11 +2,11 @@ package com.kltn.scsms_api_service.core.dto.productManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.math.BigDecimal;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -26,8 +26,8 @@ public class CreateProductRequest {
     @JsonProperty("product_url")
     private String productUrl;
     
-    @JsonProperty("category_id")
-    private UUID categoryId;
+    @JsonProperty("product_type_id")
+    private UUID productTypeId;
     
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     @JsonProperty("description")
@@ -54,39 +54,6 @@ public class CreateProductRequest {
     @JsonProperty("barcode")
     private String barcode;
     
-    @DecimalMin(value = "0.0", message = "Cost price must be non-negative")
-    @JsonProperty("cost_price")
-    private BigDecimal costPrice;
-    
-    @DecimalMin(value = "0.0", message = "Selling price must be non-negative")
-    @JsonProperty("selling_price")
-    private BigDecimal sellingPrice;
-    
-    // Inventory Management
-    @Min(value = 0, message = "Minimum stock level must be non-negative")
-    @JsonProperty("min_stock_level")
-    private Integer minStockLevel;
-    
-    @Min(value = 0, message = "Maximum stock level must be non-negative")
-    @JsonProperty("max_stock_level")
-    private Integer maxStockLevel;
-    
-    // Physical Properties
-    @DecimalMin(value = "0.0", message = "Weight must be non-negative")
-    @JsonProperty("weight")
-    private BigDecimal weight; // in kg
-    
-    @JsonProperty("dimensions")
-    private Map<String, String> dimensions; // {"length": "10cm", "width": "5cm", "height": "3cm"}
-    
-    // Warranty Information
-    @Min(value = 0, message = "Warranty period must be non-negative")
-    @JsonProperty("warranty_period_months")
-    private Integer warrantyPeriodMonths;
-    
-    // Media and Display
-    @JsonProperty("image_urls")
-    private Map<String, String> imageUrls; // {"main": "url1", "thumbnail": "url2"}
     
     // Business Relations
     @JsonProperty("supplier_id")
@@ -96,7 +63,8 @@ public class CreateProductRequest {
     @JsonProperty("is_featured")
     private Boolean isFeatured;
     
-    // Additional Specifications
-    @JsonProperty("specifications")
-    private Map<String, String> specifications; // {"brightness": "3000lm", "color_temp": "6000K", "power": "50W"}
+    // Product Attribute Values
+    @Valid
+    @JsonProperty("attribute_values")
+    private List<ProductAttributeValueRequest> attributeValues;
 }

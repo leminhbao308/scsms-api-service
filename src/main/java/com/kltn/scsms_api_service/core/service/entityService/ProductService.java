@@ -11,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,7 +46,7 @@ public class ProductService {
     
     public Optional<Product> findByProductUrl(String productUrl) {
         log.info("Finding product by URL: {}", productUrl);
-        return productRepository.findByProductUrl(productUrl);
+        return productRepository.findByProductUrlAndIsDeletedFalse(productUrl);
     }
     
     public Product getByProductUrl(String productUrl) {
@@ -58,37 +57,32 @@ public class ProductService {
     
     public Optional<Product> findBySku(String sku) {
         log.info("Finding product by SKU: {}", sku);
-        return productRepository.findBySku(sku);
+        return productRepository.findBySkuAndIsDeletedFalse(sku);
     }
     
     public Optional<Product> findByBarcode(String barcode) {
         log.info("Finding product by barcode: {}", barcode);
-        return productRepository.findByBarcode(barcode);
+        return productRepository.findByBarcodeAndIsDeletedFalse(barcode);
     }
     
-    public List<Product> findByCategoryId(UUID categoryId) {
-        log.info("Finding products by category ID: {}", categoryId);
-        return productRepository.findByCategoryCategoryId(categoryId);
+    public List<Product> findByProductTypeId(UUID productTypeId) {
+        log.info("Finding products by product type ID: {}", productTypeId);
+        return productRepository.findByProductTypeProductTypeIdAndIsDeletedFalse(productTypeId);
     }
     
     public List<Product> findBySupplierId(UUID supplierId) {
         log.info("Finding products by supplier ID: {}", supplierId);
-        return productRepository.findBySupplierId(supplierId);
+        return productRepository.findBySupplierIdAndIsDeletedFalse(supplierId);
     }
     
     public List<Product> findByBrand(String brand) {
         log.info("Finding products by brand: {}", brand);
-        return productRepository.findByBrand(brand);
+        return productRepository.findByBrandAndIsDeletedFalse(brand);
     }
     
     public List<Product> findFeaturedProducts() {
         log.info("Finding featured products");
-        return productRepository.findByIsFeaturedTrueAndIsActiveTrue();
-    }
-    
-    public List<Product> findLowStockProducts() {
-        log.info("Finding low stock products");
-        return productRepository.findLowStockProducts();
+        return productRepository.findByIsFeaturedTrueAndIsActiveTrueAndIsDeletedFalse();
     }
     
     public List<Product> searchByKeyword(String keyword) {
@@ -96,54 +90,30 @@ public class ProductService {
         return productRepository.searchByKeyword(keyword);
     }
     
-    public List<Product> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
-        log.info("Finding products by price range: {} - {}", minPrice, maxPrice);
-        return productRepository.findByPriceRange(minPrice, maxPrice);
-    }
-    
-    public List<Product> findProductsWithWarranty() {
-        log.info("Finding products with warranty");
-        return productRepository.findProductsWithWarranty();
-    }
-    
-    public List<Product> findByWeightRange(BigDecimal minWeight, BigDecimal maxWeight) {
-        log.info("Finding products by weight range: {} - {}", minWeight, maxWeight);
-        return productRepository.findByWeightRange(minWeight, maxWeight);
-    }
-    
-    public List<Product> findByBrightness(String brightness) {
-        log.info("Finding products by brightness: {}", brightness);
-        return productRepository.findByBrightness(brightness);
-    }
-    
-    public long countProductsWithWarranty() {
-        log.info("Counting products with warranty");
-        return productRepository.countProductsWithWarranty();
-    }
     
     public boolean existsByProductUrl(String productUrl) {
         log.info("Checking if product exists by URL: {}", productUrl);
-        return productRepository.existsByProductUrl(productUrl);
+        return productRepository.existsByProductUrlAndIsDeletedFalse(productUrl);
     }
     
     public boolean existsBySku(String sku) {
         log.info("Checking if product exists by SKU: {}", sku);
-        return productRepository.existsBySku(sku);
+        return productRepository.existsBySkuAndIsDeletedFalse(sku);
     }
     
     public boolean existsByBarcode(String barcode) {
         log.info("Checking if product exists by barcode: {}", barcode);
-        return productRepository.existsByBarcode(barcode);
+        return productRepository.existsByBarcodeAndIsDeletedFalse(barcode);
     }
     
-    public long countByCategoryId(UUID categoryId) {
-        log.info("Counting products by category ID: {}", categoryId);
-        return productRepository.countByCategoryCategoryId(categoryId);
+    public long countByProductTypeId(UUID productTypeId) {
+        log.info("Counting products by product type ID: {}", productTypeId);
+        return productRepository.countByProductTypeProductTypeIdAndIsDeletedFalse(productTypeId);
     }
     
     public long countBySupplierId(UUID supplierId) {
         log.info("Counting products by supplier ID: {}", supplierId);
-        return productRepository.countBySupplierId(supplierId);
+        return productRepository.countBySupplierIdAndIsDeletedFalse(supplierId);
     }
     
     @Transactional
