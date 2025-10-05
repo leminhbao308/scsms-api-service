@@ -127,7 +127,7 @@ public interface S3FileRepository extends JpaRepository<S3File, Long> {
      * Find files uploaded today by user
      */
     @Query("SELECT f FROM S3File f WHERE f.uploadedBy = :uploadedBy " +
-        "AND DATE(f.createdDate) = CURRENT_DATE AND f.status = 'ACTIVE'")
+        "AND CAST(f.createdDate AS DATE) = CURRENT_DATE AND f.status = 'ACTIVE'")
     List<S3File> findUploadedTodayByUser(@Param("uploadedBy") UUID uploadedBy);
     
     /**
