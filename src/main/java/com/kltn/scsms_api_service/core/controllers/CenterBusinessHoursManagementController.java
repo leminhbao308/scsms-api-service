@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.centerBusinessHours.CenterBusinessHoursDto;
@@ -27,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Center Business Hours Management", description = "APIs for managing center business hours")
-public class CenterBusinessHoursManagementController extends BaseController {
+public class CenterBusinessHoursManagementController {
 
     private final CenterBusinessHoursManagementService centerBusinessHoursManagementService;
 

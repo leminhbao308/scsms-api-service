@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
@@ -36,7 +35,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Package Management", description = "APIs for managing service packages")
-public class ServicePackageManagementController extends BaseController {
+public class ServicePackageManagementController {
     
     private final ServicePackageManagementService servicePackageManagementService;
     
@@ -73,7 +72,7 @@ public class ServicePackageManagementController extends BaseController {
     @GetMapping(ApiConstant.GET_SERVICE_PACKAGES_BY_CATEGORY_API)
     @Operation(summary = "Get service packages by category", description = "Retrieve all service packages in a specific category")
     @SwaggerOperation(summary = "Get service packages by category")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})  
+    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
     public ResponseEntity<ApiResponse<List<ServicePackageInfoDto>>> getServicePackagesByCategory(
             @Parameter(description = "Category ID") @PathVariable UUID categoryId) {
         log.info("Getting service packages by category ID: {}", categoryId);
@@ -84,7 +83,7 @@ public class ServicePackageManagementController extends BaseController {
     @GetMapping(ApiConstant.GET_SERVICE_PACKAGES_BY_TYPE_API)
     @Operation(summary = "Get service packages by type", description = "Retrieve all service packages of a specific type")
     @SwaggerOperation(summary = "Get service packages by type")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})  
+    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
     public ResponseEntity<ApiResponse<List<ServicePackageInfoDto>>> getServicePackagesByType(
             @Parameter(description = "Package type") @PathVariable ServicePackage.PackageType packageType) {
         log.info("Getting service packages by type: {}", packageType);
@@ -96,7 +95,7 @@ public class ServicePackageManagementController extends BaseController {
     @GetMapping(ApiConstant.SEARCH_SERVICE_PACKAGES_API)
     @Operation(summary = "Search service packages", description = "Search service packages by keyword")
     @SwaggerOperation(summary = "Search service packages")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})          
+    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
     public ResponseEntity<ApiResponse<List<ServicePackageInfoDto>>> searchServicePackages(
             @Parameter(description = "Search keyword") @RequestParam String keyword) {
         log.info("Searching service packages by keyword: {}", keyword);
@@ -108,7 +107,7 @@ public class ServicePackageManagementController extends BaseController {
     @PostMapping(ApiConstant.CREATE_SERVICE_PACKAGE_API)
     @Operation(summary = "Create service package", description = "Create a new service package")
     @SwaggerOperation(summary = "Create service package")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_CREATE"})    
+    // @RequirePermission(permissions = {"SERVICE_PACKAGE_CREATE"})
     public ResponseEntity<ApiResponse<ServicePackageInfoDto>> createServicePackage(
             @Parameter(description = "Service package creation request") @Valid @RequestBody CreateServicePackageRequest createServicePackageRequest) {
         log.info("Creating service package: {}", createServicePackageRequest.getPackageName());

@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
@@ -33,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Management", description = "APIs for managing services")
-public class ServiceManagementController extends BaseController {
+public class ServiceManagementController {
     
     private final ServiceManagementService serviceManagementService;
     
