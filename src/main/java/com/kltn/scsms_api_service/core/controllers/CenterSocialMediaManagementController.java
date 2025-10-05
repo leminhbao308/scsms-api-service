@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseController;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.centerSocialMedia.CenterSocialMediaDto;
@@ -27,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Center Social Media Management", description = "APIs for managing center social media")
-public class CenterSocialMediaManagementController extends BaseController {
+public class CenterSocialMediaManagementController {
     
     private final CenterSocialMediaManagementService centerSocialMediaManagementService;
     
