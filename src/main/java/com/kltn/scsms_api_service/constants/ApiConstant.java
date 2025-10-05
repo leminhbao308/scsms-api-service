@@ -272,6 +272,44 @@ public class ApiConstant {
     public static final String GET_PROMOTIONS_STARTING_SOON_API = PROMOTION_MANAGEMENT_PREFIX + "/starting-soon";
     public static final String GET_PROMOTIONS_ENDING_SOON_API = PROMOTION_MANAGEMENT_PREFIX + "/ending-soon";
     
+    // Service Type management module endpoints
+    public static final String SERVICE_TYPE_MANAGEMENT_PREFIX = "/service-types";
+    public static final String GET_ALL_SERVICE_TYPES_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_TYPE_BY_ID_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}";
+    public static final String GET_SERVICE_TYPE_BY_CODE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/code/{code}";
+    public static final String GET_ACTIVE_SERVICE_TYPES_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/active";
+    public static final String SEARCH_SERVICE_TYPES_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/update";
+    public static final String DELETE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/delete";
+    public static final String RESTORE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/restore";
+    public static final String UPDATE_SERVICE_TYPE_STATUS_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/status";
+    public static final String ACTIVATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/activate";
+    public static final String DEACTIVATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/deactivate";
+    public static final String VALIDATE_SERVICE_TYPE_CODE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/validate-code";
+    public static final String GET_SERVICE_TYPE_STATISTICS_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/statistics";
+    
+    // Service Package Type management module endpoints
+    public static final String SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX = "/service-package-types";
+    public static final String GET_ALL_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_PACKAGE_TYPE_BY_ID_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}";
+    public static final String GET_SERVICE_PACKAGE_TYPE_BY_CODE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/code/{code}";
+    public static final String GET_ACTIVE_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/active";
+    public static final String GET_DEFAULT_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/default";
+    public static final String GET_SERVICE_PACKAGE_TYPES_FOR_CUSTOMER_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/customer-type/{customerType}";
+    public static final String SEARCH_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/update";
+    public static final String DELETE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/delete";
+    public static final String RESTORE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/restore";
+    public static final String UPDATE_SERVICE_PACKAGE_TYPE_STATUS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/status";
+    public static final String ACTIVATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/activate";
+    public static final String DEACTIVATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/deactivate";
+    public static final String SET_SERVICE_PACKAGE_TYPE_AS_DEFAULT_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/set-default";
+    public static final String REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/remove-default";
+    public static final String VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/validate-code";
+    public static final String GET_SERVICE_PACKAGE_TYPE_STATISTICS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/statistics";
+    
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
             apiPrefix + VERIFY_TOKEN_API,
@@ -424,7 +462,41 @@ public class ApiConstant {
             apiPrefix + GET_VISIBLE_PROMOTIONS_API,
             apiPrefix + GET_EXPIRED_PROMOTIONS_API,
             apiPrefix + GET_PROMOTIONS_STARTING_SOON_API,
-            apiPrefix + GET_PROMOTIONS_ENDING_SOON_API
+            apiPrefix + GET_PROMOTIONS_ENDING_SOON_API,
+            // Service Type management APIs
+            apiPrefix + GET_ALL_SERVICE_TYPES_API,
+            apiPrefix + GET_SERVICE_TYPE_BY_ID_API,
+            apiPrefix + GET_SERVICE_TYPE_BY_CODE_API,
+            apiPrefix + GET_ACTIVE_SERVICE_TYPES_API,
+            apiPrefix + SEARCH_SERVICE_TYPES_API,
+            apiPrefix + CREATE_SERVICE_TYPE_API,
+            apiPrefix + UPDATE_SERVICE_TYPE_API,
+            apiPrefix + DELETE_SERVICE_TYPE_API,
+            apiPrefix + RESTORE_SERVICE_TYPE_API,
+            apiPrefix + UPDATE_SERVICE_TYPE_STATUS_API,
+            apiPrefix + ACTIVATE_SERVICE_TYPE_API,
+            apiPrefix + DEACTIVATE_SERVICE_TYPE_API,
+            apiPrefix + VALIDATE_SERVICE_TYPE_CODE_API,
+            apiPrefix + GET_SERVICE_TYPE_STATISTICS_API,
+            // Service Package Type management APIs
+            apiPrefix + GET_ALL_SERVICE_PACKAGE_TYPES_API,
+            apiPrefix + GET_SERVICE_PACKAGE_TYPE_BY_ID_API,
+            apiPrefix + GET_SERVICE_PACKAGE_TYPE_BY_CODE_API,
+            apiPrefix + GET_ACTIVE_SERVICE_PACKAGE_TYPES_API,
+            apiPrefix + GET_DEFAULT_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + GET_SERVICE_PACKAGE_TYPES_FOR_CUSTOMER_TYPE_API,
+            apiPrefix + SEARCH_SERVICE_PACKAGE_TYPES_API,
+            apiPrefix + CREATE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + UPDATE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + DELETE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + RESTORE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + UPDATE_SERVICE_PACKAGE_TYPE_STATUS_API,
+            apiPrefix + ACTIVATE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + DEACTIVATE_SERVICE_PACKAGE_TYPE_API,
+            apiPrefix + SET_SERVICE_PACKAGE_TYPE_AS_DEFAULT_API,
+            apiPrefix + REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API,
+            apiPrefix + VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API,
+            apiPrefix + GET_SERVICE_PACKAGE_TYPE_STATISTICS_API
         );
     }
 }

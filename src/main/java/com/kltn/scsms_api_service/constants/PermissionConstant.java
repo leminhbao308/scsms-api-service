@@ -99,6 +99,25 @@ public final class PermissionConstant {
     public static final String PROMOTION_VISIBILITY = "PROMOTION_VISIBILITY";
     public static final String PROMOTION_STATISTICS = "PROMOTION_STATISTICS";
 
+    // SERVICE_TYPE_MANAGEMENT module
+    public static final String SERVICE_TYPE_CREATE = "SERVICE_TYPE_CREATE";
+    public static final String SERVICE_TYPE_READ = "SERVICE_TYPE_READ";
+    public static final String SERVICE_TYPE_UPDATE = "SERVICE_TYPE_UPDATE";
+    public static final String SERVICE_TYPE_DELETE = "SERVICE_TYPE_DELETE";
+    public static final String SERVICE_TYPE_ACTIVATE = "SERVICE_TYPE_ACTIVATE";
+    public static final String SERVICE_TYPE_DEACTIVATE = "SERVICE_TYPE_DEACTIVATE";
+    public static final String SERVICE_TYPE_STATISTICS = "SERVICE_TYPE_STATISTICS";
+
+    // SERVICE_PACKAGE_TYPE_MANAGEMENT module
+    public static final String SERVICE_PACKAGE_TYPE_CREATE = "SERVICE_PACKAGE_TYPE_CREATE";
+    public static final String SERVICE_PACKAGE_TYPE_READ = "SERVICE_PACKAGE_TYPE_READ";
+    public static final String SERVICE_PACKAGE_TYPE_UPDATE = "SERVICE_PACKAGE_TYPE_UPDATE";
+    public static final String SERVICE_PACKAGE_TYPE_DELETE = "SERVICE_PACKAGE_TYPE_DELETE";
+    public static final String SERVICE_PACKAGE_TYPE_ACTIVATE = "SERVICE_PACKAGE_TYPE_ACTIVATE";
+    public static final String SERVICE_PACKAGE_TYPE_DEACTIVATE = "SERVICE_PACKAGE_TYPE_DEACTIVATE";
+    public static final String SERVICE_PACKAGE_TYPE_SET_DEFAULT = "SERVICE_PACKAGE_TYPE_SET_DEFAULT";
+    public static final String SERVICE_PACKAGE_TYPE_STATISTICS = "SERVICE_PACKAGE_TYPE_STATISTICS";
+
     // Module constants
     public static final class Modules {
         public static final String APPOINTMENT_MANAGEMENT = "APPOINTMENT_MANAGEMENT";
@@ -113,5 +132,7 @@ public final class PermissionConstant {
         public static final String USER_MANAGEMENT = "USER_MANAGEMENT";
         public static final String VEHICLE_MANAGEMENT = "VEHICLE_MANAGEMENT";
         public static final String WORKORDER_MANAGEMENT = "WORKORDER_MANAGEMENT";
+        public static final String SERVICE_TYPE_MANAGEMENT = "SERVICE_TYPE_MANAGEMENT";
+        public static final String SERVICE_PACKAGE_TYPE_MANAGEMENT = "SERVICE_PACKAGE_TYPE_MANAGEMENT";
     }
 }
