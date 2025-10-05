@@ -3,7 +3,9 @@ spring:
     name: scsms-api-service
   profiles:
     active: dev  # dev/prod
-
+  config:
+    import:
+      - classpath:aws.yml
 server:
   port: 8081
   servlet:
