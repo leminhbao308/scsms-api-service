@@ -44,9 +44,6 @@ public class CreateServicePackageRequest {
     @JsonProperty("image_urls")
     private String imageUrls;
     
-    @Valid
-    @JsonProperty("package_products")
-    private List<CreateServicePackageProductRequest> packageProducts;
     
     @Valid
     @JsonProperty("package_services")

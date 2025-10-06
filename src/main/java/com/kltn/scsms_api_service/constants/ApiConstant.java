@@ -220,10 +220,32 @@ public class ApiConstant {
     public static final String CREATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/create";
     public static final String UPDATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/update";
     public static final String DELETE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/delete";
-    public static final String GET_SERVICE_PACKAGE_STEPS_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps";
-    public static final String ADD_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/add";
-    public static final String UPDATE_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/{stepId}/update";
-    public static final String DELETE_SERVICE_PACKAGE_STEP_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/steps/{stepId}/delete";
+    
+    // Service Process management module endpoints
+    public static final String SERVICE_PROCESS_MANAGEMENT_PREFIX = "/service-processes";
+    public static final String GET_ALL_SERVICE_PROCESSES_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_PROCESS_BY_ID_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}";
+    public static final String GET_SERVICE_PROCESS_BY_CODE_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/code/{code}";
+    public static final String GET_DEFAULT_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/default";
+    public static final String GET_ALL_ACTIVE_SERVICE_PROCESSES_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/active";
+    public static final String CREATE_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}/update";
+    public static final String DELETE_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}/delete";
+    public static final String SET_DEFAULT_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}/set-default";
+    
+    // Service Process Step management module endpoints
+    public static final String GET_SERVICE_PROCESS_STEPS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}/steps";
+    public static final String GET_SERVICE_PROCESS_STEP_BY_ID_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/steps/{stepId}";
+    public static final String ADD_SERVICE_PROCESS_STEP_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}/steps";
+    public static final String UPDATE_SERVICE_PROCESS_STEP_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/steps/{stepId}/update";
+    public static final String DELETE_SERVICE_PROCESS_STEP_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/steps/{stepId}/delete";
+    
+    // Service Process Step Product management module endpoints
+    public static final String GET_SERVICE_PROCESS_STEP_PRODUCTS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/steps/{stepId}/products";
+    public static final String GET_SERVICE_PROCESS_STEP_PRODUCT_BY_ID_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/step-products/{productId}";
+    public static final String ADD_SERVICE_PROCESS_STEP_PRODUCT_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/steps/{stepId}/products";
+    public static final String UPDATE_SERVICE_PROCESS_STEP_PRODUCT_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/step-products/{productId}/update";
+    public static final String DELETE_SERVICE_PROCESS_STEP_PRODUCT_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/step-products/{productId}/delete";
 
     // Category management module endpoints
     public static final String CATEGORY_MANAGEMENT_PREFIX = "/categories";
@@ -419,10 +441,26 @@ public class ApiConstant {
             apiPrefix + CREATE_SERVICE_PACKAGE_API,
             apiPrefix + UPDATE_SERVICE_PACKAGE_API,
             apiPrefix + DELETE_SERVICE_PACKAGE_API,
-            apiPrefix + GET_SERVICE_PACKAGE_STEPS_API,
-            apiPrefix + ADD_SERVICE_PACKAGE_STEP_API,
-            apiPrefix + UPDATE_SERVICE_PACKAGE_STEP_API,
-            apiPrefix + DELETE_SERVICE_PACKAGE_STEP_API,
+            // Service Process management APIs
+            apiPrefix + GET_ALL_SERVICE_PROCESSES_API,
+            apiPrefix + GET_SERVICE_PROCESS_BY_ID_API,
+            apiPrefix + GET_SERVICE_PROCESS_BY_CODE_API,
+            apiPrefix + GET_DEFAULT_SERVICE_PROCESS_API,
+            apiPrefix + GET_ALL_ACTIVE_SERVICE_PROCESSES_API,
+            apiPrefix + CREATE_SERVICE_PROCESS_API,
+            apiPrefix + UPDATE_SERVICE_PROCESS_API,
+            apiPrefix + DELETE_SERVICE_PROCESS_API,
+            apiPrefix + SET_DEFAULT_SERVICE_PROCESS_API,
+            apiPrefix + GET_SERVICE_PROCESS_STEPS_API,
+            apiPrefix + GET_SERVICE_PROCESS_STEP_BY_ID_API,
+            apiPrefix + ADD_SERVICE_PROCESS_STEP_API,
+            apiPrefix + UPDATE_SERVICE_PROCESS_STEP_API,
+            apiPrefix + DELETE_SERVICE_PROCESS_STEP_API,
+            apiPrefix + GET_SERVICE_PROCESS_STEP_PRODUCTS_API,
+            apiPrefix + GET_SERVICE_PROCESS_STEP_PRODUCT_BY_ID_API,
+            apiPrefix + ADD_SERVICE_PROCESS_STEP_PRODUCT_API,
+            apiPrefix + UPDATE_SERVICE_PROCESS_STEP_PRODUCT_API,
+            apiPrefix + DELETE_SERVICE_PROCESS_STEP_PRODUCT_API,
             // Category management APIs
             apiPrefix + GET_ALL_CATEGORIES_API,
             apiPrefix + GET_ALL_CATEGORIES_HIERARCHY_API,

@@ -9,7 +9,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -56,9 +55,6 @@ public class Service extends AuditEntity {
     @Column(name = "labor_cost", precision = 15, scale = 2)
     private BigDecimal laborCost; // Tiền công lao động
     
-    @Column(name = "product_cost", precision = 15, scale = 2)
-    private BigDecimal productCost; // Tổng giá các sản phẩm (tự động tính từ ServiceProduct)
-    
     @Column(name = "service_type")
     @Enumerated(EnumType.STRING)
     private ServiceType serviceType;
@@ -66,8 +62,6 @@ public class Service extends AuditEntity {
     @Column(name = "photo_required")
     @Builder.Default
     private Boolean photoRequired = false;
-    
-    
     
     @Column(name = "image_urls")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -77,10 +71,10 @@ public class Service extends AuditEntity {
     @Builder.Default
     private Boolean isFeatured = false;
     
-    // One-to-many relationship with service products
-    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<ServiceProduct> serviceProducts = new java.util.ArrayList<>();
+    // Quan hệ với ServiceProcess
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_process_id")
+    private ServiceProcess serviceProcess;
     
     // Enums
     public enum SkillLevel {
@@ -93,31 +87,16 @@ public class Service extends AuditEntity {
     
     // Business methods
     /**
-     * Tính tổng giá sản phẩm từ danh sách ServiceProduct
-     */
-    public BigDecimal calculateProductCost() {
-        if (serviceProducts == null || serviceProducts.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        return serviceProducts.stream()
-                .map(ServiceProduct::getTotalPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-    
-    /**
-     * Tính tổng giá service (sản phẩm + tiền công)
+     * Tính tổng giá service (chỉ tiền công lao động)
      */
     public BigDecimal calculateTotalPrice() {
-        BigDecimal productCost = calculateProductCost();
-        BigDecimal labor = laborCost != null ? laborCost : BigDecimal.ZERO;
-        return productCost.add(labor);
+        return laborCost != null ? laborCost : BigDecimal.ZERO;
     }
     
     /**
-     * Cập nhật giá sản phẩm và tổng giá
+     * Cập nhật giá service
      */
     public void updatePricing() {
-        this.productCost = calculateProductCost();
         this.basePrice = calculateTotalPrice();
     }
 }

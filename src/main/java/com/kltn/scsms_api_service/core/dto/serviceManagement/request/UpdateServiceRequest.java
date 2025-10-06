@@ -7,7 +7,6 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -44,7 +43,7 @@ public class UpdateServiceRequest {
     
     @DecimalMin(value = "0.0", message = "Base price must be non-negative")
     @JsonProperty("base_price")
-    private BigDecimal basePrice; // Total price = product costs + labor costs
+    private BigDecimal basePrice; // Base price for the service
     
     @DecimalMin(value = "0.0", message = "Labor cost must be non-negative")
     @JsonProperty("labor_cost")
@@ -67,6 +66,4 @@ public class UpdateServiceRequest {
     @JsonProperty("is_active")
     private Boolean isActive;
     
-    @JsonProperty("service_products")
-    private List<UpdateServiceProductRequest> serviceProducts; // Danh sách sản phẩm trong service
 }

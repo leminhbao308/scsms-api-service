@@ -11,21 +11,18 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class, CategoryMapper.class, ServicePackageProductMapper.class, ServicePackageServiceMapper.class}
+    uses = {AuditMapper.class, CategoryMapper.class, ServicePackageServiceMapper.class}
 )
 public interface ServicePackageMapper {
     
     @Mapping(target = "categoryId", source = "category.categoryId")
     @Mapping(target = "categoryName", source = "category.categoryName")
     @Mapping(target = "serviceCost", expression = "java(servicePackage.calculateServiceCost())")
-    @Mapping(target = "productCost", expression = "java(servicePackage.calculateProductCost())")
-    @Mapping(target = "packageProducts", source = "packageProducts")
     @Mapping(target = "packageServices", source = "packageServices")
     ServicePackageInfoDto toServicePackageInfoDto(ServicePackage servicePackage);
     
     @Mapping(target = "category", ignore = true) // Will be set in service
     @Mapping(target = "packageId", ignore = true)
-    @Mapping(target = "packageProducts", ignore = true) // Will be handled separately
     @Mapping(target = "packageServices", ignore = true) // Will be handled separately
     @Mapping(target = "packagePrice", ignore = true) // Will be calculated
     @Mapping(target = "totalDuration", ignore = true) // Will be calculated

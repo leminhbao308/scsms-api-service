@@ -3,14 +3,11 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageProductDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageServiceDto;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.param.ServicePackageFilterParam;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.CreateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageRequest;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageProductRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.ServicePackage;
@@ -174,55 +171,6 @@ public class ServicePackageManagementController {
         return ResponseBuilder.success(count);
     }
     
-    
-    // ServicePackageProduct endpoints
-    @GetMapping(ApiConstant.SERVICE_PACKAGE_MANAGEMENT_PREFIX +"/{packageId}/products")
-    @Operation(summary = "Get service package products", description = "Retrieve all products for a service package")
-    @SwaggerOperation(summary = "Get service package products")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
-    public ResponseEntity<ApiResponse<List<ServicePackageProductDto>>> getServicePackageProducts(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId) {
-        log.info("Getting service package products for package ID: {}", packageId);
-        List<ServicePackageProductDto> products = servicePackageManagementService.getServicePackageProducts(packageId);
-        return ResponseBuilder.success(products);
-    }
-    
-    @PostMapping("/{packageId}/products/add")
-    @Operation(summary = "Add product to service package", description = "Add a new product to a service package")
-    @SwaggerOperation(summary = "Add product to service package")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<ServicePackageProductDto>> addProductToServicePackage(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Service package product creation request") @Valid @RequestBody CreateServicePackageProductRequest createRequest) {
-        log.info("Adding product to service package with ID: {}", packageId);
-        ServicePackageProductDto product = servicePackageManagementService.addProductToServicePackage(packageId, createRequest);
-        return ResponseBuilder.created(product);
-    }
-    
-    @PostMapping("/{packageId}/products/{productId}/update")
-    @Operation(summary = "Update service package product", description = "Update an existing product in a service package")
-    @SwaggerOperation(summary = "Update service package product")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<ServicePackageProductDto>> updateServicePackageProduct(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Product ID") @PathVariable UUID productId,
-            @Parameter(description = "Service package product update request") @Valid @RequestBody UpdateServicePackageProductRequest updateRequest) {
-        log.info("Updating service package product for package ID: {} and product ID: {}", packageId, productId);
-        ServicePackageProductDto product = servicePackageManagementService.updateServicePackageProduct(packageId, productId, updateRequest);
-        return ResponseBuilder.success(product);
-    }
-    
-    @PostMapping("/{packageId}/products/{productId}/remove")
-    @Operation(summary = "Remove product from service package", description = "Remove a product from a service package")
-    @SwaggerOperation(summary = "Remove product from service package")
-    // @RequirePermission(permissions = {"SERVICE_PACKAGE_UPDATE"})
-    public ResponseEntity<ApiResponse<Void>> removeProductFromServicePackage(
-            @Parameter(description = "Service package ID") @PathVariable UUID packageId,
-            @Parameter(description = "Product ID") @PathVariable UUID productId) {
-        log.info("Removing product from service package with package ID: {} and product ID: {}", packageId, productId);
-        servicePackageManagementService.removeProductFromServicePackage(packageId, productId);
-        return ResponseBuilder.success("Product removed from service package successfully");
-    }
     
     // Service Package Services endpoints
     @GetMapping("/{packageId}/services")

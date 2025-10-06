@@ -45,9 +45,6 @@ public class UpdateServicePackageRequest {
     @JsonProperty("is_active")
     private Boolean isActive;
     
-    @Valid
-    @JsonProperty("package_products")
-    private List<UpdateServicePackageProductRequest> packageProducts;
     
     @Valid
     @JsonProperty("package_services")

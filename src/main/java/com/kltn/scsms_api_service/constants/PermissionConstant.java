@@ -60,6 +60,12 @@ public final class PermissionConstant {
     public static final String SERVICE_DELETE = "SERVICE_DELETE";
     public static final String SERVICE_PRICING = "SERVICE_PRICING";
     public static final String SERVICE_UPDATE = "SERVICE_UPDATE";
+    
+    // SERVICE_PROCESS_MANAGEMENT module
+    public static final String SERVICE_PROCESS_READ = "SERVICE_PROCESS_READ";
+    public static final String SERVICE_PROCESS_CREATE = "SERVICE_PROCESS_CREATE";
+    public static final String SERVICE_PROCESS_UPDATE = "SERVICE_PROCESS_UPDATE";
+    public static final String SERVICE_PROCESS_DELETE = "SERVICE_PROCESS_DELETE";
 
 
     public static final String CONFIG_UPDATE = "CONFIG_UPDATE";

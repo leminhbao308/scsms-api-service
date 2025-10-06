@@ -55,27 +55,22 @@ public class ServicePackage extends AuditEntity {
     private String imageUrls;
     
     
-    // One-to-many relationship with service package steps
-    @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<com.kltn.scsms_api_service.core.entity.ServicePackageStep> packageSteps = new java.util.ArrayList<>();
-    
-    // One-to-many relationship with service package products
-    @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<ServicePackageProduct> packageProducts = new java.util.ArrayList<>();
-    
     // One-to-many relationship with service package services
     @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<ServicePackageService> packageServices = new java.util.ArrayList<>();
     
+    // Quan hệ với ServiceProcess
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_process_id")
+    private ServiceProcess serviceProcess;
+    
     // Business methods
     
     /**
-     * Tính tổng giá từ các service trực tiếp trong package
+     * Tính tổng giá từ các service trong package
      */
-    public BigDecimal calculateServiceCostFromServices() {
+    public BigDecimal calculateServiceCost() {
         if (packageServices == null || packageServices.isEmpty()) {
             return BigDecimal.ZERO;
         }
@@ -86,37 +81,16 @@ public class ServicePackage extends AuditEntity {
     }
     
     /**
-     * Tính tổng giá từ tất cả service trong package (direct services only)
-     */
-    public BigDecimal calculateServiceCost() {
-        return calculateServiceCostFromServices();
-    }
-    
-    /**
-     * Tính tổng giá từ các sản phẩm trong package
-     */
-    public BigDecimal calculateProductCost() {
-        if (packageProducts == null || packageProducts.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        return packageProducts.stream()
-                .filter(product -> product.getTotalPrice() != null)
-                .map(ServicePackageProduct::getTotalPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-    
-    /**
-     * Tính tổng giá của package (service + product)
+     * Tính tổng giá của package (chỉ từ services)
      */
     public BigDecimal calculateTotalPrice() {
-        return calculateServiceCost().add(calculateProductCost());
+        return calculateServiceCost();
     }
     
-    
     /**
-     * Tính tổng thời gian từ các service trực tiếp trong package
+     * Tính tổng thời gian từ các service trong package
      */
-    public Integer calculateDurationFromServices() {
+    public Integer calculateTotalDuration() {
         if (packageServices == null || packageServices.isEmpty()) {
             return 0;
         }
@@ -124,13 +98,6 @@ public class ServicePackage extends AuditEntity {
                 .filter(service -> service.getService() != null && service.getService().getStandardDuration() != null)
                 .mapToInt(service -> service.getService().getStandardDuration() * service.getQuantity())
                 .sum();
-    }
-    
-    /**
-     * Tính tổng thời gian từ tất cả service trong package (direct services only)
-     */
-    public Integer calculateTotalDuration() {
-        return calculateDurationFromServices();
     }
     
     /**

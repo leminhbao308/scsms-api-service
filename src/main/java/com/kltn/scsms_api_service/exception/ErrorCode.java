@@ -47,6 +47,20 @@ public enum ErrorCode {
     SERVICE_PACKAGE_SERVICE_NOT_FOUND("SCS-3006", "SCS-3006", "SERVICE_PACKAGE", "Service package service not found", "error.service_package_service_not_found"),
     SERVICE_PACKAGE_SERVICE_ALREADY_EXISTS("SCS-3007", "SCS-3007", "SERVICE_PACKAGE", "Service package service already exists", "error.service_package_service_already_exists"),
     
+    // Service Process related errors
+    SERVICE_PROCESS_NOT_FOUND("SCS-4001", "SCS-4001", "SERVICE_PROCESS", "Service process not found", "error.service_process_not_found"),
+    SERVICE_PROCESS_CODE_ALREADY_EXISTS("SCS-4002", "SCS-4002", "SERVICE_PROCESS", "Service process code already exists", "error.service_process_code_already_exists"),
+    SERVICE_PROCESS_DEFAULT_NOT_FOUND("SCS-4003", "SCS-4003", "SERVICE_PROCESS", "Default service process not found", "error.service_process_default_not_found"),
+    SERVICE_PROCESS_CANNOT_DELETE_IN_USE("SCS-4004", "SCS-4004", "SERVICE_PROCESS", "Cannot delete service process in use", "error.service_process_cannot_delete_in_use"),
+    
+    // Service Process Step related errors
+    SERVICE_PROCESS_STEP_NOT_FOUND("SCS-5001", "SCS-5001", "SERVICE_PROCESS_STEP", "Service process step not found", "error.service_process_step_not_found"),
+    SERVICE_PROCESS_STEP_ORDER_ALREADY_EXISTS("SCS-5002", "SCS-5002", "SERVICE_PROCESS_STEP", "Service process step order already exists", "error.service_process_step_order_already_exists"),
+    
+    // Service Process Step Product related errors
+    SERVICE_PROCESS_STEP_PRODUCT_NOT_FOUND("SCS-6001", "SCS-6001", "SERVICE_PROCESS_STEP_PRODUCT", "Service process step product not found", "error.service_process_step_product_not_found"),
+    SERVICE_PROCESS_STEP_PRODUCT_ALREADY_EXISTS("SCS-6002", "SCS-6002", "SERVICE_PROCESS_STEP_PRODUCT", "Service process step product already exists", "error.service_process_step_product_already_exists"),
+    
     // Category related errors
     CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
     CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists"),

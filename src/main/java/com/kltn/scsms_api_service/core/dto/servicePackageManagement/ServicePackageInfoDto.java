@@ -22,13 +22,11 @@ public class ServicePackageInfoDto {
     private String categoryName;
     private String description;
     private Integer totalDuration;
-    private BigDecimal packagePrice; // Total price = sum of service prices + sum of product prices
+    private BigDecimal packagePrice; // Total price = sum of service prices
     private BigDecimal serviceCost; // Sum of service prices
-    private BigDecimal productCost; // Sum of product prices
     private ServicePackage.PackageType packageType;
     private String imageUrls;
     private Boolean isActive;
-    private List<ServicePackageProductDto> packageProducts;
     private List<ServicePackageServiceDto> packageServices;
     private AuditDto audit;
 }
