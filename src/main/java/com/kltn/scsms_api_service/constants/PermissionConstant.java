@@ -140,5 +140,19 @@ public final class PermissionConstant {
         public static final String WORKORDER_MANAGEMENT = "WORKORDER_MANAGEMENT";
         public static final String SERVICE_TYPE_MANAGEMENT = "SERVICE_TYPE_MANAGEMENT";
         public static final String SERVICE_PACKAGE_TYPE_MANAGEMENT = "SERVICE_PACKAGE_TYPE_MANAGEMENT";
+        public static final String SERVICE_SLOT_MANAGEMENT = "SERVICE_SLOT_MANAGEMENT";
+        public static final String SERVICE_PROCESS_TRACKING_MANAGEMENT = "SERVICE_PROCESS_TRACKING_MANAGEMENT";
     }
+
+    // SERVICE_SLOT_MANAGEMENT module
+    public static final String SERVICE_SLOT_CREATE = "SERVICE_SLOT_CREATE";
+    public static final String SERVICE_SLOT_READ = "SERVICE_SLOT_READ";
+    public static final String SERVICE_SLOT_UPDATE = "SERVICE_SLOT_UPDATE";
+    public static final String SERVICE_SLOT_DELETE = "SERVICE_SLOT_DELETE";
+
+    // SERVICE_PROCESS_TRACKING module
+    public static final String SERVICE_PROCESS_TRACKING_CREATE = "SERVICE_PROCESS_TRACKING_CREATE";
+    public static final String SERVICE_PROCESS_TRACKING_READ = "SERVICE_PROCESS_TRACKING_READ";
+    public static final String SERVICE_PROCESS_TRACKING_UPDATE = "SERVICE_PROCESS_TRACKING_UPDATE";
+    public static final String SERVICE_PROCESS_TRACKING_DELETE = "SERVICE_PROCESS_TRACKING_DELETE";
 }

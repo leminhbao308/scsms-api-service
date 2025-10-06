@@ -97,6 +97,20 @@ public enum ErrorCode {
     BOOKING_PAYMENT_ALREADY_PROCESSED("SCS-B002", "SCS-B002", "BOOKING_PAYMENT", "Booking payment already processed", "error.booking_payment_already_processed"),
     BOOKING_PAYMENT_CANNOT_BE_REFUNDED("SCS-B003", "SCS-B003", "BOOKING_PAYMENT", "Booking payment cannot be refunded", "error.booking_payment_cannot_be_refunded"),
     
+    // Service Process Tracking related errors
+    SERVICE_PROCESS_TRACKING_NOT_FOUND("SCS-C001", "SCS-C001", "SERVICE_PROCESS_TRACKING", "Service process tracking not found", "error.service_process_tracking_not_found"),
+    SERVICE_PROCESS_TRACKING_ALREADY_STARTED("SCS-C002", "SCS-C002", "SERVICE_PROCESS_TRACKING", "Service process tracking already started", "error.service_process_tracking_already_started"),
+    SERVICE_PROCESS_TRACKING_ALREADY_COMPLETED("SCS-C003", "SCS-C003", "SERVICE_PROCESS_TRACKING", "Service process tracking already completed", "error.service_process_tracking_already_completed"),
+    SERVICE_PROCESS_TRACKING_CANNOT_BE_STARTED("SCS-C004", "SCS-C004", "SERVICE_PROCESS_TRACKING", "Service process tracking cannot be started", "error.service_process_tracking_cannot_be_started"),
+    SERVICE_PROCESS_TRACKING_CANNOT_BE_COMPLETED("SCS-C005", "SCS-C005", "SERVICE_PROCESS_TRACKING", "Service process tracking cannot be completed", "error.service_process_tracking_cannot_be_completed"),
+    SERVICE_PROCESS_TRACKING_CANNOT_BE_CANCELLED("SCS-C006", "SCS-C006", "SERVICE_PROCESS_TRACKING", "Service process tracking cannot be cancelled", "error.service_process_tracking_cannot_be_cancelled"),
+    SERVICE_PROCESS_TRACKING_CANNOT_BE_UPDATED("SCS-C007", "SCS-C007", "SERVICE_PROCESS_TRACKING", "Service process tracking cannot be updated", "error.service_process_tracking_cannot_be_updated"),
+    SERVICE_PROCESS_TRACKING_INVALID_PROGRESS("SCS-C008", "SCS-C008", "SERVICE_PROCESS_TRACKING", "Invalid progress value", "error.service_process_tracking_invalid_progress"),
+    SERVICE_PROCESS_TRACKING_SAVE_FAILED("SCS-C009", "SCS-C009", "SERVICE_PROCESS_TRACKING", "Failed to save service process tracking", "error.service_process_tracking_save_failed"),
+    SERVICE_PROCESS_TRACKING_UPDATE_FAILED("SCS-C010", "SCS-C010", "SERVICE_PROCESS_TRACKING", "Failed to update service process tracking", "error.service_process_tracking_update_failed"),
+    SERVICE_PROCESS_TRACKING_DELETE_FAILED("SCS-C011", "SCS-C011", "SERVICE_PROCESS_TRACKING", "Failed to delete service process tracking", "error.service_process_tracking_delete_failed"),
+    SERVICE_PROCESS_TRACKING_FIND_FAILED("SCS-C012", "SCS-C012", "SERVICE_PROCESS_TRACKING", "Failed to find service process tracking", "error.service_process_tracking_find_failed"),
+    
     // General entity errors
     ENTITY_NOT_FOUND("SCS-5001", "SCS-5001", "ENTITY", "Entity not found", "error.entity_not_found"),
     INVALID_INPUT("SCS-5002", "SCS-5002", "ENTITY", "Invalid input", "error.invalid_input");

@@ -16,129 +16,98 @@ import java.util.UUID;
 public interface ServiceProcessStepRepository extends JpaRepository<ServiceProcessStep, UUID> {
     
     /**
-     * Tìm tất cả bước của một service process
+     * Tìm tất cả steps theo process
      */
-    List<ServiceProcessStep> findByServiceProcessIdAndIsDeletedFalseOrderByStepOrderAsc(UUID processId);
+    List<ServiceProcessStep> findByServiceProcess_IdOrderByStepOrderAsc(UUID processId);
     
     /**
-     * Tìm bước theo thứ tự trong một service process
+     * Tìm step theo process và order
      */
-    Optional<ServiceProcessStep> findByServiceProcessIdAndStepOrderAndIsDeletedFalse(UUID processId, Integer stepOrder);
+    Optional<ServiceProcessStep> findByServiceProcess_IdAndStepOrder(UUID processId, Integer stepOrder);
     
     /**
-     * Tìm bước đầu tiên của một service process
+     * Tìm step theo process và name
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.stepOrder = (SELECT MIN(sps2.stepOrder) FROM ServiceProcessStep sps2 WHERE sps2.serviceProcess.id = :processId AND sps2.isDeleted = false) AND " +
-           "sps.isDeleted = false")
+    List<ServiceProcessStep> findByServiceProcess_IdAndNameContainingIgnoreCaseOrderByStepOrderAsc(
+        UUID processId, String name);
+    
+    /**
+     * Tìm steps bắt buộc theo process
+     */
+    List<ServiceProcessStep> findByServiceProcess_IdAndIsRequiredTrueOrderByStepOrderAsc(UUID processId);
+    
+    /**
+     * Tìm steps có thể bỏ qua theo process
+     */
+    List<ServiceProcessStep> findByServiceProcess_IdAndIsRequiredFalseOrderByStepOrderAsc(UUID processId);
+    
+    /**
+     * Tìm step đầu tiên của process
+     */
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.serviceProcess.id = :processId ORDER BY s.stepOrder ASC LIMIT 1")
     Optional<ServiceProcessStep> findFirstStepByProcessId(@Param("processId") UUID processId);
     
     /**
-     * Tìm bước cuối cùng của một service process
+     * Tìm step cuối cùng của process
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.stepOrder = (SELECT MAX(sps2.stepOrder) FROM ServiceProcessStep sps2 WHERE sps2.serviceProcess.id = :processId AND sps2.isDeleted = false) AND " +
-           "sps.isDeleted = false")
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.serviceProcess.id = :processId ORDER BY s.stepOrder DESC LIMIT 1")
     Optional<ServiceProcessStep> findLastStepByProcessId(@Param("processId") UUID processId);
     
     /**
-     * Tìm bước tiếp theo của một bước
+     * Tìm step tiếp theo trong process
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.stepOrder = :nextStepOrder AND " +
-           "sps.isDeleted = false")
-    Optional<ServiceProcessStep> findNextStep(@Param("processId") UUID processId, @Param("nextStepOrder") Integer nextStepOrder);
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.serviceProcess.id = :processId AND s.stepOrder > :currentOrder ORDER BY s.stepOrder ASC LIMIT 1")
+    Optional<ServiceProcessStep> findNextStepByProcessIdAndOrder(@Param("processId") UUID processId, @Param("currentOrder") Integer currentOrder);
     
     /**
-     * Tìm bước trước đó của một bước
+     * Tìm step trước đó trong process
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.stepOrder = :previousStepOrder AND " +
-           "sps.isDeleted = false")
-    Optional<ServiceProcessStep> findPreviousStep(@Param("processId") UUID processId, @Param("previousStepOrder") Integer previousStepOrder);
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.serviceProcess.id = :processId AND s.stepOrder < :currentOrder ORDER BY s.stepOrder DESC LIMIT 1")
+    Optional<ServiceProcessStep> findPreviousStepByProcessIdAndOrder(@Param("processId") UUID processId, @Param("currentOrder") Integer currentOrder);
     
     /**
-     * Tìm bước theo tên trong một service process
+     * Đếm số steps trong process
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "LOWER(sps.name) LIKE LOWER(CONCAT('%', :name, '%')) AND " +
-           "sps.isDeleted = false")
-    Page<ServiceProcessStep> findByNameContainingIgnoreCaseAndProcessId(@Param("processId") UUID processId, 
-                                                                        @Param("name") String name, 
-                                                                        Pageable pageable);
+    long countByServiceProcess_Id(UUID processId);
     
     /**
-     * Tìm bước bắt buộc của một service process
+     * Tìm steps theo tên (search across all processes)
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.isRequired = true AND " +
-           "sps.isDeleted = false " +
-           "ORDER BY sps.stepOrder ASC")
-    List<ServiceProcessStep> findRequiredStepsByProcessId(@Param("processId") UUID processId);
+    Page<ServiceProcessStep> findByNameContainingIgnoreCaseOrderByStepOrderAsc(String name, Pageable pageable);
     
     /**
-     * Tìm bước không bắt buộc của một service process
+     * Tìm steps theo estimated time range
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.isRequired = false AND " +
-           "sps.isDeleted = false " +
-           "ORDER BY sps.stepOrder ASC")
-    List<ServiceProcessStep> findOptionalStepsByProcessId(@Param("processId") UUID processId);
+    List<ServiceProcessStep> findByEstimatedTimeBetweenOrderByStepOrderAsc(Integer minTime, Integer maxTime);
     
     /**
-     * Đếm số bước của một service process
+     * Tìm steps có sản phẩm
      */
-    @Query("SELECT COUNT(sps) FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.isDeleted = false")
-    long countStepsByProcessId(@Param("processId") UUID processId);
+    @Query("SELECT DISTINCT s FROM ServiceProcessStep s JOIN s.stepProducts sp WHERE sp.quantity > 0")
+    List<ServiceProcessStep> findStepsWithProducts();
     
     /**
-     * Tìm bước có sản phẩm
+     * Tìm steps không có sản phẩm
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.isDeleted = false AND " +
-           "EXISTS (SELECT 1 FROM ServiceProcessStepProduct spsp WHERE spsp.serviceProcessStep = sps AND spsp.isDeleted = false)")
-    List<ServiceProcessStep> findStepsWithProductsByProcessId(@Param("processId") UUID processId);
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.id NOT IN (SELECT DISTINCT sp.serviceProcessStep.id FROM ServiceProcessStepProduct sp WHERE sp.quantity > 0)")
+    List<ServiceProcessStep> findStepsWithoutProducts();
     
     /**
-     * Tìm bước không có sản phẩm
+     * Tìm steps theo process với pagination
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.isDeleted = false AND " +
-           "NOT EXISTS (SELECT 1 FROM ServiceProcessStepProduct spsp WHERE spsp.serviceProcessStep = sps AND spsp.isDeleted = false)")
-    List<ServiceProcessStep> findStepsWithoutProductsByProcessId(@Param("processId") UUID processId);
+    Page<ServiceProcessStep> findByServiceProcess_IdOrderByStepOrderAsc(UUID processId, Pageable pageable);
     
     /**
-     * Kiểm tra step order đã tồn tại trong process chưa (trừ id hiện tại)
+     * Kiểm tra xem step order có tồn tại trong process không
      */
-    @Query("SELECT COUNT(sps) > 0 FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.stepOrder = :stepOrder AND " +
-           "sps.id != :id AND " +
-           "sps.isDeleted = false")
-    boolean existsByProcessIdAndStepOrderAndIdNot(@Param("processId") UUID processId, 
-                                                  @Param("stepOrder") Integer stepOrder, 
-                                                  @Param("id") UUID id);
+    boolean existsByServiceProcess_IdAndStepOrder(UUID processId, Integer stepOrder);
     
     /**
-     * Tìm bước theo thời gian dự kiến
+     * Tìm step theo process và step order (không bao gồm step hiện tại)
      */
-    @Query("SELECT sps FROM ServiceProcessStep sps WHERE " +
-           "sps.serviceProcess.id = :processId AND " +
-           "sps.estimatedTime BETWEEN :minTime AND :maxTime AND " +
-           "sps.isDeleted = false " +
-           "ORDER BY sps.stepOrder ASC")
-    List<ServiceProcessStep> findByEstimatedTimeBetweenAndProcessId(@Param("processId") UUID processId,
-                                                                    @Param("minTime") Integer minTime,
-                                                                    @Param("maxTime") Integer maxTime);
+    @Query("SELECT s FROM ServiceProcessStep s WHERE s.serviceProcess.id = :processId AND s.stepOrder = :stepOrder AND s.id != :excludeId")
+    Optional<ServiceProcessStep> findByServiceProcess_IdAndStepOrderExcludingId(
+        @Param("processId") UUID processId, 
+        @Param("stepOrder") Integer stepOrder, 
+        @Param("excludeId") UUID excludeId);
 }
