@@ -149,8 +149,8 @@ public class ServicePackageTypeManagementService {
         
         // If setting as default, ensure only one default exists
         if (createServicePackageTypeRequest.getIsDefault() != null && createServicePackageTypeRequest.getIsDefault()) {
-            // Remove default status from all other service package types
-            servicePackageTypeService.setAsDefault(null); // This will be handled in the service
+            // Remove default status from all other service package types first
+            servicePackageTypeService.removeDefaultStatusFromAll();
         }
         
         // Create service package type entity

@@ -24,10 +24,10 @@ public class ServicePackageTypeFilterParam extends BaseFilterParam {
             filterParam = new ServicePackageTypeFilterParam();
         }
         
-        // Set default values
-        if (filterParam.getPage() < 0) {
-            filterParam.setPage(0);
-        }
+        // Use parent class standardization first
+        filterParam = (ServicePackageTypeFilterParam) filterParam.standardizeFilterRequest(filterParam);
+        
+        // Set default values specific to ServicePackageType
         if (filterParam.getSize() <= 0) {
             filterParam.setSize(20);
         }
@@ -58,5 +58,10 @@ public class ServicePackageTypeFilterParam extends BaseFilterParam {
         }
         
         return filterParam;
+    }
+    
+    @Override
+    protected String getDefaultSortField() {
+        return "name";
     }
 }

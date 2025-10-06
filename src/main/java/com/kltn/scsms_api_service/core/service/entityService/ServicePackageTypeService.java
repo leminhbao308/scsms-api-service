@@ -284,4 +284,17 @@ public class ServicePackageTypeService {
         servicePackageTypeRepository.save(servicePackageType);
         log.info("Removed default status from service package type: {}", servicePackageType.getCode());
     }
+
+    /**
+     * Remove default status from all service package types
+     */
+    @Transactional
+    public void removeDefaultStatusFromAll() {
+        List<ServicePackageType> allDefaultTypes = servicePackageTypeRepository.findByIsDefaultTrueAndIsDeletedFalse();
+        for (ServicePackageType type : allDefaultTypes) {
+            type.setIsDefault(false);
+            servicePackageTypeRepository.save(type);
+        }
+        log.info("Removed default status from {} service package types", allDefaultTypes.size());
+    }
 }

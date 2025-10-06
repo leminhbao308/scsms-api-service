@@ -15,7 +15,7 @@ public interface ServicePackageTypeMapper {
     /**
      * Map ServicePackageType entity to ServicePackageTypeInfoDto
      */
-    @Mapping(target = "displayName", expression = "java(entity.getDisplayName())")
+    @Mapping(target = "displayName", source = "displayName")
     ServicePackageTypeInfoDto toServicePackageTypeInfoDto(ServicePackageType entity);
     
     /**
