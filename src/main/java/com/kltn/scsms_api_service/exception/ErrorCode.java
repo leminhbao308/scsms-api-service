@@ -65,6 +65,38 @@ public enum ErrorCode {
     CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
     CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists"),
     
+    // Service Slot related errors
+    SLOT_NOT_FOUND("SCS-7001", "SCS-7001", "SERVICE_SLOT", "Service slot not found", "error.slot_not_found"),
+    SLOT_NOT_AVAILABLE("SCS-7002", "SCS-7002", "SERVICE_SLOT", "Service slot is not available", "error.slot_not_available"),
+    SLOT_OVERLAP("SCS-7003", "SCS-7003", "SERVICE_SLOT", "Service slot time overlap", "error.slot_overlap"),
+    SLOT_ALREADY_ASSIGNED("SCS-7004", "SCS-7004", "SERVICE_SLOT", "Service slot is already assigned", "error.slot_already_assigned"),
+    SLOT_NOT_ASSIGNED("SCS-7005", "SCS-7005", "SERVICE_SLOT", "Service slot is not assigned", "error.slot_not_assigned"),
+    
+    // Booking related errors
+    BOOKING_NOT_FOUND("SCS-8001", "SCS-8001", "BOOKING", "Booking not found", "error.booking_not_found"),
+    BOOKING_CODE_EXISTS("SCS-8002", "SCS-8002", "BOOKING", "Booking code already exists", "error.booking_code_exists"),
+    BOOKING_CANNOT_BE_UPDATED("SCS-8003", "SCS-8003", "BOOKING", "Booking cannot be updated", "error.booking_cannot_be_updated"),
+    BOOKING_CANNOT_BE_DELETED("SCS-8004", "SCS-8004", "BOOKING", "Booking cannot be deleted", "error.booking_cannot_be_deleted"),
+    BOOKING_CANNOT_BE_CANCELLED("SCS-8005", "SCS-8005", "BOOKING", "Booking cannot be cancelled", "error.booking_cannot_be_cancelled"),
+    BOOKING_CANNOT_BE_CHECKED_IN("SCS-8006", "SCS-8006", "BOOKING", "Booking cannot be checked in", "error.booking_cannot_be_checked_in"),
+    BOOKING_CANNOT_BE_STARTED("SCS-8007", "SCS-8007", "BOOKING", "Booking cannot be started", "error.booking_cannot_be_started"),
+    BOOKING_CANNOT_BE_COMPLETED("SCS-8008", "SCS-8008", "BOOKING", "Booking cannot be completed", "error.booking_cannot_be_completed"),
+    BOOKING_TIME_CONFLICT("SCS-8009", "SCS-8009", "BOOKING", "Booking time conflict", "error.booking_time_conflict"),
+    
+    // Booking Item related errors
+    BOOKING_ITEM_NOT_FOUND("SCS-9001", "SCS-9001", "BOOKING_ITEM", "Booking item not found", "error.booking_item_not_found"),
+    BOOKING_ITEM_CANNOT_BE_UPDATED("SCS-9002", "SCS-9002", "BOOKING_ITEM", "Booking item cannot be updated", "error.booking_item_cannot_be_updated"),
+    
+    // Booking Assignment related errors
+    BOOKING_ASSIGNMENT_NOT_FOUND("SCS-A001", "SCS-A001", "BOOKING_ASSIGNMENT", "Booking assignment not found", "error.booking_assignment_not_found"),
+    BOOKING_ASSIGNMENT_CONFLICT("SCS-A002", "SCS-A002", "BOOKING_ASSIGNMENT", "Booking assignment time conflict", "error.booking_assignment_conflict"),
+    BOOKING_ASSIGNMENT_CANNOT_BE_UPDATED("SCS-A003", "SCS-A003", "BOOKING_ASSIGNMENT", "Booking assignment cannot be updated", "error.booking_assignment_cannot_be_updated"),
+    
+    // Booking Payment related errors
+    BOOKING_PAYMENT_NOT_FOUND("SCS-B001", "SCS-B001", "BOOKING_PAYMENT", "Booking payment not found", "error.booking_payment_not_found"),
+    BOOKING_PAYMENT_ALREADY_PROCESSED("SCS-B002", "SCS-B002", "BOOKING_PAYMENT", "Booking payment already processed", "error.booking_payment_already_processed"),
+    BOOKING_PAYMENT_CANNOT_BE_REFUNDED("SCS-B003", "SCS-B003", "BOOKING_PAYMENT", "Booking payment cannot be refunded", "error.booking_payment_cannot_be_refunded"),
+    
     // General entity errors
     ENTITY_NOT_FOUND("SCS-5001", "SCS-5001", "ENTITY", "Entity not found", "error.entity_not_found"),
     INVALID_INPUT("SCS-5002", "SCS-5002", "ENTITY", "Invalid input", "error.invalid_input");
