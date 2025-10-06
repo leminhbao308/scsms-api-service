@@ -1,7 +1,7 @@
 package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.ProductAttributeValue;
-import com.kltn.scsms_api_service.core.entity.ProductAttributeValueId;
+import com.kltn.scsms_api_service.core.entity.compositId.ProductAttributeValueId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -47,7 +47,7 @@ public interface ProductAttributeValueRepository extends JpaRepository<ProductAt
            "JOIN FETCH pav.product p " +
            "WHERE pav.productAttribute.attributeId = :attributeId AND LOWER(pav.valueText) LIKE LOWER(CONCAT('%', :value, '%')) AND pav.isDeleted = false")
     List<ProductAttributeValue> findByAttributeIdAndValueTextContainingIgnoreCaseAndIsDeletedFalse(
-            @Param("attributeId") UUID attributeId, 
+            @Param("attributeId") UUID attributeId,
             @Param("value") String value);
     
     /**
@@ -57,8 +57,8 @@ public interface ProductAttributeValueRepository extends JpaRepository<ProductAt
            "JOIN FETCH pav.product p " +
            "WHERE pav.productAttribute.attributeId = :attributeId AND pav.valueNumber BETWEEN :minValue AND :maxValue AND pav.isDeleted = false")
     List<ProductAttributeValue> findByAttributeIdAndValueNumberBetweenAndIsDeletedFalse(
-            @Param("attributeId") UUID attributeId, 
-            @Param("minValue") java.math.BigDecimal minValue, 
+            @Param("attributeId") UUID attributeId,
+            @Param("minValue") java.math.BigDecimal minValue,
             @Param("maxValue") java.math.BigDecimal maxValue);
     
     /**

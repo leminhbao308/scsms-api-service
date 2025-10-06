@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,7 +26,7 @@ public class ProductInfoDto extends AuditDto {
     private String model;
     private String sku;
     private String barcode;
-    
+    private BigDecimal peakPrice;
     
     // Business Relations
     private UUID supplierId;

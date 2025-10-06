@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.entity;
+package com.kltn.scsms_api_service.core.entity.compositId;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

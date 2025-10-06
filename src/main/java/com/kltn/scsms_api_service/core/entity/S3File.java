@@ -19,7 +19,7 @@ import java.util.UUID;
     @Index(name = "idx_file_key", columnList = "fileKey"),
     @Index(name = "idx_file_type", columnList = "fileType"),
     @Index(name = "idx_uploaded_by", columnList = "uploadedBy"),
-    @Index(name = "idx_created_at", columnList = "createdAt")
+    @Index(name = "idx_created_date", columnList = "createdDate")
 })
 @SuperBuilder
 @AllArgsConstructor
