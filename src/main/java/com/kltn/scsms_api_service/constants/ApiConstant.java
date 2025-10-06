@@ -201,7 +201,7 @@ public class ApiConstant {
     public static final String GET_ALL_SERVICES_API = SERVICE_MANAGEMENT_PREFIX + "/get-all";
     public static final String GET_SERVICE_BY_ID_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}";
     public static final String GET_SERVICES_BY_CATEGORY_API = SERVICE_MANAGEMENT_PREFIX + "/category/{categoryId}";
-    public static final String GET_SERVICES_BY_TYPE_API = SERVICE_MANAGEMENT_PREFIX + "/type/{serviceType}";
+    public static final String GET_SERVICES_BY_TYPE_API = SERVICE_MANAGEMENT_PREFIX + "/type/{serviceTypeId}";
     public static final String GET_SERVICES_BY_SKILL_LEVEL_API = SERVICE_MANAGEMENT_PREFIX + "/skill-level/{skillLevel}";
     public static final String SEARCH_SERVICES_API = SERVICE_MANAGEMENT_PREFIX + "/search";
     public static final String CREATE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/create";
@@ -213,7 +213,7 @@ public class ApiConstant {
     public static final String GET_ALL_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/get-all";
     public static final String GET_SERVICE_PACKAGE_BY_ID_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}";
     public static final String GET_SERVICE_PACKAGES_BY_CATEGORY_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/category/{categoryId}";
-    public static final String GET_SERVICE_PACKAGES_BY_TYPE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/type/{packageType}";
+    public static final String GET_SERVICE_PACKAGES_BY_TYPE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/type/{servicePackageTypeId}";
     public static final String GET_POPULAR_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/popular";
     public static final String GET_RECOMMENDED_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/recommended";
     public static final String SEARCH_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/search";

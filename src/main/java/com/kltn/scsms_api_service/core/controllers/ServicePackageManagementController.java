@@ -10,7 +10,6 @@ import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.Crea
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageRequest;
 import com.kltn.scsms_api_service.core.dto.servicePackageManagement.request.UpdateServicePackageServiceRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.businessService.ServicePackageManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,10 +80,10 @@ public class ServicePackageManagementController {
     @Operation(summary = "Get service packages by type", description = "Retrieve all service packages of a specific type")
     @SwaggerOperation(summary = "Get service packages by type")
     // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
-    public ResponseEntity<ApiResponse<List<ServicePackageInfoDto>>> getServicePackagesByType(
-            @Parameter(description = "Package type") @PathVariable ServicePackage.PackageType packageType) {
-        log.info("Getting service packages by type: {}", packageType);
-        List<ServicePackageInfoDto> servicePackages = servicePackageManagementService.getServicePackagesByType(packageType);
+    public ResponseEntity<ApiResponse<List<ServicePackageInfoDto>>> getServicePackagesByTypeId(
+            @Parameter(description = "Service package type ID") @PathVariable UUID servicePackageTypeId) {
+        log.info("Getting service packages by type ID: {}", servicePackageTypeId);
+        List<ServicePackageInfoDto> servicePackages = servicePackageManagementService.getServicePackagesByTypeId(servicePackageTypeId);
         return ResponseBuilder.success(servicePackages);
     }
     
@@ -164,10 +163,10 @@ public class ServicePackageManagementController {
     @Operation(summary = "Get service package count by type", description = "Get the number of service packages of a specific type")
     @SwaggerOperation(summary = "Get service package count by type")
     // @RequirePermission(permissions = {"SERVICE_PACKAGE_READ"})
-    public ResponseEntity<ApiResponse<Long>> getServicePackageCountByType(
-            @Parameter(description = "Package type") @PathVariable ServicePackage.PackageType packageType) {
-        log.info("Getting service package count by type: {}", packageType);
-        long count = servicePackageManagementService.getServicePackageCountByType(packageType);
+    public ResponseEntity<ApiResponse<Long>> getServicePackageCountByTypeId(
+            @Parameter(description = "Service package type ID") @PathVariable UUID servicePackageTypeId) {
+        log.info("Getting service package count by type ID: {}", servicePackageTypeId);
+        long count = servicePackageManagementService.getServicePackageCountByTypeId(servicePackageTypeId);
         return ResponseBuilder.success(count);
     }
     

@@ -90,10 +90,10 @@ public class ServiceManagementController {
     @Operation(summary = "Get services by type", description = "Retrieve all services of a specific type")
     @SwaggerOperation(summary = "Get services by type")
     // @RequirePermission(permissions = {"SERVICE_READ"})
-    public ResponseEntity<ApiResponse<List<ServiceInfoDto>>> getServicesByType(
-            @Parameter(description = "Service type") @PathVariable Service.ServiceType serviceType) {
-        log.info("Getting services by type: {}", serviceType);
-        List<ServiceInfoDto> services = serviceManagementService.getServicesByType(serviceType);
+    public ResponseEntity<ApiResponse<List<ServiceInfoDto>>> getServicesByTypeId(
+            @Parameter(description = "Service type ID") @PathVariable UUID serviceTypeId) {
+        log.info("Getting services by type ID: {}", serviceTypeId);
+        List<ServiceInfoDto> services = serviceManagementService.getServicesByTypeId(serviceTypeId);
         return ResponseBuilder.success(services);
     }
     
@@ -213,10 +213,10 @@ public class ServiceManagementController {
     @Operation(summary = "Get service count by type", description = "Get the number of services of a specific type")
     @SwaggerOperation(summary = "Get service count by type")
     // @RequirePermission(permissions = {"SERVICE_READ"})
-    public ResponseEntity<ApiResponse<Long>> getServiceCountByType(
-            @Parameter(description = "Service type") @PathVariable Service.ServiceType serviceType) {
-        log.info("Getting service count by type: {}", serviceType);
-        long count = serviceManagementService.getServiceCountByType(serviceType);
+    public ResponseEntity<ApiResponse<Long>> getServiceCountByTypeId(
+            @Parameter(description = "Service type ID") @PathVariable UUID serviceTypeId) {
+        log.info("Getting service count by type ID: {}", serviceTypeId);
+        long count = serviceManagementService.getServiceCountByTypeId(serviceTypeId);
         return ResponseBuilder.success(count);
     }
     

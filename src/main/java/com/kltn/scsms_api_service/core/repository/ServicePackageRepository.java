@@ -25,8 +25,8 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackage, 
     List<ServicePackage> findByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
     
     // Find by package type
-    List<ServicePackage> findByPackageType(ServicePackage.PackageType packageType);
-    List<ServicePackage> findByPackageTypeAndIsActiveTrue(ServicePackage.PackageType packageType);
+    List<ServicePackage> findByServicePackageTypeId(UUID servicePackageTypeId);
+    List<ServicePackage> findByServicePackageTypeIdAndIsActiveTrue(UUID servicePackageTypeId);
     
     // Find by price range
     @Query("SELECT sp FROM ServicePackage sp WHERE sp.packagePrice BETWEEN :minPrice AND :maxPrice AND sp.isActive = true")
@@ -48,14 +48,14 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackage, 
     long countByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
     
     // Count by package type
-    long countByPackageType(ServicePackage.PackageType packageType);
-    long countByPackageTypeAndIsActiveTrue(ServicePackage.PackageType packageType);
+    long countByServicePackageTypeId(UUID servicePackageTypeId);
+    long countByServicePackageTypeIdAndIsActiveTrue(UUID servicePackageTypeId);
     
     // Get average price by package type
-    @Query("SELECT AVG(sp.packagePrice) FROM ServicePackage sp WHERE sp.packageType = :packageType AND sp.isActive = true")
-    BigDecimal getAveragePriceByPackageType(@Param("packageType") ServicePackage.PackageType packageType);
+    @Query("SELECT AVG(sp.packagePrice) FROM ServicePackage sp WHERE sp.servicePackageTypeId = :servicePackageTypeId AND sp.isActive = true")
+    BigDecimal getAveragePriceByPackageType(@Param("servicePackageTypeId") UUID servicePackageTypeId);
     
     // Get average duration by package type
-    @Query("SELECT AVG(sp.totalDuration) FROM ServicePackage sp WHERE sp.packageType = :packageType AND sp.isActive = true")
-    Double getAverageDurationByPackageType(@Param("packageType") ServicePackage.PackageType packageType);
+    @Query("SELECT AVG(sp.totalDuration) FROM ServicePackage sp WHERE sp.servicePackageTypeId = :servicePackageTypeId AND sp.isActive = true")
+    Double getAverageDurationByPackageType(@Param("servicePackageTypeId") UUID servicePackageTypeId);
 }

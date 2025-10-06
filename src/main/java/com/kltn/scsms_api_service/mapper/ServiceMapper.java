@@ -8,29 +8,30 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(
-    componentModel = "spring",
-    unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class, CategoryMapper.class}
-)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface ServiceMapper {
-    
+
     @Mapping(target = "categoryId", source = "category.categoryId")
     @Mapping(target = "categoryName", source = "category.categoryName")
+    @Mapping(target = "serviceProcessId", source = "serviceProcess.id")
+    @Mapping(target = "serviceProcessName", source = "serviceProcess.name")
+    @Mapping(target = "serviceProcessCode", source = "serviceProcess.code")
+    @Mapping(target = "estimatedDuration", source = "estimatedDuration")
     ServiceInfoDto toServiceInfoDto(Service service);
-    
-    
+
     @Mapping(target = "category", ignore = true) // Will be set in service
+    @Mapping(target = "serviceProcess", ignore = true) // Will be set in service
     @Mapping(target = "serviceId", ignore = true)
     @Mapping(target = "isActive", constant = "true")
+    @Mapping(target = "isDefaultProcess", constant = "false")
     @Mapping(target = "isDeleted", constant = "false")
     Service toEntity(CreateServiceRequest createServiceRequest);
-    
+
     default Service updateEntity(Service existingService, UpdateServiceRequest updateRequest) {
         if (updateRequest == null) {
             return existingService;
         }
-        
+
         if (updateRequest.getServiceName() != null) {
             existingService.setServiceName(updateRequest.getServiceName());
         }
@@ -52,14 +53,8 @@ public interface ServiceMapper {
         if (updateRequest.getLaborCost() != null) {
             existingService.setLaborCost(updateRequest.getLaborCost());
         }
-        if (updateRequest.getServiceType() != null) {
-            existingService.setServiceType(updateRequest.getServiceType());
-        }
-        if (updateRequest.getPhotoRequired() != null) {
-            existingService.setPhotoRequired(updateRequest.getPhotoRequired());
-        }
-        if (updateRequest.getImageUrls() != null) {
-            existingService.setImageUrls(updateRequest.getImageUrls());
+        if (updateRequest.getServiceTypeId() != null) {
+            existingService.setServiceTypeId(updateRequest.getServiceTypeId());
         }
         if (updateRequest.getIsFeatured() != null) {
             existingService.setIsFeatured(updateRequest.getIsFeatured());
@@ -67,7 +62,16 @@ public interface ServiceMapper {
         if (updateRequest.getIsActive() != null) {
             existingService.setIsActive(updateRequest.getIsActive());
         }
-        
+        if (updateRequest.getServiceProcessId() != null) {
+            // Will be set in service layer
+        }
+        if (updateRequest.getIsDefaultProcess() != null) {
+            existingService.setIsDefaultProcess(updateRequest.getIsDefaultProcess());
+        }
+        if (updateRequest.getBranchId() != null) {
+            existingService.setBranchId(updateRequest.getBranchId());
+        }
+
         return existingService;
     }
 }

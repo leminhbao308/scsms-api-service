@@ -2,7 +2,6 @@ package com.kltn.scsms_api_service.core.dto.servicePackageManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
 import lombok.*;
@@ -38,14 +37,16 @@ public class CreateServicePackageRequest {
     @JsonProperty("total_duration")
     private Integer totalDuration;
     
-    @JsonProperty("package_type")
-    private ServicePackage.PackageType packageType;
-    
-    @JsonProperty("image_urls")
-    private String imageUrls;
-    
+    @JsonProperty("service_package_type_id")
+    private UUID servicePackageTypeId;
     
     @Valid
     @JsonProperty("package_services")
     private List<CreateServicePackageServiceRequest> packageServices;
+    
+    @JsonProperty("service_process_id")
+    private UUID serviceProcessId;
+    
+    @JsonProperty("is_default_process")
+    private Boolean isDefaultProcess;
 }

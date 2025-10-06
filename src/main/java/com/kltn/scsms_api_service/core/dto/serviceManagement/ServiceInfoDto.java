@@ -25,10 +25,16 @@ public class ServiceInfoDto {
     private Boolean isPackage;
     private BigDecimal basePrice; // Base price for the service
     private BigDecimal laborCost; // Tiền công lao động
-    private Service.ServiceType serviceType;
-    private Boolean photoRequired;
-    private String imageUrls; // JSON array of image URLs
+    private UUID serviceTypeId;
+    private String serviceTypeName;
     private Boolean isFeatured;
     private Boolean isActive;
+    private UUID serviceProcessId;
+    private String serviceProcessName;
+    private String serviceProcessCode;
+    private Boolean isDefaultProcess;
+    private Integer estimatedDuration;
+    private UUID branchId;
+    private String branchName;
     private AuditDto audit;
 }

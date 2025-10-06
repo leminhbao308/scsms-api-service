@@ -60,9 +60,9 @@ public class ServiceService {
         return serviceRepository.findByCategoryCategoryId(categoryId);
     }
     
-    public List<Service> findByServiceType(Service.ServiceType serviceType) {
-        log.info("Finding services by service type: {}", serviceType);
-        return serviceRepository.findByServiceType(serviceType);
+    public List<Service> findByServiceTypeId(UUID serviceTypeId) {
+        log.info("Finding services by service type ID: {}", serviceTypeId);
+        return serviceRepository.findByServiceTypeId(serviceTypeId);
     }
     
     public List<Service> findBySkillLevel(Service.SkillLevel skillLevel) {
@@ -97,12 +97,6 @@ public class ServiceService {
         return serviceRepository.findByIsFeaturedTrueAndIsActiveTrue();
     }
     
-    public List<Service> findServicesRequiringPhotos() {
-        log.info("Finding services requiring photos");
-        return serviceRepository.findByPhotoRequiredTrueAndIsActiveTrue();
-    }
-    
-    
     public List<Service> searchByKeyword(String keyword) {
         log.info("Searching services by keyword: {}", keyword);
         return serviceRepository.searchByKeyword(keyword);
@@ -120,9 +114,9 @@ public class ServiceService {
         return serviceRepository.countByCategoryCategoryId(categoryId);
     }
     
-    public long countByServiceType(Service.ServiceType serviceType) {
-        log.info("Counting services by service type: {}", serviceType);
-        return serviceRepository.countByServiceType(serviceType);
+    public long countByServiceTypeId(UUID serviceTypeId) {
+        log.info("Counting services by service type ID: {}", serviceTypeId);
+        return serviceRepository.countByServiceTypeId(serviceTypeId);
     }
     
     public long countBySkillLevel(Service.SkillLevel skillLevel) {
@@ -130,14 +124,14 @@ public class ServiceService {
         return serviceRepository.countByRequiredSkillLevel(skillLevel);
     }
     
-    public Double getAverageDurationByServiceType(Service.ServiceType serviceType) {
-        log.info("Getting average duration by service type: {}", serviceType);
-        return serviceRepository.getAverageDurationByServiceType(serviceType);
+    public Double getAverageDurationByServiceType(UUID serviceTypeId) {
+        log.info("Getting average duration by service type ID: {}", serviceTypeId);
+        return serviceRepository.getAverageDurationByServiceType(serviceTypeId);
     }
     
-    public BigDecimal getAveragePriceByServiceType(Service.ServiceType serviceType) {
-        log.info("Getting average price by service type: {}", serviceType);
-        return serviceRepository.getAveragePriceByServiceType(serviceType);
+    public BigDecimal getAveragePriceByServiceType(UUID serviceTypeId) {
+        log.info("Getting average price by service type ID: {}", serviceTypeId);
+        return serviceRepository.getAveragePriceByServiceType(serviceTypeId);
     }
     
     @Transactional

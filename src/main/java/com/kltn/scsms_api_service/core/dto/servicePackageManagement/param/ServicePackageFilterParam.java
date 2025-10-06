@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.servicePackageManagement.param;
 
 import com.kltn.scsms_api_service.abstracts.BaseFilterParam;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -18,7 +17,7 @@ public class ServicePackageFilterParam extends BaseFilterParam<ServicePackageFil
     
     // Basic filters
     private UUID categoryId;
-    private ServicePackage.PackageType packageType;
+    private UUID servicePackageTypeId;
     
     // Price filters
     private BigDecimal minPrice;

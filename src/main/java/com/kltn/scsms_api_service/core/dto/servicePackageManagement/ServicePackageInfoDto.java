@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.servicePackageManagement;
 
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -24,9 +23,14 @@ public class ServicePackageInfoDto {
     private Integer totalDuration;
     private BigDecimal packagePrice; // Total price = sum of service prices
     private BigDecimal serviceCost; // Sum of service prices
-    private ServicePackage.PackageType packageType;
-    private String imageUrls;
+    private UUID servicePackageTypeId;
+    private String servicePackageTypeName;
     private Boolean isActive;
     private List<ServicePackageServiceDto> packageServices;
+    private UUID serviceProcessId;
+    private String serviceProcessName;
+    private String serviceProcessCode;
+    private Boolean isDefaultProcess;
+    private Integer serviceCount;
     private AuditDto audit;
 }

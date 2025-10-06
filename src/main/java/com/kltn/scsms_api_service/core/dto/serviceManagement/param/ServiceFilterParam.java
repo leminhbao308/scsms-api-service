@@ -17,7 +17,7 @@ public class ServiceFilterParam extends BaseFilterParam<ServiceFilterParam> {
     
     // Basic filters
     private UUID categoryId;
-    private Service.ServiceType serviceType;
+    private UUID serviceTypeId;
     private Service.SkillLevel requiredSkillLevel;
     
     // Duration filters
@@ -32,7 +32,6 @@ public class ServiceFilterParam extends BaseFilterParam<ServiceFilterParam> {
     private Boolean isPackage;
     private Boolean isFeatured;
     private Boolean isActive;
-    private Boolean photoRequired;
     
     // Search filters
     private String search;

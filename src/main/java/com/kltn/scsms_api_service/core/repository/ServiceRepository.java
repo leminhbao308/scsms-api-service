@@ -25,8 +25,8 @@ public interface ServiceRepository extends JpaRepository<Service, UUID> {
     List<Service> findByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
     
     // Find by service type
-    List<Service> findByServiceType(Service.ServiceType serviceType);
-    List<Service> findByServiceTypeAndIsActiveTrue(Service.ServiceType serviceType);
+    List<Service> findByServiceTypeId(UUID serviceTypeId);
+    List<Service> findByServiceTypeIdAndIsActiveTrue(UUID serviceTypeId);
     
     // Find by skill level
     List<Service> findByRequiredSkillLevel(Service.SkillLevel skillLevel);
@@ -51,10 +51,6 @@ public interface ServiceRepository extends JpaRepository<Service, UUID> {
     // Find featured services
     List<Service> findByIsFeaturedTrueAndIsActiveTrue();
     
-    // Find services requiring photos
-    List<Service> findByPhotoRequiredTrueAndIsActiveTrue();
-    
-    
     // Search by name or description
     @Query("SELECT s FROM Service s WHERE " +
            "(LOWER(s.serviceName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -68,18 +64,18 @@ public interface ServiceRepository extends JpaRepository<Service, UUID> {
     long countByCategoryCategoryIdAndIsActiveTrue(UUID categoryId);
     
     // Count by service type
-    long countByServiceType(Service.ServiceType serviceType);
-    long countByServiceTypeAndIsActiveTrue(Service.ServiceType serviceType);
+    long countByServiceTypeId(UUID serviceTypeId);
+    long countByServiceTypeIdAndIsActiveTrue(UUID serviceTypeId);
     
     // Count by skill level
     long countByRequiredSkillLevel(Service.SkillLevel skillLevel);
     long countByRequiredSkillLevelAndIsActiveTrue(Service.SkillLevel skillLevel);
     
     // Get average duration by service type
-    @Query("SELECT AVG(s.standardDuration) FROM Service s WHERE s.serviceType = :serviceType AND s.isActive = true")
-    Double getAverageDurationByServiceType(@Param("serviceType") Service.ServiceType serviceType);
+    @Query("SELECT AVG(s.standardDuration) FROM Service s WHERE s.serviceTypeId = :serviceTypeId AND s.isActive = true")
+    Double getAverageDurationByServiceType(@Param("serviceTypeId") UUID serviceTypeId);
     
     // Get average price by service type
-    @Query("SELECT AVG(s.basePrice) FROM Service s WHERE s.serviceType = :serviceType AND s.isActive = true")
-    BigDecimal getAveragePriceByServiceType(@Param("serviceType") Service.ServiceType serviceType);
+    @Query("SELECT AVG(s.basePrice) FROM Service s WHERE s.serviceTypeId = :serviceTypeId AND s.isActive = true")
+    BigDecimal getAveragePriceByServiceType(@Param("serviceTypeId") UUID serviceTypeId);
 }

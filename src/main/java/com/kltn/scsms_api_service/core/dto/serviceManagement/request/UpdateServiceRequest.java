@@ -49,21 +49,22 @@ public class UpdateServiceRequest {
     @JsonProperty("labor_cost")
     private BigDecimal laborCost; // Tiền công lao động
     
-    @JsonProperty("service_type")
-    private Service.ServiceType serviceType;
-    
-    @JsonProperty("photo_required")
-    private Boolean photoRequired;
-    
-    
-    
-    @JsonProperty("image_urls")
-    private String imageUrls; // JSON array of image URLs
+    @JsonProperty("service_type_id")
+    private UUID serviceTypeId;
     
     @JsonProperty("is_featured")
     private Boolean isFeatured;
     
     @JsonProperty("is_active")
     private Boolean isActive;
+    
+    @JsonProperty("service_process_id")
+    private UUID serviceProcessId;
+    
+    @JsonProperty("is_default_process")
+    private Boolean isDefaultProcess;
+    
+    @JsonProperty("branch_id")
+    private UUID branchId;
     
 }

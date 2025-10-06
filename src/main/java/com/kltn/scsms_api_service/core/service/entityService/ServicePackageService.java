@@ -61,9 +61,9 @@ public class ServicePackageService {
         return servicePackageRepository.findByCategoryCategoryId(categoryId);
     }
     
-    public List<ServicePackage> findByPackageType(ServicePackage.PackageType packageType) {
-        log.info("Finding service packages by package type: {}", packageType);
-        return servicePackageRepository.findByPackageType(packageType);
+    public List<ServicePackage> findByServicePackageTypeId(UUID servicePackageTypeId) {
+        log.info("Finding service packages by service package type ID: {}", servicePackageTypeId);
+        return servicePackageRepository.findByServicePackageTypeId(servicePackageTypeId);
     }
     
     public List<ServicePackage> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
@@ -91,19 +91,19 @@ public class ServicePackageService {
         return servicePackageRepository.countByCategoryCategoryId(categoryId);
     }
     
-    public long countByPackageType(ServicePackage.PackageType packageType) {
-        log.info("Counting service packages by package type: {}", packageType);
-        return servicePackageRepository.countByPackageType(packageType);
+    public long countByServicePackageTypeId(UUID servicePackageTypeId) {
+        log.info("Counting service packages by service package type ID: {}", servicePackageTypeId);
+        return servicePackageRepository.countByServicePackageTypeId(servicePackageTypeId);
     }
     
-    public BigDecimal getAveragePriceByPackageType(ServicePackage.PackageType packageType) {
-        log.info("Getting average price by package type: {}", packageType);
-        return servicePackageRepository.getAveragePriceByPackageType(packageType);
+    public BigDecimal getAveragePriceByPackageType(UUID servicePackageTypeId) {
+        log.info("Getting average price by service package type ID: {}", servicePackageTypeId);
+        return servicePackageRepository.getAveragePriceByPackageType(servicePackageTypeId);
     }
     
-    public Double getAverageDurationByPackageType(ServicePackage.PackageType packageType) {
-        log.info("Getting average duration by package type: {}", packageType);
-        return servicePackageRepository.getAverageDurationByPackageType(packageType);
+    public Double getAverageDurationByPackageType(UUID servicePackageTypeId) {
+        log.info("Getting average duration by service package type ID: {}", servicePackageTypeId);
+        return servicePackageRepository.getAverageDurationByPackageType(servicePackageTypeId);
     }
     
     

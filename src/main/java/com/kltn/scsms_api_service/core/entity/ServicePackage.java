@@ -5,8 +5,6 @@ import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -45,15 +43,8 @@ public class ServicePackage extends AuditEntity {
     @Column(name = "package_price", precision = 15, scale = 2)
     private BigDecimal packagePrice; // Total price = sum of service prices + sum of product prices
     
-    @Column(name = "package_type")
-    @Enumerated(EnumType.STRING)
-    private PackageType packageType;
-    
-    
-    @Column(name = "image_urls")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private String imageUrls;
-    
+    @Column(name = "service_package_type_id")
+    private UUID servicePackageTypeId;
     
     // One-to-many relationship with service package services
     @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -64,6 +55,10 @@ public class ServicePackage extends AuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_process_id")
     private ServiceProcess serviceProcess;
+    
+    @Column(name = "is_default_process", nullable = false)
+    @Builder.Default
+    private Boolean isDefaultProcess = false; // Có sử dụng quy trình mặc định hay không
     
     // Business methods
     
@@ -108,8 +103,33 @@ public class ServicePackage extends AuditEntity {
         this.totalDuration = calculateTotalDuration();
     }
     
-    // Enums
-    public enum PackageType {
-        MAINTENANCE, REPAIR, COSMETIC, INSPECTION, CUSTOM
+    /**
+     * Kiểm tra xem package có sử dụng quy trình mặc định không
+     */
+    public boolean usesDefaultProcess() {
+        return isDefaultProcess != null && isDefaultProcess;
     }
+    
+    /**
+     * Lấy tên quy trình được sử dụng
+     */
+    public String getProcessName() {
+        return serviceProcess != null ? serviceProcess.getName() : "Quy trình mặc định";
+    }
+    
+    /**
+     * Lấy code quy trình được sử dụng
+     */
+    public String getProcessCode() {
+        return serviceProcess != null ? serviceProcess.getCode() : "DEFAULT_PROCESS";
+    }
+    
+    /**
+     * Lấy số lượng service trong package
+     */
+    public int getServiceCount() {
+        return packageServices != null ? packageServices.size() : 0;
+    }
+    
+    // Enums
 }

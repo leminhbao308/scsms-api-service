@@ -10,8 +10,10 @@ import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePacka
 import com.kltn.scsms_api_service.core.entity.Category;
 import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.entity.ServicePackageService;
+import com.kltn.scsms_api_service.core.entity.ServiceProcess;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
 import com.kltn.scsms_api_service.core.service.entityService.ServicePackageServiceEntityService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
@@ -41,6 +43,7 @@ public class ServicePackageManagementService {
     private final ServicePackageServiceEntityService servicePackageServiceEntityService;
     private final CategoryService categoryService;
     private final ServiceService serviceService;
+    private final ServiceProcessService serviceProcessService;
     private final ServicePackageMapper servicePackageMapper;
     private final ServicePackageServiceMapper servicePackageServiceMapper;
     
@@ -92,9 +95,9 @@ public class ServicePackageManagementService {
                 .collect(Collectors.toList());
     }
     
-    public List<ServicePackageInfoDto> getServicePackagesByType(ServicePackage.PackageType packageType) {
-        log.info("Getting service packages by type: {}", packageType);
-        List<ServicePackage> servicePackages = servicePackageEntityService.findByPackageType(packageType);
+    public List<ServicePackageInfoDto> getServicePackagesByTypeId(UUID servicePackageTypeId) {
+        log.info("Getting service packages by type ID: {}", servicePackageTypeId);
+        List<ServicePackage> servicePackages = servicePackageEntityService.findByServicePackageTypeId(servicePackageTypeId);
         return servicePackages.stream()
                 .map(servicePackageMapper::toServicePackageInfoDto)
                 .collect(Collectors.toList());
@@ -125,9 +128,16 @@ public class ServicePackageManagementService {
             category = categoryService.getById(createServicePackageRequest.getCategoryId());
         }
         
+        // Validate service process exists if provided
+        ServiceProcess serviceProcess = null;
+        if (createServicePackageRequest.getServiceProcessId() != null) {
+            serviceProcess = serviceProcessService.findByIdOrThrow(createServicePackageRequest.getServiceProcessId());
+        }
+        
         // Create service package
         ServicePackage servicePackage = servicePackageMapper.toEntity(createServicePackageRequest);
         servicePackage.setCategory(category);
+        servicePackage.setServiceProcess(serviceProcess);
         
         // Set default values
         if (servicePackage.getIsActive() == null) {
@@ -170,6 +180,12 @@ public class ServicePackageManagementService {
             existingServicePackage.setCategory(category);
         }
         
+        // Validate service process exists if provided
+        if (updateServicePackageRequest.getServiceProcessId() != null) {
+            ServiceProcess serviceProcess = serviceProcessService.findByIdOrThrow(updateServicePackageRequest.getServiceProcessId());
+            existingServicePackage.setServiceProcess(serviceProcess);
+        }
+        
         // Update service package
         ServicePackage updatedServicePackage = servicePackageMapper.updateEntity(existingServicePackage, updateServicePackageRequest);
         ServicePackage savedServicePackage = servicePackageEntityService.update(updatedServicePackage);
@@ -208,9 +224,9 @@ public class ServicePackageManagementService {
         return servicePackageEntityService.countByCategoryId(categoryId);
     }
     
-    public long getServicePackageCountByType(ServicePackage.PackageType packageType) {
-        log.info("Getting service package count by type: {}", packageType);
-        return servicePackageEntityService.countByPackageType(packageType);
+    public long getServicePackageCountByTypeId(UUID servicePackageTypeId) {
+        log.info("Getting service package count by type ID: {}", servicePackageTypeId);
+        return servicePackageEntityService.countByServicePackageTypeId(servicePackageTypeId);
     }
     
     

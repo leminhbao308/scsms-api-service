@@ -6,8 +6,10 @@ import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServi
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceRequest;
 import com.kltn.scsms_api_service.core.entity.Category;
 import com.kltn.scsms_api_service.core.entity.Service;
+import com.kltn.scsms_api_service.core.entity.ServiceProcess;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ServiceMapper;
@@ -32,6 +34,7 @@ public class ServiceManagementService {
     
     private final ServiceService serviceService;
     private final CategoryService categoryService;
+    private final ServiceProcessService serviceProcessService;
     private final ServiceMapper serviceMapper;
     
     public List<ServiceInfoDto> getAllServices() {
@@ -82,9 +85,9 @@ public class ServiceManagementService {
                 .collect(Collectors.toList());
     }
     
-    public List<ServiceInfoDto> getServicesByType(Service.ServiceType serviceType) {
-        log.info("Getting services by type: {}", serviceType);
-        List<Service> services = serviceService.findByServiceType(serviceType);
+    public List<ServiceInfoDto> getServicesByTypeId(UUID serviceTypeId) {
+        log.info("Getting services by type ID: {}", serviceTypeId);
+        List<Service> services = serviceService.findByServiceTypeId(serviceTypeId);
         return services.stream()
                 .map(serviceMapper::toServiceInfoDto)
                 .collect(Collectors.toList());
@@ -148,24 +151,30 @@ public class ServiceManagementService {
             category = categoryService.getById(createServiceRequest.getCategoryId());
         }
         
+        // Validate service process exists if provided
+        ServiceProcess serviceProcess = null;
+        if (createServiceRequest.getServiceProcessId() != null) {
+            serviceProcess = serviceProcessService.findByIdOrThrow(createServiceRequest.getServiceProcessId());
+        }
+        
         // Create service
         Service service = serviceMapper.toEntity(createServiceRequest);
         service.setCategory(category);
+        service.setServiceProcess(serviceProcess);
         
         // Set default values
         if (service.getIsPackage() == null) {
             service.setIsPackage(false);
         }
-        if (service.getPhotoRequired() == null) {
-            service.setPhotoRequired(false);
-        }
-
         if (service.getIsFeatured() == null) {
             service.setIsFeatured(false);
         }
         if (service.getLaborCost() == null) {
             service.setLaborCost(BigDecimal.ZERO);
         }
+        
+        // Update estimated duration from service process
+        service.updateEstimatedDuration();
         
         // Save service first
         Service savedService = serviceService.save(service);
@@ -199,8 +208,17 @@ public class ServiceManagementService {
             existingService.setCategory(category);
         }
         
+        // Validate service process exists if provided
+        if (updateServiceRequest.getServiceProcessId() != null) {
+            ServiceProcess serviceProcess = serviceProcessService.findByIdOrThrow(updateServiceRequest.getServiceProcessId());
+            existingService.setServiceProcess(serviceProcess);
+        }
+        
         // Update service
         Service updatedService = serviceMapper.updateEntity(existingService, updateServiceRequest);
+        
+        // Update estimated duration from service process
+        updatedService.updateEstimatedDuration();
         
         // Update pricing after changes
         updatedService.updatePricing();
@@ -231,9 +249,9 @@ public class ServiceManagementService {
         return serviceService.countByCategoryId(categoryId);
     }
     
-    public long getServiceCountByType(Service.ServiceType serviceType) {
-        log.info("Getting service count by type: {}", serviceType);
-        return serviceService.countByServiceType(serviceType);
+    public long getServiceCountByTypeId(UUID serviceTypeId) {
+        log.info("Getting service count by type ID: {}", serviceTypeId);
+        return serviceService.countByServiceTypeId(serviceTypeId);
     }
     
     public long getServiceCountBySkillLevel(Service.SkillLevel skillLevel) {
