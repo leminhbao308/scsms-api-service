@@ -3,7 +3,7 @@ package com.kltn.scsms_api_service.core.service.entityService;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.ProductAttribute;
 import com.kltn.scsms_api_service.core.entity.ProductAttributeValue;
-import com.kltn.scsms_api_service.core.entity.ProductAttributeValueId;
+import com.kltn.scsms_api_service.core.entity.compositId.ProductAttributeValueId;
 import com.kltn.scsms_api_service.core.repository.ProductAttributeValueRepository;
 import com.kltn.scsms_api_service.core.repository.ProductRepository;
 import com.kltn.scsms_api_service.core.repository.ProductAttributeRepository;
