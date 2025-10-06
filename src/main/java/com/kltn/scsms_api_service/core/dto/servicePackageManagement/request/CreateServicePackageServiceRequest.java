@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.servicePackageManagement.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -17,10 +18,12 @@ import java.util.UUID;
 public class CreateServicePackageServiceRequest {
     
     @NotNull(message = "Service ID is required")
+    @JsonProperty("service_id")
     private UUID serviceId;
     
     @NotNull(message = "Quantity is required")
     @Positive(message = "Quantity must be positive")
+    @JsonProperty("quantity")
     private Integer quantity;
     
     private BigDecimal unitPrice;
