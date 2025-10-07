@@ -173,7 +173,7 @@ public class BookingManagementController {
         return ResponseBuilder.success(statistics);
     }
     
-    @PostMapping("/bookings")
+    @PostMapping("/bookings/create")
     @Operation(summary = "Create booking", description = "Create a new booking")
     @SwaggerOperation(summary = "Create booking")
     public ResponseEntity<ApiResponse<BookingInfoDto>> createBooking(
