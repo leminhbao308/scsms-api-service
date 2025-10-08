@@ -1,11 +1,14 @@
 package com.kltn.scsms_api_service.core.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -55,7 +58,7 @@ public class Branch extends AuditEntity {
     private Integer parkingSpaces = 0;
     
     @Column(name = "established_date")
-    private java.time.LocalDate establishedDate;
+    private LocalDate establishedDate;
     
     
     // Many-to-one relationship with center
@@ -69,7 +72,7 @@ public class Branch extends AuditEntity {
     private User manager;
     
     @Column(name = "manager_assigned_at")
-    private java.time.LocalDateTime managerAssignedAt;
+    private LocalDateTime managerAssignedAt;
     
     @Column(name = "manager_assigned_by")
     private String managerAssignedBy;

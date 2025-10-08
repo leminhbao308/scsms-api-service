@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.annotations.RequireRole;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -101,7 +100,7 @@ public class BranchManagementController {
         
         log.info("Creating new branch: {}", createBranchRequest.getBranchName());
         
-        BranchInfoDto createdBranch = branchManagementService.createBranch(createBranchRequest);
+        BranchInfoDto createdBranch = branchManagementService.createBranchWithWarehouse(createBranchRequest);
         
         return ResponseBuilder.created("Branch created successfully", createdBranch);
     }

@@ -1,11 +1,13 @@
 package com.kltn.scsms_api_service.mapper;
 
+import com.kltn.scsms_api_service.core.dto.branchManagement.BranchFlatDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.CreateBranchRequest;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchRequest;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(
@@ -17,6 +19,7 @@ public interface BranchMapper {
     
     @Mapping(target = "centerId", source = "center.centerId")
     @Mapping(target = "managerId", source = "manager.userId")
+    @Named("toBranchInfoDto")
     BranchInfoDto toBranchInfoDto(Branch branch);
     
     @Mapping(target = "center", ignore = true)
@@ -24,6 +27,10 @@ public interface BranchMapper {
     @Mapping(target = "managerAssignedAt", ignore = true)
     @Mapping(target = "managerAssignedBy", ignore = true)
     Branch toEntity(CreateBranchRequest createBranchRequest);
+    
+    @Mapping(target = "centerId", source = "center.centerId")
+    @Mapping(target = "managerId", source = "manager.userId")
+    BranchFlatDto toBranchFlatDto(Branch branch);
     
     default Branch updateEntity(Branch existingBranch, UpdateBranchRequest updateRequest) {
         if (updateRequest == null) {

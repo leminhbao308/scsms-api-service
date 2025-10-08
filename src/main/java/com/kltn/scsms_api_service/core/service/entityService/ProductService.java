@@ -162,4 +162,8 @@ public class ProductService {
         product.setIsActive(false);
         productRepository.save(product);
     }
+    
+    public Product getRefByProductId(UUID productId) {
+        return productRepository.getReferenceById(productId);
+    }
 }
