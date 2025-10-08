@@ -216,6 +216,16 @@ public class BookingManagementController {
         return ResponseBuilder.success("Booking cancelled successfully");
     }
     
+    @PostMapping("/bookings/{bookingId}/confirm")
+    @Operation(summary = "Confirm booking", description = "Confirm a pending booking")
+    @SwaggerOperation(summary = "Confirm booking")
+    public ResponseEntity<ApiResponse<Void>> confirmBooking(
+            @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
+        log.info("Confirming booking: {}", bookingId);
+        bookingManagementService.confirmBooking(bookingId);
+        return ResponseBuilder.success("Booking confirmed successfully");
+    }
+    
     @PostMapping("/bookings/{bookingId}/check-in")
     @Operation(summary = "Check-in booking", description = "Check-in a booking")
     @SwaggerOperation(summary = "Check-in booking")

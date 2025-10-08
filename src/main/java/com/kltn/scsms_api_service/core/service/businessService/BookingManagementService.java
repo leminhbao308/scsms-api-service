@@ -43,6 +43,8 @@ public class BookingManagementService {
     private final ServiceBayService serviceBayService;
     private final BookingMapper bookingMapper;
     private final BookingItemMapper bookingItemMapper;
+    private final BookingPricingService bookingPricingService;
+    private final PricingBusinessService pricingBusinessService;
     
     /**
      * Lấy tất cả booking
@@ -240,12 +242,14 @@ public class BookingManagementService {
         booking.setServiceBay(serviceBay);
         booking.setIsActive(true);
         
-        // Calculate total price from items
+        // Calculate total price from price book
         if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            BigDecimal totalPrice = request.getBookingItems().stream()
-                    .map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPrice = bookingPricingService.calculateBookingTotalPrice(
+                    request.getBookingItems(), 
+                    null // Sử dụng active price book
+            );
             booking.setTotalPrice(totalPrice);
+            log.info("Calculated booking total price from price book: {}", totalPrice);
         }
         
         // Calculate estimated duration
@@ -284,8 +288,15 @@ public class BookingManagementService {
                 bookingItem.setIsActive(true);
                 bookingItem.setIsDeleted(false);
                 
+                // Calculate unit price from price book if not provided
+                if (itemRequest.getUnitPrice() == null) {
+                    BigDecimal unitPrice = calculateItemUnitPrice(itemRequest);
+                    bookingItem.setUnitPrice(unitPrice);
+                    log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
+                }
+                
                 // Calculate total amount
-                BigDecimal subtotal = itemRequest.getUnitPrice()
+                BigDecimal subtotal = bookingItem.getUnitPrice()
                         .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
                 BigDecimal totalAmount = subtotal
                         .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO)
@@ -398,6 +409,24 @@ public class BookingManagementService {
         
         // Bay will be automatically available when booking is deleted
         // No need to manually unassign bay
+    }
+    
+    /**
+     * Confirm booking
+     */
+    @Transactional
+    public void confirmBooking(UUID bookingId) {
+        log.info("Confirming booking: {}", bookingId);
+        
+        Booking booking = bookingService.getById(bookingId);
+        
+        if (booking.getStatus() != Booking.BookingStatus.PENDING) {
+            throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_CONFIRMED, 
+                    "Only pending bookings can be confirmed");
+        }
+        
+        booking.updateStatus(Booking.BookingStatus.CONFIRMED, "Booking confirmed by staff");
+        bookingService.update(booking);
     }
     
     /**
@@ -518,6 +547,26 @@ public class BookingManagementService {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
         return String.format("BK-%s-%s", dateStr, timeStr);
+    }
+    
+    /**
+     * Tính unit price cho booking item từ bảng giá
+     */
+    private BigDecimal calculateItemUnitPrice(CreateBookingItemRequest itemRequest) {
+        try {
+            if (itemRequest.getItemType() == BookingItem.ItemType.SERVICE) {
+                // Lấy giá service từ bảng giá
+                return pricingBusinessService.resolveServicePrice(itemRequest.getItemId(), null);
+            } else if (itemRequest.getItemType() == BookingItem.ItemType.SERVICE_PACKAGE) {
+                // Lấy giá service package từ bảng giá
+                return pricingBusinessService.resolveServicePackagePrice(itemRequest.getItemId(), null);
+            }
+        } catch (Exception e) {
+            log.error("Error calculating unit price for item {}: {}", itemRequest.getItemId(), e.getMessage());
+        }
+        
+        // Fallback: throw exception nếu không tính được giá
+        throw new RuntimeException("Could not determine unit price for item: " + itemRequest.getItemName());
     }
     
     /**

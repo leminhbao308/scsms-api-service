@@ -31,7 +31,9 @@ public class PricingBusinessService {
     public Optional<PriceBook> resolveActivePriceBook(LocalDateTime date) {
         List<PriceBook> books = priceBookEntityService.getActivePriceInRange(
             date, null);
-        return books.stream().findFirst(); // customize selection by branch/channel if needed
+        // Lấy PriceBook mới nhất (validFrom gần nhất)
+        return books.stream()
+            .max((b1, b2) -> b1.getValidFrom().compareTo(b2.getValidFrom()));
     }
     
     
