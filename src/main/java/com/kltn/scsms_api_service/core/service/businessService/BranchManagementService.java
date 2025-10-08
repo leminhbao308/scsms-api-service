@@ -1,18 +1,20 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
+import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.param.BranchFilterParam;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.CreateBranchRequest;
-import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchRequest;
 import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranchStatusRequest;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
-import com.kltn.scsms_api_service.exception.ClientSideException;
-import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.core.entity.Warehouse;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.CenterService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.core.service.entityService.WarehouseEntityService;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.BranchMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class BranchManagementService {
     
     private final BranchMapper branchMapper;
     private final BranchService branchService;
+    private final WarehouseEntityService warehouseEntityService;
     private final CenterService centerService;
     private final UserService userService;
     
@@ -39,29 +42,29 @@ public class BranchManagementService {
         return branchPage.map(branchMapper::toBranchInfoDtoWithRelations);
     }
     
-    public BranchInfoDto createBranch(CreateBranchRequest createBranchRequest) {
+    public BranchInfoDto createBranchWithWarehouse(CreateBranchRequest createBranchRequest) {
         // Validate branch name not already in use
         if (branchService.existsByBranchName(createBranchRequest.getBranchName())) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
                 "Branch with name " + createBranchRequest.getBranchName() + " already exists.");
         }
         
         // Validate branch code not already in use
         if (branchService.existsByBranchCode(createBranchRequest.getBranchCode())) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
                 "Branch with code " + createBranchRequest.getBranchCode() + " already exists.");
         }
         
         // Validate center exists
         Center center = centerService.findById(createBranchRequest.getCenterId())
-            .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, 
+            .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                 "Center with ID " + createBranchRequest.getCenterId() + " not found."));
         
         // Validate manager exists (if provided)
         User manager = null;
         if (createBranchRequest.getManagerId() != null) {
             manager = userService.findById(createBranchRequest.getManagerId())
-                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, 
+                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Manager with ID " + createBranchRequest.getManagerId() + " not found."));
         }
         
@@ -77,8 +80,13 @@ public class BranchManagementService {
         
         Branch createdBranch = branchService.saveBranch(newBranch);
         
-        log.info("Created new branch with name: {} for center: {}", 
+        log.info("Created new branch with name: {} for center: {}",
             createdBranch.getBranchName(), center.getCenterName());
+        
+        // Create associated warehouse
+        warehouseEntityService.saveWarehouse(
+            Warehouse.builder().branch(createdBranch).locked(true).build()
+        );
         
         return branchMapper.toBranchInfoDtoWithRelations(createdBranch);
     }
@@ -89,19 +97,19 @@ public class BranchManagementService {
             new ClientSideException(ErrorCode.NOT_FOUND, "Branch with ID " + branchId + " not found."));
         
         // If branch name is being updated, validate new name doesn't exist
-        if (updateBranchRequest.getBranchName() != null && 
+        if (updateBranchRequest.getBranchName() != null &&
             !updateBranchRequest.getBranchName().equals(existingBranch.getBranchName())) {
             if (branchService.existsByBranchName(updateBranchRequest.getBranchName())) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Branch with name " + updateBranchRequest.getBranchName() + " already exists.");
             }
         }
         
         // If branch code is being updated, validate new code doesn't exist
-        if (updateBranchRequest.getBranchCode() != null && 
+        if (updateBranchRequest.getBranchCode() != null &&
             !updateBranchRequest.getBranchCode().equals(existingBranch.getBranchCode())) {
             if (branchService.existsByBranchCode(updateBranchRequest.getBranchCode())) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Branch with code " + updateBranchRequest.getBranchCode() + " already exists.");
             }
         }
@@ -109,7 +117,7 @@ public class BranchManagementService {
         // Validate center exists (if being updated)
         if (updateBranchRequest.getCenterId() != null) {
             Center center = centerService.findById(updateBranchRequest.getCenterId())
-                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, 
+                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Center with ID " + updateBranchRequest.getCenterId() + " not found."));
             existingBranch.setCenter(center);
         }
@@ -117,7 +125,7 @@ public class BranchManagementService {
         // Validate manager exists (if being updated)
         if (updateBranchRequest.getManagerId() != null) {
             User manager = userService.findById(updateBranchRequest.getManagerId())
-                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, 
+                .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Manager with ID " + updateBranchRequest.getManagerId() + " not found."));
             existingBranch.setManager(manager);
         }
@@ -163,7 +171,7 @@ public class BranchManagementService {
         log.info("Updating branch status for ID: {}", branchId);
         
         Branch existingBranch = branchService.findById(branchId)
-            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
                 "Branch not found with ID: " + branchId));
         
         if (updateBranchStatusRequest.getIsActive() != null) {

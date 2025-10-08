@@ -6,4 +6,6 @@ public enum StockRefType {
     
     PURCHASE_ORDER,
     PURCHASE_RETURN,
+    
+    ADJUSTMENT,
 }

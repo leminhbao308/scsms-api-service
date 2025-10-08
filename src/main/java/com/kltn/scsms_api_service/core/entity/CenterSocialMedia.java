@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
@@ -24,6 +25,7 @@ public class CenterSocialMedia extends AuditEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "center_id", nullable = false)
+    @JsonBackReference
     private Center center;
     
     @Column(name = "platform", nullable = false, length = 50)

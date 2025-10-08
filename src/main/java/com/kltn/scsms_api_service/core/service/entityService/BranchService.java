@@ -99,8 +99,8 @@ public class BranchService {
     }
     
     private List<Predicate> buildPredicates(CriteriaBuilder cb, Root<Branch> branchRoot,
-                                           Join<Branch, Center> centerJoin, Join<Branch, User> managerJoin,
-                                           BranchFilterParam filterParam) {
+                                            Join<Branch, Center> centerJoin, Join<Branch, User> managerJoin,
+                                            BranchFilterParam filterParam) {
         List<Predicate> predicates = new ArrayList<>();
         
         // Active status filter
@@ -150,7 +150,6 @@ public class BranchService {
         }
         
         
-        
         // Search filters
         if (filterParam.getSearch() != null) {
             String searchPattern = "%" + filterParam.getSearch().toLowerCase() + "%";
@@ -196,7 +195,6 @@ public class BranchService {
         }
         
         
-        
         // Numeric range filters
         if (filterParam.getMinServiceCapacity() != null) {
             predicates.add(cb.greaterThanOrEqualTo(branchRoot.get("serviceCapacity"), filterParam.getMinServiceCapacity()));
@@ -204,9 +202,6 @@ public class BranchService {
         if (filterParam.getMaxServiceCapacity() != null) {
             predicates.add(cb.lessThanOrEqualTo(branchRoot.get("serviceCapacity"), filterParam.getMaxServiceCapacity()));
         }
-        
-        
-        
         
         
         // Date range filters
@@ -285,4 +280,7 @@ public class BranchService {
     }
     
     
+    public Branch getRefById(UUID branchId) {
+        return branchRepository.getReferenceById(branchId);
+    }
 }
