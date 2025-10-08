@@ -31,6 +31,7 @@ public class ServicePricingService {
     private final ServicePricingCalculator servicePricingCalculator;
     private final ServiceProcessStepProductService serviceProcessStepProductService;
     private final PriceBookEntityService priceBookEntityService;
+    private final PricingBusinessService pricingBusinessService;
     
     /**
      * Lấy thông tin pricing chi tiết của service
@@ -49,7 +50,7 @@ public class ServicePricingService {
             priceBook = priceBookEntityService.require(priceBookId);
         } else {
             // Lấy active price book
-            priceBook = servicePricingCalculator.pricingBusinessService.resolveActivePriceBook(LocalDateTime.now())
+            priceBook = pricingBusinessService.resolveActivePriceBook(LocalDateTime.now())
                 .orElse(null);
         }
         
@@ -245,7 +246,8 @@ public class ServicePricingService {
         BigDecimal quantity = stepProduct.getQuantity();
         
         // Lấy giá từ PriceBook
-        BigDecimal unitPrice = servicePricingCalculator.pricingBusinessService.resolveUnitPrice(product.getProductId());
+        BigDecimal unitPrice = pricingBusinessService.resolveUnitPrice(product.getProductId(), 
+            priceBook != null ? priceBook.getId() : null);
         BigDecimal totalPrice = unitPrice.multiply(quantity);
         
         // Xác định nguồn giá và policy type

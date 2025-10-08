@@ -66,7 +66,7 @@ public class PricingController {
     
     @PostMapping("/pricing/books/create")
     public ResponseEntity<ApiResponse<PriceBookInfoDto>> createBook(@RequestBody CreatePriceBookRequest priceBookRequest) {
-        PriceBook book = priceBookMapper.toEntity(priceBookRequest);
+        PriceBook book = priceBookMapper.toEntityWithItems(priceBookRequest);
         
         PriceBookInfoDto createdBook = priceBookMapper.toPriceBookInfoDto(
             priceBookES.create(book));

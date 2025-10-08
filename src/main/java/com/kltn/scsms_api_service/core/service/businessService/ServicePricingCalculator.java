@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -55,7 +54,7 @@ public class ServicePricingCalculator {
         for (ServiceProcessStepProduct stepProduct : stepProducts) {
             try {
                 // Lấy giá sản phẩm từ PriceBook
-                BigDecimal productPrice = pricingBusinessService.resolveUnitPrice(stepProduct.getProduct().getProductId());
+                BigDecimal productPrice = pricingBusinessService.resolveUnitPrice(stepProduct.getProduct().getProductId(), priceBookId);
                 
                 // Tính chi phí cho sản phẩm này
                 BigDecimal productCost = productPrice.multiply(stepProduct.getQuantity());
