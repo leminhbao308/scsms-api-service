@@ -72,10 +72,11 @@ public enum ErrorCode {
     BOOKING_CANNOT_BE_UPDATED("SCS-8003", "SCS-8003", "BOOKING", "Booking cannot be updated", "error.booking_cannot_be_updated"),
     BOOKING_CANNOT_BE_DELETED("SCS-8004", "SCS-8004", "BOOKING", "Booking cannot be deleted", "error.booking_cannot_be_deleted"),
     BOOKING_CANNOT_BE_CANCELLED("SCS-8005", "SCS-8005", "BOOKING", "Booking cannot be cancelled", "error.booking_cannot_be_cancelled"),
-    BOOKING_CANNOT_BE_CHECKED_IN("SCS-8006", "SCS-8006", "BOOKING", "Booking cannot be checked in", "error.booking_cannot_be_checked_in"),
-    BOOKING_CANNOT_BE_STARTED("SCS-8007", "SCS-8007", "BOOKING", "Booking cannot be started", "error.booking_cannot_be_started"),
-    BOOKING_CANNOT_BE_COMPLETED("SCS-8008", "SCS-8008", "BOOKING", "Booking cannot be completed", "error.booking_cannot_be_completed"),
-    BOOKING_TIME_CONFLICT("SCS-8009", "SCS-8009", "BOOKING", "Booking time conflict", "error.booking_time_conflict"),
+    BOOKING_CANNOT_BE_CONFIRMED("SCS-8006", "SCS-8006", "BOOKING", "Booking cannot be confirmed", "error.booking_cannot_be_confirmed"),
+    BOOKING_CANNOT_BE_CHECKED_IN("SCS-8007", "SCS-8007", "BOOKING", "Booking cannot be checked in", "error.booking_cannot_be_checked_in"),
+    BOOKING_CANNOT_BE_STARTED("SCS-8008", "SCS-8008", "BOOKING", "Booking cannot be started", "error.booking_cannot_be_started"),
+    BOOKING_CANNOT_BE_COMPLETED("SCS-8009", "SCS-8009", "BOOKING", "Booking cannot be completed", "error.booking_cannot_be_completed"),
+    BOOKING_TIME_CONFLICT("SCS-8010", "SCS-8010", "BOOKING", "Booking time conflict", "error.booking_time_conflict"),
     
     // Booking Item related errors
     BOOKING_ITEM_NOT_FOUND("SCS-9001", "SCS-9001", "BOOKING_ITEM", "Booking item not found", "error.booking_item_not_found"),

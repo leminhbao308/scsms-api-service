@@ -412,6 +412,24 @@ public class BookingManagementService {
     }
     
     /**
+     * Confirm booking
+     */
+    @Transactional
+    public void confirmBooking(UUID bookingId) {
+        log.info("Confirming booking: {}", bookingId);
+        
+        Booking booking = bookingService.getById(bookingId);
+        
+        if (booking.getStatus() != Booking.BookingStatus.PENDING) {
+            throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_CONFIRMED, 
+                    "Only pending bookings can be confirmed");
+        }
+        
+        booking.updateStatus(Booking.BookingStatus.CONFIRMED, "Booking confirmed by staff");
+        bookingService.update(booking);
+    }
+    
+    /**
      * Check-in booking
      */
     @Transactional
