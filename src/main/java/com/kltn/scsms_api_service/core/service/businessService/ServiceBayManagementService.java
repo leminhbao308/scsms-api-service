@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -91,7 +92,15 @@ public class ServiceBayManagementService {
         int size = filterParam.getSize();
         int start = page * size;
         int end = Math.min((start + size), bayDtos.size());
-        List<ServiceBayInfoDto> pageContent = bayDtos.subList(start, end);
+        
+        // Fix: Check if start is within bounds
+        List<ServiceBayInfoDto> pageContent;
+        if (start >= bayDtos.size()) {
+            // If start is beyond the list size, return empty list
+            pageContent = new ArrayList<>();
+        } else {
+            pageContent = bayDtos.subList(start, end);
+        }
         
         Pageable pageable = PageRequest.of(page, size);
         return new PageImpl<>(pageContent, pageable, bayDtos.size());
