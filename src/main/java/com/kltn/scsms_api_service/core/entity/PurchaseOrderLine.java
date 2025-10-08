@@ -44,11 +44,6 @@ public class PurchaseOrderLine extends AuditEntity {
     private Long quantityOrdered;
     
     
-    @Column(name = "qty_received", nullable = false)
-    @Builder.Default
-    private Long quantityReceived = 0L;
-    
-    
     @Column(name = "unit_cost", precision = 18, scale = 4, nullable = false)
     private BigDecimal unitCost;
     

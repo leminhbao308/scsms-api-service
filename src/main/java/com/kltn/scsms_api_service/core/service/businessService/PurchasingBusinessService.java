@@ -9,6 +9,8 @@ import com.kltn.scsms_api_service.core.service.entityService.ProductCostStatsSer
 import com.kltn.scsms_api_service.core.service.entityService.ProductService;
 import com.kltn.scsms_api_service.core.service.entityService.PurchaseOrderEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.PurchaseOrderLineEntityService;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -50,21 +51,17 @@ public class PurchasingBusinessService {
         PurchaseOrder po = purchaseOrderEntityService.require(poId);
         List<PurchaseOrderLine> lines = polES.byOrder(po.getId());
         for (PurchaseOrderLine line : lines) {
-            long remain = line.getQuantityOrdered() - line.getQuantityReceived();
-            if (remain <= 0) continue;
+            if (line.getQuantityOrdered() <= 0) continue;
             
             // Update inventory & create lot
-            inventoryBS.addStock(po.getWarehouse().getId(), line.getProduct().getProductId(), remain, line.getUnitCost(), po.getId(), StockRefType.PURCHASE_ORDER);
+            inventoryBS.addStock(po.getWarehouse().getId(), line.getProduct().getProductId(), line.getQuantityOrdered(), line.getUnitCost(), po.getId(), StockRefType.PURCHASE_ORDER);
             
             // Update peak purchase price
             upsertPeakPrice(line.getProduct().getProductId(), line.getUnitCost());
             
-            // Accumulate received qty
-            line.setQuantityReceived(line.getQuantityOrdered());
             polES.update(line);
         }
-        boolean all = lines.stream().allMatch(l -> Objects.equals(l.getQuantityOrdered(), l.getQuantityReceived()));
-        po.setStatus(all ? PurchaseStatus.RECEIVED : PurchaseStatus.PARTIALLY_RECEIVED);
+        po.setStatus(PurchaseStatus.RECEIVED);
         return purchaseOrderEntityService.update(po);
     }
     
@@ -79,5 +76,20 @@ public class PurchasingBusinessService {
             stats.setPeakPurchasePrice(unitCost);
             costStatsES.update(stats);
         }
+    }
+    
+    public PurchaseOrder cancel(UUID poId) {
+        PurchaseOrder po = purchaseOrderEntityService.require(poId);
+        
+        if (po.getStatus() == PurchaseStatus.CANCELLED) {
+            return po;
+        }
+        
+        if (po.getStatus() == PurchaseStatus.RECEIVED) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Cannot cancel a received purchase order");
+        }
+        
+        po.setStatus(PurchaseStatus.CANCELLED);
+        return purchaseOrderEntityService.update(po);
     }
 }

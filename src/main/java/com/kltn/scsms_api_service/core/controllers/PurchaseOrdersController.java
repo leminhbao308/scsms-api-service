@@ -1,6 +1,9 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.PurchaseOrderInfoDto;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePOLine;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePORequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrder;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrderLine;
@@ -8,19 +11,18 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.PurchaseStatus;
 import com.kltn.scsms_api_service.core.service.businessService.PurchasingBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.mapper.PurchaseOrderMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Controller handling Purchase Order operations
@@ -41,11 +43,13 @@ public class PurchaseOrdersController {
     private final WarehouseEntityService warehouseES;
     private final SupplierService supplierES;
     
+    private final PurchaseOrderMapper poMapper;
+    
     @PostMapping("/po/create-draft")
     @SwaggerOperation(
         summary = "Create purchase order draft",
         description = "Create a new purchase order in draft status with specified details")
-    public ResponseEntity<ApiResponse<PurchaseOrder>> createDraft(@RequestBody CreatePORequest req) {
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> createDraft(@RequestBody CreatePORequest req) {
         PurchaseOrder po = PurchaseOrder.builder()
             .branch(branchES.getRefById(req.getBranchId()))
             .warehouse(warehouseES.getRefByWarehouseId(req.getWarehouseId()))
@@ -56,7 +60,7 @@ public class PurchaseOrdersController {
         for (CreatePOLine l : req.getLines()) {
             polES.create(PurchaseOrderLine.builder()
                 .purchaseOrder(po)
-                .product(productES.getRefByProductId(l.productId))
+                .product(productES.getRefByProductId(l.getProductId()))
                 .supplier(supplierES.getRefById(l.getSupplierId()))
                 .quantityOrdered(l.getQty())
                 .unitCost(l.getUnitCost())
@@ -64,7 +68,9 @@ public class PurchaseOrdersController {
                 .expiryDate(l.getExpiryDate())
                 .build());
         }
-        return ResponseBuilder.success("Purchase order draft created", poES.require(po.getId()));
+        
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(poES.require(po.getId()));
+        return ResponseBuilder.success("Purchase order draft created", poDto);
     }
     
     
@@ -72,18 +78,39 @@ public class PurchaseOrdersController {
     @SwaggerOperation(
         summary = "Submit purchase order",
         description = "Submit a draft purchase order for processing")
-    public ResponseEntity<ApiResponse<PurchaseOrder>> submit(@PathVariable UUID poId) {
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> submit(@PathVariable UUID poId) {
         PurchaseOrder po = poES.require(poId);
-        return ResponseBuilder.success("Purchase order submitted", purchasingBS.submit(po));
+        if (po.getStatus() != PurchaseStatus.DRAFT) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Only draft purchase orders can be submitted");
+        }
+        
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(purchasingBS.submit(po));
+        return ResponseBuilder.success("Purchase order submitted", poDto);
     }
     
     
-    @PostMapping("/po/receive-all/{poId}")
+    @PostMapping("/po/receive/{poId}")
     @SwaggerOperation(
         summary = "Receive entire purchase order",
         description = "Mark the entire purchase order as received and update inventory accordingly")
-    public ResponseEntity<ApiResponse<PurchaseOrder>> receiveAll(@PathVariable UUID poId) {
-        return ResponseBuilder.success("Purchase order received", purchasingBS.receive(poId));
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> receiveAll(@PathVariable UUID poId) {
+        PurchaseOrder po = purchasingBS.receive(poId);
+        
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(po);
+        
+        return ResponseBuilder.success("Purchase order received", poDto);
+    }
+    
+    @PostMapping("/po/cancel/{poId}")
+    @SwaggerOperation(
+        summary = "Cancel purchase order",
+        description = "Cancel a purchase order that is not yet fully received")
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> cancel(@PathVariable UUID poId) {
+        PurchaseOrder po = purchasingBS.cancel(poId);
+        
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(po);
+        
+        return ResponseBuilder.success("Purchase order cancelled", poDto);
     }
     
     
@@ -91,31 +118,25 @@ public class PurchaseOrdersController {
     @SwaggerOperation(
         summary = "Get purchase order by ID",
         description = "Retrieve purchase order details using its unique identifier")
-    public ResponseEntity<ApiResponse<PurchaseOrder>> get(@PathVariable UUID poId) {
-        return ResponseBuilder.success("Purchase order retrieved", poES.require(poId));
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> get(@PathVariable UUID poId) {
+        PurchaseOrder po = poES.require(poId);
+        
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(po);
+        
+        return ResponseBuilder.success("Purchase order retrieved", poDto);
     }
     
-    
-    // ===== DTOs =====
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CreatePORequest {
-        private UUID branchId;
-        private UUID warehouseId;
-        private LocalDateTime expectedAt;
-        private List<CreatePOLine> lines;
+    @GetMapping("/po/get-all")
+    @SwaggerOperation(
+        summary = "Get all purchase orders",
+        description = "Retrieve a list of all purchase orders in the system")
+    public ResponseEntity<ApiResponse<List<PurchaseOrderInfoDto>>> getAll() {
+        List<PurchaseOrder> pos = poES.getAll();
+        
+        List<PurchaseOrderInfoDto> posDto = pos.stream()
+            .map(poMapper::toPurchaseOrderInfoDto).collect(Collectors.toList());
+        
+        return ResponseBuilder.success("All purchase orders retrieved", posDto);
     }
     
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CreatePOLine {
-        private UUID productId;
-        private UUID supplierId;
-        private Long qty;
-        private BigDecimal unitCost;
-        private String lotCode;
-        private LocalDateTime expiryDate;
-    }
 }
