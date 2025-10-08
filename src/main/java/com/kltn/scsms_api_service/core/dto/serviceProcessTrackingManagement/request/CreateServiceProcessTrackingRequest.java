@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.ServiceProcessTracking;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -21,25 +22,34 @@ import java.util.UUID;
 public class CreateServiceProcessTrackingRequest {
     
     @NotNull(message = "Booking ID không được để trống")
+    @JsonProperty("booking_id")
     private UUID bookingId;
     
     @NotNull(message = "Service Step ID không được để trống")
+    @JsonProperty("service_step_id")
     private UUID serviceStepId;
     
     @NotNull(message = "Technician ID không được để trống")
+    @JsonProperty("technician_id")
     private UUID technicianId;
     
     @NotNull(message = "Slot ID không được để trống")
+    @JsonProperty("slot_id")
     private UUID slotId;
     
     @Positive(message = "Thời gian ước lượng phải lớn hơn 0")
+    @JsonProperty("estimated_duration")
     private Integer estimatedDuration;
     
+    @JsonProperty("status")
     private ServiceProcessTracking.TrackingStatus status;
     
+    @JsonProperty("progress_percent")
     private BigDecimal progressPercent;
     
+    @JsonProperty("notes")
     private String notes;
     
+    @JsonProperty("evidence_media_urls")
     private String evidenceMediaUrls;
 }

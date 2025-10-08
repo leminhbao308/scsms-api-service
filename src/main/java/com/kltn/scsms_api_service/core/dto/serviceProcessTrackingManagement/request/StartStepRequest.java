@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,7 +19,9 @@ import java.util.UUID;
 public class StartStepRequest {
     
     @NotNull(message = "Technician ID không được để trống")
+    @JsonProperty("technician_id")
     private UUID technicianId;
     
+    @JsonProperty("notes")
     private String notes;
 }
