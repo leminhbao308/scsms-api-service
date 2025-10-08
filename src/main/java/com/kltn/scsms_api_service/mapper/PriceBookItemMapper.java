@@ -16,7 +16,7 @@ import java.util.UUID;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class}
+    uses = {AuditMapper.class, ProductMapper.class, ServiceMapper.class, ServicePackageMapper.class}
 )
 public abstract class PriceBookItemMapper {
     
@@ -29,6 +29,9 @@ public abstract class PriceBookItemMapper {
     @Mapping(target = "priceBook", ignore = true)
     public abstract PriceBookItem toEntity(CreatePriceBookItemRequest createPriceBookItemRequest);
     
+    @Mapping(target = "itemType", source = ".", qualifiedByName = "mapItemType")
+    @Mapping(target = "itemId", source = ".", qualifiedByName = "mapItemId")
+    @Mapping(target = "itemName", source = ".", qualifiedByName = "mapItemName")
     public abstract PriceBookItemInfoDto toPriceBookItemInfoDto(PriceBookItem priceBookItem);
     
     @Named("mapProductIdToProduct")
@@ -37,5 +40,20 @@ public abstract class PriceBookItemMapper {
             return null;
         }
         return productService.getRefByProductId(productId);
+    }
+    
+    @Named("mapItemType")
+    protected String mapItemType(PriceBookItem priceBookItem) {
+        return priceBookItem.getItemType().name();
+    }
+    
+    @Named("mapItemId")
+    protected String mapItemId(PriceBookItem priceBookItem) {
+        return priceBookItem.getReferencedItemId().toString();
+    }
+    
+    @Named("mapItemName")
+    protected String mapItemName(PriceBookItem priceBookItem) {
+        return priceBookItem.getReferencedItemName();
     }
 }

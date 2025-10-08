@@ -18,6 +18,8 @@ import com.kltn.scsms_api_service.core.service.businessService.ServicePricingSer
 import com.kltn.scsms_api_service.core.service.businessService.ServicePackagePricingService;
 import com.kltn.scsms_api_service.core.service.entityService.PriceBookEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.PriceBookItemEntityService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
+import com.kltn.scsms_api_service.core.service.entityService.ServicePackageService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.PriceBookItemMapper;
 import com.kltn.scsms_api_service.mapper.PriceBookMapper;
@@ -49,6 +51,8 @@ public class PricingController {
     private final PriceBookItemEntityService priceBookItemES;
     private final ServicePricingService servicePricingService;
     private final ServicePackagePricingService servicePackagePricingService;
+    private final ServiceService serviceService;
+    private final ServicePackageService servicePackageService;
     
     private final PriceBookMapper priceBookMapper;
     private final PriceBookItemMapper priceBookItemMapper;
@@ -193,9 +197,12 @@ public class PricingController {
         
         PriceBook book = priceBookES.require(bookId);
         
+        // Load existing Service entity from database
+        com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(request.getServiceId());
+        
         PriceBookItem item = PriceBookItem.builder()
             .priceBook(book)
-            .service(com.kltn.scsms_api_service.core.entity.Service.builder().serviceId(request.getServiceId()).build())
+            .service(service)
             .policyType(request.getPolicyType())
             .fixedPrice(request.getFixedPrice())
             .markupPercent(request.getMarkupPercent())
@@ -215,9 +222,12 @@ public class PricingController {
         
         PriceBook book = priceBookES.require(bookId);
         
+        // Load existing ServicePackage entity from database
+        ServicePackage servicePackage = servicePackageService.getById(request.getServicePackageId());
+        
         PriceBookItem item = PriceBookItem.builder()
             .priceBook(book)
-            .servicePackage(ServicePackage.builder().packageId(request.getServicePackageId()).build())
+            .servicePackage(servicePackage)
             .policyType(request.getPolicyType())
             .fixedPrice(request.getFixedPrice())
             .markupPercent(request.getMarkupPercent())
