@@ -194,6 +194,38 @@ public class BookingManagementService {
             if (!serviceBay.isActive()) {
                 throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay is not available");
             }
+            
+            // Check bay availability for the scheduled time
+            if (request.getScheduledStartAt() != null && request.getScheduledEndAt() != null) {
+                boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
+                    request.getBayId(), 
+                    request.getScheduledStartAt(), 
+                    request.getScheduledEndAt()
+                );
+                
+                if (!isBayAvailable) {
+                    // Find conflicting booking for better error message
+                    List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+                        request.getBayId(), 
+                        request.getScheduledStartAt(), 
+                        request.getScheduledEndAt()
+                    );
+                    
+                    if (!conflictingBookings.isEmpty()) {
+                        Booking conflictBooking = conflictingBookings.get(0);
+                        throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                            String.format("Service bay '%s' is not available in the specified time range. " +
+                                "Conflicts with booking '%s' (%s - %s)", 
+                                serviceBay.getBayName(),
+                                conflictBooking.getBookingCode(),
+                                conflictBooking.getScheduledStartAt(),
+                                conflictBooking.getScheduledEndAt()));
+                    } else {
+                        throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                            "Service bay is not available in the specified time range");
+                    }
+                }
+            }
         }
         
         // Generate booking code
@@ -284,6 +316,37 @@ public class BookingManagementService {
         if (existingBooking.isCompleted() || existingBooking.isCancelled()) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_UPDATED, 
                     "Cannot update completed or cancelled booking");
+        }
+        
+        // Validate bay availability if time is being updated
+        if (request.getScheduledStartAt() != null || request.getScheduledEndAt() != null) {
+            UUID bayId = existingBooking.getServiceBay() != null ? existingBooking.getServiceBay().getBayId() : null;
+            LocalDateTime startTime = request.getScheduledStartAt() != null ? request.getScheduledStartAt() : existingBooking.getScheduledStartAt();
+            LocalDateTime endTime = request.getScheduledEndAt() != null ? request.getScheduledEndAt() : existingBooking.getScheduledEndAt();
+            
+            if (bayId != null && startTime != null && endTime != null) {
+                boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(bayId, startTime, endTime);
+                
+                if (!isBayAvailable) {
+                    // Find conflicting booking for better error message
+                    List<Booking> conflictingBookings = bookingService.findConflictingBookings(bayId, startTime, endTime);
+                    
+                    if (!conflictingBookings.isEmpty()) {
+                        Booking conflictBooking = conflictingBookings.get(0);
+                        // Exclude current booking from conflict check
+                        if (!conflictBooking.getBookingId().equals(bookingId)) {
+                            ServiceBay serviceBay = serviceBayService.getById(bayId);
+                            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                                String.format("Service bay '%s' is not available in the specified time range. " +
+                                    "Conflicts with booking '%s' (%s - %s)", 
+                                    serviceBay.getBayName(),
+                                    conflictBooking.getBookingCode(),
+                                    conflictBooking.getScheduledStartAt(),
+                                    conflictBooking.getScheduledEndAt()));
+                        }
+                    }
+                }
+            }
         }
         
         // Update booking

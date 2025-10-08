@@ -75,7 +75,7 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
            "AND b.status = 'ACTIVE' " +
            "AND b.bayId NOT IN (" +
            "    SELECT bk.serviceBay.bayId FROM Booking bk " +
-           "    WHERE bk.status IN ('CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
+           "    WHERE bk.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
            "    AND ((bk.scheduledStartAt < :endTime AND bk.scheduledEndAt > :startTime))" +
            ") " +
            "ORDER BY b.displayOrder ASC, b.bayName ASC")
@@ -93,7 +93,7 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
            "AND b.status = 'ACTIVE' " +
            "AND b.bayId NOT IN (" +
            "    SELECT bk.serviceBay.bayId FROM Booking bk " +
-           "    WHERE bk.status IN ('CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
+           "    WHERE bk.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
            "    AND ((bk.scheduledStartAt < :endTime AND bk.scheduledEndAt > :startTime))" +
            ") " +
            "ORDER BY b.displayOrder ASC, b.bayName ASC")
@@ -108,7 +108,7 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
      */
     @Query("SELECT COUNT(bk) = 0 FROM Booking bk " +
            "WHERE bk.serviceBay.bayId = :bayId " +
-           "AND bk.status IN ('CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
+           "AND bk.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
            "AND ((bk.scheduledStartAt < :endTime AND bk.scheduledEndAt > :startTime))")
     boolean isBayAvailableInTimeRange(
         @Param("bayId") UUID bayId,

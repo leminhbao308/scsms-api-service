@@ -26,10 +26,9 @@ public class CreateBookingRequest {
     // Customer information
     @JsonProperty("customer_id")
     private UUID customerId; // nullable nếu là guest
-    @NotNull(message = "Customer name is required")
     @JsonProperty("customer_name")
     private String customerName;
-    @NotNull(message = "Customer phone is required")
+    // @NotNull(message = "Customer phone is required")
     @JsonProperty("customer_phone")
     private String customerPhone;
     @JsonProperty("customer_email")
@@ -52,14 +51,12 @@ public class CreateBookingRequest {
     private String vehicleColor;
     
     // Branch and slot information
-    @NotNull(message = "Branch ID is required")
     @JsonProperty("branch_id")
     private UUID branchId;
     @JsonProperty("bay_id")
     private UUID bayId; // nullable, sẽ được assign sau
     
     // Scheduling information
-    @NotNull(message = "Preferred start time is required")
     @JsonProperty("preferred_start_at")
     private LocalDateTime preferredStartAt;
     @JsonProperty("scheduled_start_at")
@@ -104,7 +101,6 @@ public class CreateBookingRequest {
     
     // Booking items
     @Valid
-    @NotNull(message = "Booking items are required")
     @JsonProperty("booking_items")
     private List<CreateBookingItemRequest> bookingItems;
     

@@ -23,6 +23,13 @@ public class ServiceBayService {
     private final ServiceBayRepository serviceBayRepository;
     
     /**
+     * Lấy tất cả service bays
+     */
+    public List<ServiceBay> findAll() {
+        return serviceBayRepository.findAll();
+    }
+    
+    /**
      * Lưu bay mới
      */
     @Transactional

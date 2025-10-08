@@ -66,7 +66,8 @@ public class ServiceBayManagementService {
         } else if (filterParam.getBayType() != null) {
             bays = serviceBayService.getByBayType(filterParam.getBayType());
         } else {
-            bays = serviceBayService.getByBranch(filterParam.getBranchId());
+            // If no filters, get all service bays
+            bays = serviceBayService.findAll();
         }
         
         // Apply keyword filter

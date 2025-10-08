@@ -181,6 +181,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         @Param("excludeBookingId") UUID excludeBookingId);
     
     /**
+     * Tìm booking conflict với bay cụ thể trong khoảng thời gian
+     */
+    @Query("SELECT b FROM Booking b WHERE b.serviceBay.bayId = :bayId " +
+           "AND ((b.scheduledStartAt < :endDateTime AND b.scheduledEndAt > :startDateTime)) " +
+           "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+           "ORDER BY b.scheduledStartAt ASC")
+    List<Booking> findConflictingBookings(
+        @Param("bayId") UUID bayId,
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("endDateTime") LocalDateTime endDateTime);
+    
+    /**
      * Phân trang booking theo chi nhánh
      */
     Page<Booking> findByBranch_BranchIdOrderByScheduledStartAtDesc(UUID branchId, Pageable pageable);

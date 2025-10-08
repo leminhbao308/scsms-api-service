@@ -21,12 +21,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CreateBookingPaymentRequest {
     
-    @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be positive")
     @JsonProperty("amount")
     private BigDecimal amount;
     
-    @NotNull(message = "Payment method is required")
+    // @NotNull(message = "Payment method is required")    
     @JsonProperty("payment_method")
     private BookingPayment.PaymentMethod paymentMethod;
     

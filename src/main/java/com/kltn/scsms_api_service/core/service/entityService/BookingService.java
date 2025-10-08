@@ -166,4 +166,11 @@ public class BookingService {
     public List<Booking> findByServiceBay(UUID bayId) {
         return bookingRepository.findByServiceBay_BayId(bayId);
     }
+    
+    /**
+     * Tìm các booking conflict với bay và thời gian cụ thể
+     */
+    public List<Booking> findConflictingBookings(UUID bayId, LocalDateTime startTime, LocalDateTime endTime) {
+        return bookingRepository.findConflictingBookings(bayId, startTime, endTime);
+    }
 }

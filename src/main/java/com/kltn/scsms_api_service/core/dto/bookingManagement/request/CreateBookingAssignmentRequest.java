@@ -20,15 +20,15 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateBookingAssignmentRequest {
     
-    @NotNull(message = "Staff ID is required")
+    // @NotNull(message = "Staff ID is required")
     @JsonProperty("staff_id")
     private UUID staffId;
     
-    @NotNull(message = "Role is required")
+    // @NotNull(message = "Role is required")
     @JsonProperty("role")
     private BookingAssignment.StaffRole role;
     
-    @NotNull(message = "Assigned from time is required")
+    // @NotNull(message = "Assigned from time is required")
     @JsonProperty("assigned_from")
     private LocalDateTime assignedFrom;
     
@@ -44,6 +44,6 @@ public class CreateBookingAssignmentRequest {
     
     @JsonProperty("notes")
     private String notes;
-    @JsonProperty("assigned_by")
+    @JsonProperty("assigned_by")    
     private String assignedBy;
 }
