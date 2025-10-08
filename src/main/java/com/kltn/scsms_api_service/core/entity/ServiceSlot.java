@@ -172,6 +172,7 @@ public class ServiceSlot extends AuditEntity {
     }
     
     
+    
     /**
      * Enum cho trạng thái slot
      */
