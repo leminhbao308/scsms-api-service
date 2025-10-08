@@ -35,3 +35,4 @@ build/
 logs/
 
 /src/main/resources/aws.yml
+/src/main/resources/payos.yml
