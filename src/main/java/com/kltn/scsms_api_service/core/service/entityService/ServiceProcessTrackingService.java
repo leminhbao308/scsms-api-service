@@ -110,13 +110,13 @@ public class ServiceProcessTrackingService {
     }
     
     /**
-     * Tìm tracking theo slot
+     * Tìm tracking theo bay
      */
-    public List<ServiceProcessTracking> findBySlot(UUID slotId) {
+    public List<ServiceProcessTracking> findByBay(UUID bayId) {
         try {
-            return serviceProcessTrackingRepository.findBySlot_SlotIdOrderByStartTimeDesc(slotId);
+            return serviceProcessTrackingRepository.findByBay_BayIdOrderByStartTimeDesc(bayId);
         } catch (Exception e) {
-            log.error("Error finding service process tracking by slot: {}", e.getMessage(), e);
+            log.error("Error finding service process tracking by bay: {}", e.getMessage(), e);
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
@@ -182,13 +182,13 @@ public class ServiceProcessTrackingService {
     }
     
     /**
-     * Tìm tracking theo slot và khoảng thời gian
+     * Tìm tracking theo bay và khoảng thời gian
      */
-    public List<ServiceProcessTracking> findBySlotAndTimeRange(UUID slotId, LocalDateTime startDate, LocalDateTime endDate) {
+    public List<ServiceProcessTracking> findByBayAndTimeRange(UUID bayId, LocalDateTime startDate, LocalDateTime endDate) {
         try {
-            return serviceProcessTrackingRepository.findBySlotAndTimeRange(slotId, startDate, endDate);
+            return serviceProcessTrackingRepository.findByBayAndTimeRange(bayId, startDate, endDate);
         } catch (Exception e) {
-            log.error("Error finding service process tracking by slot and time range: {}", e.getMessage(), e);
+            log.error("Error finding service process tracking by bay and time range: {}", e.getMessage(), e);
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }

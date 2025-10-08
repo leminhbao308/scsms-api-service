@@ -3,18 +3,18 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.abstracts.BaseResponseData;
 import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.constants.PermissionConstant;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.ServiceProcessTrackingFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.ServiceProcessTrackingInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.request.*;
-import com.kltn.scsms_api_service.core.entity.ServiceProcessTracking;
-import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessTrackingService;
-import com.kltn.scsms_api_service.mapper.ServiceProcessTrackingMapper;
+import com.kltn.scsms_api_service.core.service.businessService.ServiceProcessTrackingManagementService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -23,35 +23,29 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Controller quản lý theo dõi quá trình thực hiện dịch vụ
  */
 @RestController
-@RequestMapping("/service-process-trackings")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Process Tracking Management", description = "APIs quản lý theo dõi quá trình thực hiện dịch vụ")
 public class ServiceProcessTrackingController {
 
-    private final ServiceProcessTrackingService serviceProcessTrackingService;
-    private final ServiceProcessTrackingMapper serviceProcessTrackingMapper;
+    private final ServiceProcessTrackingManagementService serviceProcessTrackingManagementService;
 
     /**
      * Tạo tracking mới
      */
-    @PostMapping("/create")
+    @PostMapping(ApiConstant.CREATE_SERVICE_PROCESS_TRACKING_API)
     @SwaggerOperation(summary = "Tạo tracking mới", description = "Tạo mới tracking cho quá trình thực hiện dịch vụ")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_CREATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> createTracking(
             @Valid @RequestBody CreateServiceProcessTrackingRequest request) {
         log.info("Creating service process tracking for booking: {}", request.getBookingId());
 
-        ServiceProcessTracking tracking = serviceProcessTrackingMapper.toEntity(request);
-        ServiceProcessTracking savedTracking = serviceProcessTrackingService.save(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(savedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.createTracking(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new BaseResponseData<>(true, "Tạo tracking thành công", response));
@@ -60,7 +54,7 @@ public class ServiceProcessTrackingController {
     /**
      * Lấy danh sách tracking với phân trang
      */
-    @GetMapping("/get-all")
+    @GetMapping(ApiConstant.GET_ALL_SERVICE_PROCESS_TRACKINGS_API)
     @SwaggerOperation(summary = "Lấy danh sách tracking", description = "Lấy danh sách tracking với phân trang và filter")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<Page<ServiceProcessTrackingInfoDto>>> getTrackings(
@@ -68,9 +62,7 @@ public class ServiceProcessTrackingController {
             Pageable pageable) {
         log.info("Getting service process trackings with filter: {}", filterParam);
 
-        Page<ServiceProcessTracking> trackings = serviceProcessTrackingService.findAll(pageable);
-        Page<ServiceProcessTrackingInfoDto> response = trackings
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto);
+        Page<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService.getAllTrackings(pageable);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Lấy danh sách tracking thành công", response));
     }
@@ -78,15 +70,14 @@ public class ServiceProcessTrackingController {
     /**
      * Lấy chi tiết tracking theo ID    
      */
-    @GetMapping("/{trackingId}")
+    @GetMapping(ApiConstant.GET_SERVICE_PROCESS_TRACKING_BY_ID_API)
     @SwaggerOperation(summary = "Lấy chi tiết tracking", description = "Lấy thông tin chi tiết tracking theo ID")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> getTrackingById(
             @Parameter(description = "Tracking ID") @PathVariable UUID trackingId) {
         log.info("Getting service process tracking by ID: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(tracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.getTrackingById(trackingId);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Lấy thông tin tracking thành công", response));
     }
@@ -94,7 +85,7 @@ public class ServiceProcessTrackingController {
     /**
      * Cập nhật tracking
      */
-    @PostMapping("/{trackingId}/update")
+    @PostMapping(ApiConstant.UPDATE_SERVICE_PROCESS_TRACKING_API)
     @SwaggerOperation(summary = "Cập nhật tracking", description = "Cập nhật thông tin tracking")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> updateTracking(
@@ -102,11 +93,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody UpdateServiceProcessTrackingRequest request) {
         log.info("Updating service process tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        serviceProcessTrackingMapper.updateEntity(tracking, request);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.updateTracking(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Cập nhật tracking thành công", response));
     }
@@ -114,14 +101,14 @@ public class ServiceProcessTrackingController {
     /**
      * Xóa tracking
      */
-    @PostMapping("/{trackingId}/delete")
+    @PostMapping(ApiConstant.DELETE_SERVICE_PROCESS_TRACKING_API)
     @SwaggerOperation(summary = "Xóa tracking", description = "Xóa tracking theo ID")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_DELETE })
     public ResponseEntity<BaseResponseData<Void>> deleteTracking(
             @Parameter(description = "Tracking ID") @PathVariable UUID trackingId) {
         log.info("Deleting service process tracking: {}", trackingId);
 
-        serviceProcessTrackingService.delete(trackingId);
+        serviceProcessTrackingManagementService.deleteTracking(trackingId);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Xóa tracking thành công", null));
     }
@@ -129,17 +116,14 @@ public class ServiceProcessTrackingController {
     /**
      * Lấy tracking theo booking
      */
-    @GetMapping("/booking/{bookingId}")
+    @GetMapping(ApiConstant.GET_SERVICE_PROCESS_TRACKINGS_BY_BOOKING_API)
     @SwaggerOperation(summary = "Lấy tracking theo booking", description = "Lấy danh sách tracking theo booking ID")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getTrackingsByBooking(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
         log.info("Getting service process trackings by booking: {}", bookingId);
 
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findByBooking(bookingId);
-        List<ServiceProcessTrackingInfoDto> response = trackings.stream()
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
-                .collect(Collectors.toList());
+        List<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService.getTrackingsByBooking(bookingId);
 
         return ResponseEntity
                 .ok(new BaseResponseData<>(true, "Lấy danh sách tracking theo booking thành công", response));
@@ -148,53 +132,44 @@ public class ServiceProcessTrackingController {
     /**
      * Lấy tracking theo kỹ thuật viên
      */
-    @GetMapping("/technician/{technicianId}")
+    @GetMapping(ApiConstant.GET_SERVICE_PROCESS_TRACKINGS_BY_TECHNICIAN_API)
     @SwaggerOperation(summary = "Lấy tracking theo kỹ thuật viên", description = "Lấy danh sách tracking theo kỹ thuật viên")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getTrackingsByTechnician(
             @Parameter(description = "Technician ID") @PathVariable UUID technicianId) {
         log.info("Getting service process trackings by technician: {}", technicianId);
 
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findByTechnician(technicianId);
-        List<ServiceProcessTrackingInfoDto> response = trackings.stream()
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
-                .collect(Collectors.toList());
+        List<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService.getTrackingsByTechnician(technicianId);
 
         return ResponseEntity
                 .ok(new BaseResponseData<>(true, "Lấy danh sách tracking theo kỹ thuật viên thành công", response));
     }
 
     /**
-     * Lấy tracking theo slot
+     * Lấy tracking theo bay
      */
-    @GetMapping("/slot/{slotId}")
-    @SwaggerOperation(summary = "Lấy tracking theo slot", description = "Lấy danh sách tracking theo slot")
+    @GetMapping(ApiConstant.GET_SERVICE_PROCESS_TRACKINGS_BY_BAY_API)
+    @SwaggerOperation(summary = "Lấy tracking theo bay", description = "Lấy danh sách tracking theo bay")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
-    public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getTrackingsBySlot(
-            @Parameter(description = "Slot ID") @PathVariable UUID slotId) {
-        log.info("Getting service process trackings by slot: {}", slotId);
+    public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getTrackingsByBay(
+            @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
+        log.info("Getting service process trackings by bay: {}", bayId);
 
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findBySlot(slotId);
-        List<ServiceProcessTrackingInfoDto> response = trackings.stream()
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
-                .collect(Collectors.toList());
+        List<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService.getTrackingsByBay(bayId);
 
-        return ResponseEntity.ok(new BaseResponseData<>(true, "Lấy danh sách tracking theo slot thành công", response));
+        return ResponseEntity.ok(new BaseResponseData<>(true, "Lấy danh sách tracking theo bay thành công", response));
     }
 
     /**
      * Lấy tracking đang thực hiện
      */
-    @GetMapping("/in-progress")
+    @GetMapping(ApiConstant.GET_IN_PROGRESS_SERVICE_PROCESS_TRACKINGS_API)
     @SwaggerOperation(summary = "Lấy tracking đang thực hiện", description = "Lấy danh sách tracking đang thực hiện")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getInProgressTrackings() {
         log.info("Getting in-progress service process trackings");
 
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findInProgressTrackings();
-        List<ServiceProcessTrackingInfoDto> response = trackings.stream()
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
-                .collect(Collectors.toList());
+        List<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService.getInProgressTrackings();
 
         return ResponseEntity
                 .ok(new BaseResponseData<>(true, "Lấy danh sách tracking đang thực hiện thành công", response));
@@ -203,7 +178,7 @@ public class ServiceProcessTrackingController {
     /**
      * Bắt đầu thực hiện bước
      */
-    @PostMapping("/{trackingId}/start")
+    @PostMapping(ApiConstant.START_SERVICE_PROCESS_TRACKING_STEP_API)
     @SwaggerOperation(summary = "Bắt đầu thực hiện bước", description = "Bắt đầu thực hiện bước dịch vụ")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> startStep(
@@ -211,12 +186,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody StartStepRequest request) {
         log.info("Starting step for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        // TODO: Get technician from request.technicianId
-        // tracking.startStep(technician);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.startStep(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Bắt đầu thực hiện bước thành công", response));
     }
@@ -224,7 +194,7 @@ public class ServiceProcessTrackingController {
     /**
      * Cập nhật tiến độ
      */
-    @PostMapping("/{trackingId}/progress/update")
+    @PostMapping(ApiConstant.UPDATE_SERVICE_PROCESS_TRACKING_PROGRESS_API)
     @SwaggerOperation(summary = "Cập nhật tiến độ", description = "Cập nhật tiến độ thực hiện bước")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> updateProgress(
@@ -232,12 +202,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody ProgressUpdateRequest request) {
         log.info("Updating progress for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        // TODO: Get current user
-        // tracking.updateProgress(request.getProgressPercent(), currentUser);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.updateProgress(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Cập nhật tiến độ thành công", response));
     }
@@ -245,7 +210,7 @@ public class ServiceProcessTrackingController {
     /**
      * Hoàn thành bước
      */
-    @PostMapping("/{trackingId}/complete")
+    @PostMapping(ApiConstant.COMPLETE_SERVICE_PROCESS_TRACKING_STEP_API)
     @SwaggerOperation(summary = "Hoàn thành bước", description = "Hoàn thành thực hiện bước dịch vụ")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> completeStep(
@@ -253,18 +218,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody CompleteStepRequest request) {
         log.info("Completing step for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        tracking.completeStep();
-        if (request.getNotes() != null) {
-            // TODO: Get current user
-            // tracking.addNote(request.getNotes(), currentUser);
-        }
-        if (request.getEvidenceMediaUrls() != null) {
-            // TODO: Parse and add media URLs
-        }
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.completeStep(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Hoàn thành bước thành công", response));
     }
@@ -272,7 +226,7 @@ public class ServiceProcessTrackingController {
     /**
      * Hủy bước
      */
-    @PostMapping("/{trackingId}/cancel")
+    @PostMapping(ApiConstant.CANCEL_SERVICE_PROCESS_TRACKING_STEP_API)
     @SwaggerOperation(summary = "Hủy bước", description = "Hủy thực hiện bước dịch vụ")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> cancelStep(
@@ -280,12 +234,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody CancelStepRequest request) {
         log.info("Cancelling step for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        // TODO: Get current user
-        // tracking.cancelStep(request.getReason(), currentUser);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.cancelStep(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Hủy bước thành công", response));
     }
@@ -293,7 +242,7 @@ public class ServiceProcessTrackingController {
     /**
      * Thêm ghi chú
      */
-    @PostMapping("/{trackingId}/notes")
+    @PostMapping(ApiConstant.ADD_SERVICE_PROCESS_TRACKING_NOTE_API)
     @SwaggerOperation(summary = "Thêm ghi chú", description = "Thêm ghi chú cho tracking")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> addNote(
@@ -301,12 +250,7 @@ public class ServiceProcessTrackingController {
             @Valid @RequestBody ProgressUpdateRequest request) {
         log.info("Adding note for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        // TODO: Get current user
-        // tracking.addNote(request.getNotes(), currentUser);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.updateProgress(trackingId, request);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Thêm ghi chú thành công", response));
     }
@@ -314,7 +258,7 @@ public class ServiceProcessTrackingController {
     /**
      * Thêm media evidence
      */
-    @PostMapping("/{trackingId}/evidence")
+    @PostMapping(ApiConstant.ADD_SERVICE_PROCESS_TRACKING_EVIDENCE_API)
     @SwaggerOperation(summary = "Thêm media evidence", description = "Thêm ảnh/video chứng minh hoàn thành")
     @RequirePermission(permissions = { PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> addEvidenceMedia(
@@ -322,12 +266,7 @@ public class ServiceProcessTrackingController {
             @RequestParam String mediaUrl) {
         log.info("Adding evidence media for tracking: {}", trackingId);
 
-        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
-        // TODO: Get current user
-        // tracking.addEvidenceMedia(mediaUrl, currentUser);
-        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
-        ServiceProcessTrackingInfoDto response = serviceProcessTrackingMapper
-                .toServiceProcessTrackingInfoDto(updatedTracking);
+        ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.addEvidenceMedia(trackingId, mediaUrl);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Thêm media evidence thành công", response));
     }

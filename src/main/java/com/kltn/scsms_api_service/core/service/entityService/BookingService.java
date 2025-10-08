@@ -159,7 +159,11 @@ public class BookingService {
         return bookingRepository.findByBookingCode(bookingCode).isPresent();
     }
     
-    public boolean existsBySlot(UUID slotId) {
-        return bookingRepository.findByServiceSlot_SlotId(slotId).isPresent();
+    public boolean existsByBay(UUID bayId) {
+        return !bookingRepository.findByServiceBay_BayId(bayId).isEmpty();
+    }
+    
+    public List<Booking> findByServiceBay(UUID bayId) {
+        return bookingRepository.findByServiceBay_BayId(bayId);
     }
 }

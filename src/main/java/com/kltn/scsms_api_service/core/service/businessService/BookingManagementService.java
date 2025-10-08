@@ -9,6 +9,9 @@ import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.BookingMapper;
+import com.kltn.scsms_api_service.mapper.BookingItemMapper;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingItemRequest;
+import com.kltn.scsms_api_service.core.entity.BookingItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,13 +37,12 @@ public class BookingManagementService {
     
     private final BookingService bookingService;
     private final BookingItemService bookingItemService;
-    private final BookingAssignmentService bookingAssignmentService;
-    private final BookingPaymentService bookingPaymentService;
     private final BranchService branchService;
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
-    private final ServiceSlotService serviceSlotService;
+    private final ServiceBayService serviceBayService;
     private final BookingMapper bookingMapper;
+    private final BookingItemMapper bookingItemMapper;
     
     /**
      * Lấy tất cả booking
@@ -185,12 +187,12 @@ public class BookingManagementService {
             vehicle = vehicleProfileService.getVehicleProfileById(request.getVehicleId());
         }
         
-        // Validate slot if provided
-        ServiceSlot serviceSlot = null;
-        if (request.getSlotId() != null) {
-            serviceSlot = serviceSlotService.getById(request.getSlotId());
-            if (!serviceSlot.isAvailable()) {
-                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, "Service slot is not available");
+        // Validate bay if provided
+        ServiceBay serviceBay = null;
+        if (request.getBayId() != null) {
+            serviceBay = serviceBayService.getById(request.getBayId());
+            if (!serviceBay.isActive()) {
+                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay is not available");
             }
         }
         
@@ -203,7 +205,7 @@ public class BookingManagementService {
         booking.setBranch(branch);
         booking.setCustomer(customer);
         booking.setVehicle(vehicle);
-        booking.setServiceSlot(serviceSlot);
+        booking.setServiceBay(serviceBay);
         booking.setIsActive(true);
         
         // Calculate total price from items
@@ -236,15 +238,35 @@ public class BookingManagementService {
         
         // Create booking items
         if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            // TODO: Implement booking item creation
             log.info("Creating {} booking items", request.getBookingItems().size());
+            
+            for (CreateBookingItemRequest itemRequest : request.getBookingItems()) {
+                // Convert request to entity
+                BookingItem bookingItem = bookingItemMapper.toEntity(itemRequest);
+                
+                // Set booking reference
+                bookingItem.setBooking(savedBooking);
+                
+                // Set default values
+                bookingItem.setItemStatus(BookingItem.ItemStatus.PENDING);
+                bookingItem.setIsActive(true);
+                bookingItem.setIsDeleted(false);
+                
+                // Calculate total amount
+                BigDecimal subtotal = itemRequest.getUnitPrice()
+                        .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+                BigDecimal totalAmount = subtotal
+                        .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO)
+                        .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
+                bookingItem.setTotalAmount(totalAmount);
+                
+                // Save booking item
+                bookingItemService.save(bookingItem);
+            }
         }
         
-        // Assign slot if provided
-        if (serviceSlot != null) {
-            serviceSlot.assignBooking(savedBooking);
-            serviceSlotService.save(serviceSlot);
-        }
+        // Bay assignment is handled automatically through the relationship
+        // No need to manually assign bay
         
         return bookingMapper.toBookingInfoDto(savedBooking);
     }
@@ -286,12 +308,8 @@ public class BookingManagementService {
                     "Cannot delete active booking");
         }
         
-        // Unassign slot if assigned
-        if (booking.getServiceSlot() != null) {
-            ServiceSlot slot = booking.getServiceSlot();
-            slot.unassignBooking();
-            serviceSlotService.save(slot);
-        }
+        // Bay will be automatically available when booking is deleted
+        // No need to manually unassign bay
         
         bookingService.delete(bookingId);
     }
@@ -315,12 +333,8 @@ public class BookingManagementService {
         booking.cancelBooking(reason, cancelledBy);
         bookingService.update(booking);
         
-        // Unassign slot if assigned
-        if (booking.getServiceSlot() != null) {
-            ServiceSlot slot = booking.getServiceSlot();
-            slot.unassignBooking();
-            serviceSlotService.save(slot);
-        }
+        // Bay will be automatically available when booking is deleted
+        // No need to manually unassign bay
     }
     
     /**
@@ -376,12 +390,8 @@ public class BookingManagementService {
         booking.completeService();
         bookingService.update(booking);
         
-        // Unassign slot
-        if (booking.getServiceSlot() != null) {
-            ServiceSlot slot = booking.getServiceSlot();
-            slot.unassignBooking();
-            serviceSlotService.save(slot);
-        }
+        // Bay will be automatically available when booking is completed
+        // No need to manually unassign bay
     }
     
     /**

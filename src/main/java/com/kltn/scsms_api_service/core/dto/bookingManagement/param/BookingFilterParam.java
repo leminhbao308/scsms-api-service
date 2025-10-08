@@ -26,10 +26,10 @@ public class BookingFilterParam extends BaseFilterParam<BookingFilterParam> {
     private String vehicleModelName;
     private String vehicleTypeName;
     
-    // Branch and slot filters
+    // Branch and bay filters
     private UUID branchId;
-    private UUID slotId;
-    private String slotCategory;
+    private UUID bayId;
+    private String bayType;
     
     // Status filters
     private Booking.BookingStatus status;

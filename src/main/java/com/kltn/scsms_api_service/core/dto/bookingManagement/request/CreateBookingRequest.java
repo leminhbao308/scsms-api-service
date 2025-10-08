@@ -55,8 +55,8 @@ public class CreateBookingRequest {
     @NotNull(message = "Branch ID is required")
     @JsonProperty("branch_id")
     private UUID branchId;
-    @JsonProperty("slot_id")
-    private UUID slotId; // nullable, sẽ được assign sau
+    @JsonProperty("bay_id")
+    private UUID bayId; // nullable, sẽ được assign sau
     
     // Scheduling information
     @NotNull(message = "Preferred start time is required")

@@ -41,10 +41,10 @@ public class ServiceProcessTrackingInfoDto {
     private String technicianName;
     private String technicianCode;
     
-    // Slot information
-    private UUID slotId;
-    private String slotName;
-    private String slotCode;
+    // Bay information
+    private UUID bayId;
+    private String bayName;
+    private String bayCode;
     
     // Timing information
     private LocalDateTime startTime;

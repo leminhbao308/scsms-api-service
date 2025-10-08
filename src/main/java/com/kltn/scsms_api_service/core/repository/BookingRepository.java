@@ -33,9 +33,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findByBranch_BranchIdOrderByScheduledStartAtDesc(UUID branchId);
     
     /**
-     * Tìm booking theo slot
+     * Tìm booking theo bay
      */
-    Optional<Booking> findByServiceSlot_SlotId(UUID slotId);
+    List<Booking> findByServiceBay_BayId(UUID bayId);
     
     /**
      * Tìm booking theo trạng thái

@@ -50,11 +50,11 @@ public class ServiceProcessTracking extends AuditEntity {
     private User technician;
     
     /**
-     * Slot đang được sử dụng
+     * Bay đang được sử dụng
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "slot_id", nullable = false)
-    private ServiceSlot slot;
+    @JoinColumn(name = "bay_id", nullable = false)
+    private ServiceBay bay;
     
     /**
      * Thời điểm bắt đầu thực hiện bước này

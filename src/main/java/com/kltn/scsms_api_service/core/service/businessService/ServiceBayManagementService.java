@@ -1,0 +1,376 @@
+package com.kltn.scsms_api_service.core.service.businessService;
+
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayInfoDto;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayStatisticsDto;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.BayAvailabilityRequest;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.CreateServiceBayRequest;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.ServiceBayFilterParam;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.UpdateServiceBayRequest;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
+import com.kltn.scsms_api_service.core.entity.Branch;
+import com.kltn.scsms_api_service.core.entity.ServiceBay;
+import com.kltn.scsms_api_service.core.entity.Booking;
+import com.kltn.scsms_api_service.core.service.entityService.BranchService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
+import com.kltn.scsms_api_service.core.service.entityService.BookingService;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.mapper.ServiceBayMapper;
+import com.kltn.scsms_api_service.mapper.BookingMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ServiceBayManagementService {
+    
+    private final ServiceBayService serviceBayService;
+    private final BranchService branchService;
+    private final BookingService bookingService;
+    private final ServiceBayMapper serviceBayMapper;
+    private final BookingMapper bookingMapper;
+    
+    /**
+     * Lấy tất cả service bays với filter và pagination
+     */
+    public Page<ServiceBayInfoDto> getAllServiceBays(ServiceBayFilterParam filterParam) {
+        log.info("Getting all service bays with filters: {}", filterParam);
+        
+        List<ServiceBay> bays;
+        
+        if (filterParam.getBranchId() != null) {
+            if (filterParam.getBayType() != null) {
+                bays = serviceBayService.getByBranchAndBayType(filterParam.getBranchId(), filterParam.getBayType());
+            } else if (filterParam.getStatus() != null) {
+                bays = serviceBayService.getByBranch(filterParam.getBranchId())
+                        .stream()
+                        .filter(bay -> bay.getStatus() == filterParam.getStatus())
+                        .collect(Collectors.toList());
+            } else {
+                bays = serviceBayService.getByBranch(filterParam.getBranchId());
+            }
+        } else if (filterParam.getBayType() != null) {
+            bays = serviceBayService.getByBayType(filterParam.getBayType());
+        } else {
+            bays = serviceBayService.getByBranch(filterParam.getBranchId());
+        }
+        
+        // Apply keyword filter
+        if (filterParam.getKeyword() != null && !filterParam.getKeyword().trim().isEmpty()) {
+            if (filterParam.getBranchId() != null) {
+                bays = serviceBayService.searchByKeywordInBranch(filterParam.getBranchId(), filterParam.getKeyword());
+            } else {
+                bays = serviceBayService.searchByKeyword(filterParam.getKeyword());
+            }
+        }
+        
+        // Apply active filter
+        if (filterParam.getIsActive() != null) {
+            bays = bays.stream()
+                    .filter(bay -> bay.getIsActive().equals(filterParam.getIsActive()))
+                    .collect(Collectors.toList());
+        }
+        
+        List<ServiceBayInfoDto> bayDtos = serviceBayMapper.toServiceBayInfoDtoList(bays);
+        
+        // Simple pagination
+        int page = filterParam.getPage();
+        int size = filterParam.getSize();
+        int start = page * size;
+        int end = Math.min((start + size), bayDtos.size());
+        List<ServiceBayInfoDto> pageContent = bayDtos.subList(start, end);
+        
+        Pageable pageable = PageRequest.of(page, size);
+        return new PageImpl<>(pageContent, pageable, bayDtos.size());
+    }
+    
+    /**
+     * Lấy service bays cho dropdown
+     */
+    public List<ServiceBayInfoDto> getServiceBaysDropdown(UUID branchId, ServiceBay.BayType bayType) {
+        log.info("Getting service bays dropdown for branch: {}, type: {}", branchId, bayType);
+        
+        List<ServiceBay> bays;
+        if (branchId != null && bayType != null) {
+            bays = serviceBayService.getByBranchAndBayType(branchId, bayType);
+        } else if (branchId != null) {
+            bays = serviceBayService.getActiveByBranch(branchId);
+        } else if (bayType != null) {
+            bays = serviceBayService.getByBayType(bayType);
+        } else {
+            bays = serviceBayService.getByBranch(branchId);
+        }
+        
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Lấy service bay theo ID
+     */
+    public ServiceBayInfoDto getServiceBayById(UUID bayId) {
+        log.info("Getting service bay by ID: {}", bayId);
+        ServiceBay bay = serviceBayService.getById(bayId);
+        return serviceBayMapper.toServiceBayInfoDto(bay);
+    }
+    
+    /**
+     * Lấy service bays theo branch
+     */
+    public List<ServiceBayInfoDto> getServiceBaysByBranch(UUID branchId) {
+        log.info("Getting service bays for branch: {}", branchId);
+        List<ServiceBay> bays = serviceBayService.getByBranch(branchId);
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Lấy service bays theo loại
+     */
+    public List<ServiceBayInfoDto> getServiceBaysByType(ServiceBay.BayType bayType) {
+        log.info("Getting service bays by type: {}", bayType);
+        List<ServiceBay> bays = serviceBayService.getByBayType(bayType);
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Lấy service bays hoạt động
+     */
+    public List<ServiceBayInfoDto> getActiveServiceBays(UUID branchId) {
+        log.info("Getting active service bays for branch: {}", branchId);
+        List<ServiceBay> bays = serviceBayService.getActiveByBranch(branchId);
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Lấy service bays khả dụng trong khoảng thời gian
+     */
+    public List<ServiceBayInfoDto> getAvailableServiceBays(UUID branchId, String startTime, String endTime, ServiceBay.BayType bayType) {
+        log.info("Getting available service bays for branch: {} from {} to {}", branchId, startTime, endTime);
+        
+        LocalDateTime start = LocalDateTime.parse(startTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        LocalDateTime end = LocalDateTime.parse(endTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        
+        List<ServiceBay> bays;
+        if (bayType != null) {
+            bays = serviceBayService.getAvailableBaysByTypeInTimeRange(branchId, bayType, start, end);
+        } else {
+            bays = serviceBayService.getAvailableBaysInTimeRange(branchId, start, end);
+        }
+        
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Tìm kiếm service bays
+     */
+    public List<ServiceBayInfoDto> searchServiceBays(String keyword, UUID branchId) {
+        log.info("Searching service bays with keyword: {} in branch: {}", keyword, branchId);
+        
+        List<ServiceBay> bays;
+        if (branchId != null) {
+            bays = serviceBayService.searchByKeywordInBranch(branchId, keyword);
+        } else {
+            bays = serviceBayService.searchByKeyword(keyword);
+        }
+        
+        return serviceBayMapper.toServiceBayInfoDtoList(bays);
+    }
+    
+    /**
+     * Tạo service bay mới
+     */
+    @Transactional
+    public ServiceBayInfoDto createServiceBay(CreateServiceBayRequest request) {
+        log.info("Creating service bay: {} for branch: {}", request.getBayName(), request.getBranchId());
+        
+        // Validate branch exists
+        Branch branch = branchService.findById(request.getBranchId())
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found with ID: " + request.getBranchId()));
+        
+        // Create bay entity
+        ServiceBay bay = serviceBayMapper.toEntity(request);
+        bay.setBranch(branch);
+        
+        ServiceBay savedBay = serviceBayService.save(bay);
+        
+        return serviceBayMapper.toServiceBayInfoDto(savedBay);
+    }
+    
+    /**
+     * Cập nhật service bay
+     */
+    @Transactional
+    public ServiceBayInfoDto updateServiceBay(UUID bayId, UpdateServiceBayRequest request) {
+        log.info("Updating service bay: {}", bayId);
+        
+        // Get existing bay
+        ServiceBay existingBay = serviceBayService.getById(bayId);
+        
+        // Update bay
+        serviceBayMapper.updateEntity(existingBay, request);
+        ServiceBay savedBay = serviceBayService.update(existingBay);
+        
+        return serviceBayMapper.toServiceBayInfoDto(savedBay);
+    }
+    
+    /**
+     * Xóa service bay
+     */
+    @Transactional
+    public void deleteServiceBay(UUID bayId) {
+        log.info("Deleting service bay: {}", bayId);
+        serviceBayService.softDeleteById(bayId);
+    }
+    
+    /**
+     * Cập nhật trạng thái service bay
+     */
+    @Transactional
+    public ServiceBayInfoDto updateServiceBayStatus(UUID bayId, ServiceBay.BayStatus status, String reason) {
+        log.info("Updating service bay status: {} to {}", bayId, status);
+        
+        ServiceBay bay = serviceBayService.getById(bayId);
+        
+        switch (status) {
+            case ACTIVE:
+                bay.activateBay();
+                break;
+            case MAINTENANCE:
+                bay.setMaintenance(reason);
+                break;
+            case CLOSED:
+                bay.closeBay(reason);
+                break;
+            case INACTIVE:
+                bay.setIsActive(false);
+                break;
+        }
+        
+        ServiceBay savedBay = serviceBayService.update(bay);
+        return serviceBayMapper.toServiceBayInfoDto(savedBay);
+    }
+    
+    /**
+     * Kích hoạt service bay
+     */
+    @Transactional
+    public ServiceBayInfoDto activateServiceBay(UUID bayId) {
+        log.info("Activating service bay: {}", bayId);
+        serviceBayService.activateBay(bayId);
+        ServiceBay bay = serviceBayService.getById(bayId);
+        return serviceBayMapper.toServiceBayInfoDto(bay);
+    }
+    
+    /**
+     * Đặt service bay vào trạng thái bảo trì
+     */
+    @Transactional
+    public ServiceBayInfoDto deactivateServiceBay(UUID bayId, String reason) {
+        log.info("Deactivating service bay: {} with reason: {}", bayId, reason);
+        serviceBayService.setMaintenance(bayId, reason);
+        ServiceBay bay = serviceBayService.getById(bayId);
+        return serviceBayMapper.toServiceBayInfoDto(bay);
+    }
+    
+    /**
+     * Kiểm tra tính khả dụng của bay
+     */
+    public Boolean checkBayAvailability(UUID bayId, BayAvailabilityRequest request) {
+        log.info("Checking availability for bay: {} from {} to {}", bayId, request.getStartTime(), request.getEndTime());
+        return serviceBayService.isBayAvailableInTimeRange(bayId, request.getStartTime(), request.getEndTime());
+    }
+    
+    /**
+     * Lấy bookings của bay
+     */
+    public List<BookingInfoDto> getBayBookings(UUID bayId) {
+        log.info("Getting bookings for bay: {}", bayId);
+        
+        // Validate bay exists
+        serviceBayService.getById(bayId);
+        
+        // Get bookings for this bay
+        List<Booking> bookings = bookingService.findByServiceBay(bayId);
+        
+        // Convert to DTOs
+        return bookings.stream()
+                .map(bookingMapper::toBookingInfoDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Lấy thống kê của bay
+     */
+    public ServiceBayStatisticsDto getBayStatistics(UUID bayId) {
+        log.info("Getting statistics for bay: {}", bayId);
+        ServiceBay bay = serviceBayService.getById(bayId);
+        
+        // Get all bookings for this bay
+        List<Booking> bookings = bookingService.findByServiceBay(bayId);
+        
+        // Calculate statistics
+        long totalBookings = bookings.size();
+        long completedBookings = bookings.stream()
+                .filter(booking -> booking.getStatus() == Booking.BookingStatus.COMPLETED)
+                .count();
+        long cancelledBookings = bookings.stream()
+                .filter(booking -> booking.getStatus() == Booking.BookingStatus.CANCELLED)
+                .count();
+        long activeBookings = bookings.stream()
+                .filter(booking -> booking.getStatus() == Booking.BookingStatus.IN_PROGRESS || 
+                                 booking.getStatus() == Booking.BookingStatus.CONFIRMED)
+                .count();
+        
+        // Calculate utilization rate (completed bookings / total bookings)
+        double utilizationRate = totalBookings > 0 ? (double) completedBookings / totalBookings * 100.0 : 0.0;
+        
+        // Calculate average service time
+        long averageServiceTimeMinutes = 0L;
+        if (completedBookings > 0) {
+            averageServiceTimeMinutes = bookings.stream()
+                    .filter(booking -> booking.getStatus() == Booking.BookingStatus.COMPLETED)
+                    .filter(booking -> booking.getEstimatedDurationMinutes() != null)
+                    .mapToLong(Booking::getEstimatedDurationMinutes)
+                    .sum() / completedBookings;
+        }
+        
+        return ServiceBayStatisticsDto.builder()
+                .bayId(bay.getBayId())
+                .bayName(bay.getBayName())
+                .bayCode(bay.getBayCode())
+                .bayType(bay.getBayType().name())
+                .status(bay.getStatus().name())
+                .totalBookings(totalBookings)
+                .completedBookings(completedBookings)
+                .cancelledBookings(cancelledBookings)
+                .activeBookings(activeBookings)
+                .utilizationRate(utilizationRate)
+                .averageServiceTimeMinutes(averageServiceTimeMinutes)
+                .build();
+    }
+    
+    /**
+     * Validate tên bay
+     */
+    public Boolean validateBayName(UUID branchId, String bayName, UUID bayId) {
+        log.info("Validating bay name: {} for branch: {}", bayName, branchId);
+        
+        if (bayId != null) {
+            return !serviceBayService.existsByBranchAndBayNameExcluding(branchId, bayName, bayId);
+        } else {
+            return !serviceBayService.existsByBranchAndBayName(branchId, bayName);
+        }
+    }
+}

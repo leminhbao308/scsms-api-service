@@ -91,11 +91,11 @@ public class Booking extends AuditEntity {
     private Branch branch;
     
     /**
-     * Slot được đặt
+     * Bay được đặt
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "slot_id")
-    private ServiceSlot serviceSlot;
+    @JoinColumn(name = "bay_id")
+    private ServiceBay serviceBay;
     
     /**
      * Thời điểm khách mong muốn

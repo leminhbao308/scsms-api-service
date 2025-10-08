@@ -65,12 +65,6 @@ public enum ErrorCode {
     CATEGORY_NOT_FOUND("SCS-4001", "SCS-4001", "CATEGORY", "Category not found", "error.category_not_found"),
     CATEGORY_URL_EXISTS("SCS-4002", "SCS-4002", "CATEGORY", "Category URL already exists", "error.category_url_exists"),
     
-    // Service Slot related errors
-    SLOT_NOT_FOUND("SCS-7001", "SCS-7001", "SERVICE_SLOT", "Service slot not found", "error.slot_not_found"),
-    SLOT_NOT_AVAILABLE("SCS-7002", "SCS-7002", "SERVICE_SLOT", "Service slot is not available", "error.slot_not_available"),
-    SLOT_OVERLAP("SCS-7003", "SCS-7003", "SERVICE_SLOT", "Service slot time overlap", "error.slot_overlap"),
-    SLOT_ALREADY_ASSIGNED("SCS-7004", "SCS-7004", "SERVICE_SLOT", "Service slot is already assigned", "error.slot_already_assigned"),
-    SLOT_NOT_ASSIGNED("SCS-7005", "SCS-7005", "SERVICE_SLOT", "Service slot is not assigned", "error.slot_not_assigned"),
     
     // Booking related errors
     BOOKING_NOT_FOUND("SCS-8001", "SCS-8001", "BOOKING", "Booking not found", "error.booking_not_found"),
@@ -110,6 +104,17 @@ public enum ErrorCode {
     SERVICE_PROCESS_TRACKING_UPDATE_FAILED("SCS-C010", "SCS-C010", "SERVICE_PROCESS_TRACKING", "Failed to update service process tracking", "error.service_process_tracking_update_failed"),
     SERVICE_PROCESS_TRACKING_DELETE_FAILED("SCS-C011", "SCS-C011", "SERVICE_PROCESS_TRACKING", "Failed to delete service process tracking", "error.service_process_tracking_delete_failed"),
     SERVICE_PROCESS_TRACKING_FIND_FAILED("SCS-C012", "SCS-C012", "SERVICE_PROCESS_TRACKING", "Failed to find service process tracking", "error.service_process_tracking_find_failed"),
+    
+    // Service Bay related errors
+    SERVICE_BAY_NOT_FOUND("SCS-D001", "SCS-D001", "SERVICE_BAY", "Service bay not found", "error.service_bay_not_found"),
+    SERVICE_BAY_NAME_EXISTS("SCS-D002", "SCS-D002", "SERVICE_BAY", "Service bay name already exists", "error.service_bay_name_exists"),
+    SERVICE_BAY_CODE_EXISTS("SCS-D003", "SCS-D003", "SERVICE_BAY", "Service bay code already exists", "error.service_bay_code_exists"),
+    SERVICE_BAY_NOT_AVAILABLE("SCS-D004", "SCS-D004", "SERVICE_BAY", "Service bay is not available", "error.service_bay_not_available"),
+    SERVICE_BAY_TIME_CONFLICT("SCS-D005", "SCS-D005", "SERVICE_BAY", "Service bay time conflict", "error.service_bay_time_conflict"),
+    SERVICE_BAY_CANNOT_BE_DELETED("SCS-D006", "SCS-D006", "SERVICE_BAY", "Service bay cannot be deleted", "error.service_bay_cannot_be_deleted"),
+    SERVICE_BAY_CANNOT_BE_UPDATED("SCS-D007", "SCS-D007", "SERVICE_BAY", "Service bay cannot be updated", "error.service_bay_cannot_be_updated"),
+    SERVICE_BAY_INVALID_STATUS("SCS-D008", "SCS-D008", "SERVICE_BAY", "Invalid service bay status", "error.service_bay_invalid_status"),
+    SERVICE_BAY_CAPACITY_EXCEEDED("SCS-D009", "SCS-D009", "SERVICE_BAY", "Service bay capacity exceeded", "error.service_bay_capacity_exceeded"),
     
     // General entity errors
     ENTITY_NOT_FOUND("SCS-5001", "SCS-5001", "ENTITY", "Entity not found", "error.entity_not_found"),

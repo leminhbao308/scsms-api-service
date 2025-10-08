@@ -331,6 +331,48 @@ public class ApiConstant {
     public static final String REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/remove-default";
     public static final String VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/validate-code";
     public static final String GET_SERVICE_PACKAGE_TYPE_STATISTICS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/statistics";
+
+    // Service Bay management module endpoints
+    public static final String SERVICE_BAY_MANAGEMENT_PREFIX = "/service-bays";
+    public static final String GET_ALL_SERVICE_BAYS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_ALL_SERVICE_BAYS_DROPDOWN_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/dropdown";
+    public static final String GET_SERVICE_BAY_BY_ID_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}";
+    public static final String GET_SERVICE_BAYS_BY_BRANCH_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/branch/{branchId}";
+    public static final String GET_SERVICE_BAYS_BY_TYPE_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/type/{bayType}";
+    public static final String GET_ACTIVE_SERVICE_BAYS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/active";
+    public static final String GET_AVAILABLE_SERVICE_BAYS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/available";
+    public static final String SEARCH_SERVICE_BAYS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/search";
+    public static final String CREATE_SERVICE_BAY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_BAY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/update";
+    public static final String DELETE_SERVICE_BAY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/delete";
+    public static final String UPDATE_SERVICE_BAY_STATUS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/status";
+    public static final String ACTIVATE_SERVICE_BAY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/activate";
+    public static final String DEACTIVATE_SERVICE_BAY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/deactivate";
+    public static final String GET_SERVICE_BAY_AVAILABILITY_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/availability";
+    public static final String GET_SERVICE_BAY_BOOKINGS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/bookings";
+    public static final String GET_SERVICE_BAY_STATISTICS_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/{bayId}/statistics";
+    public static final String VALIDATE_SERVICE_BAY_NAME_API = SERVICE_BAY_MANAGEMENT_PREFIX + "/validate-name";
+    
+    // Service Process Tracking management module endpoints
+    public static final String SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX = "/service-process-trackings";
+    public static final String GET_ALL_SERVICE_PROCESS_TRACKINGS_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/get-all";
+    public static final String GET_SERVICE_PROCESS_TRACKING_BY_ID_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}";
+    public static final String CREATE_SERVICE_PROCESS_TRACKING_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/create";
+    public static final String UPDATE_SERVICE_PROCESS_TRACKING_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/update";
+    public static final String DELETE_SERVICE_PROCESS_TRACKING_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/delete";
+    public static final String GET_SERVICE_PROCESS_TRACKINGS_BY_BOOKING_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/booking/{bookingId}";
+    public static final String GET_SERVICE_PROCESS_TRACKINGS_BY_TECHNICIAN_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/technician/{technicianId}";
+    public static final String GET_SERVICE_PROCESS_TRACKINGS_BY_BAY_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/bay/{bayId}";
+    public static final String GET_IN_PROGRESS_SERVICE_PROCESS_TRACKINGS_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/in-progress";
+    public static final String START_SERVICE_PROCESS_TRACKING_STEP_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/start";
+    public static final String UPDATE_SERVICE_PROCESS_TRACKING_PROGRESS_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/progress/update";
+    public static final String COMPLETE_SERVICE_PROCESS_TRACKING_STEP_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/complete";
+    public static final String CANCEL_SERVICE_PROCESS_TRACKING_STEP_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/cancel";
+    public static final String ADD_SERVICE_PROCESS_TRACKING_NOTE_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/notes";
+    public static final String ADD_SERVICE_PROCESS_TRACKING_EVIDENCE_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/{trackingId}/evidence";
+    public static final String GET_SERVICE_PROCESS_TRACKING_STATISTICS_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/statistics";
+    public static final String GET_TECHNICIAN_EFFICIENCY_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/technician/{technicianId}/efficiency";
+    public static final String GET_TECHNICIAN_WORK_TIME_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX + "/technician/{technicianId}/work-time";
     
     public static List<String> PROTECTED_PATHS(String apiPrefix) {
         return List.of(
@@ -534,7 +576,26 @@ public class ApiConstant {
             apiPrefix + SET_SERVICE_PACKAGE_TYPE_AS_DEFAULT_API,
             apiPrefix + REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API,
             apiPrefix + VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API,
-            apiPrefix + GET_SERVICE_PACKAGE_TYPE_STATISTICS_API
+            apiPrefix + GET_SERVICE_PACKAGE_TYPE_STATISTICS_API,
+            // Service Bay management APIs
+            apiPrefix + GET_ALL_SERVICE_BAYS_API,
+            apiPrefix + GET_ALL_SERVICE_BAYS_DROPDOWN_API,
+            apiPrefix + GET_SERVICE_BAY_BY_ID_API,
+            apiPrefix + GET_SERVICE_BAYS_BY_BRANCH_API,
+            apiPrefix + GET_SERVICE_BAYS_BY_TYPE_API,
+            apiPrefix + GET_ACTIVE_SERVICE_BAYS_API,
+            apiPrefix + GET_AVAILABLE_SERVICE_BAYS_API,
+            apiPrefix + SEARCH_SERVICE_BAYS_API,
+            apiPrefix + CREATE_SERVICE_BAY_API,
+            apiPrefix + UPDATE_SERVICE_BAY_API,
+            apiPrefix + DELETE_SERVICE_BAY_API,
+            apiPrefix + UPDATE_SERVICE_BAY_STATUS_API,
+            apiPrefix + ACTIVATE_SERVICE_BAY_API,
+            apiPrefix + DEACTIVATE_SERVICE_BAY_API,
+            apiPrefix + GET_SERVICE_BAY_AVAILABILITY_API,
+            apiPrefix + GET_SERVICE_BAY_BOOKINGS_API,
+            apiPrefix + GET_SERVICE_BAY_STATISTICS_API,
+            apiPrefix + VALIDATE_SERVICE_BAY_NAME_API
         );
     }
 }

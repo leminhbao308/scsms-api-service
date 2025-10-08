@@ -33,7 +33,7 @@ public class ServiceProcessTrackingManagementService {
     private final ServiceProcessStepService serviceProcessStepService;
     private final BookingService bookingService;
     private final UserService userService;
-    private final ServiceSlotService serviceSlotService;
+    private final ServiceBayService serviceBayService;
     private final ServiceProcessTrackingMapper serviceProcessTrackingMapper;
     
     /**
@@ -57,15 +57,15 @@ public class ServiceProcessTrackingManagementService {
         User technician = userService.findById(request.getTechnicianId())
                 .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Technician not found"));
         
-        // Validate slot exists
-        ServiceSlot slot = serviceSlotService.getById(request.getSlotId());
+        // Validate bay exists
+        ServiceBay bay = serviceBayService.getById(request.getBayId());
         
         // Create tracking
         ServiceProcessTracking tracking = ServiceProcessTracking.builder()
                 .booking(booking)
                 .serviceStep(serviceStep)
                 .technician(technician)
-                .slot(slot)
+                .bay(bay)
                 .estimatedDuration(request.getEstimatedDuration() != null ? request.getEstimatedDuration() : serviceStep.getEstimatedTime())
                 .status(request.getStatus() != null ? request.getStatus() : ServiceProcessTracking.TrackingStatus.PENDING)
                 .progressPercent(request.getProgressPercent() != null ? request.getProgressPercent() : BigDecimal.ZERO)
@@ -148,8 +148,15 @@ public class ServiceProcessTrackingManagementService {
         if (request.getNotes() != null) {
             tracking.addNote(request.getNotes(), tracking.getTechnician());
         }
-        if (request.getEvidenceMediaUrls() != null) {
-            // TODO: Parse and add media URLs
+        if (request.getEvidenceMediaUrls() != null && !request.getEvidenceMediaUrls().trim().isEmpty()) {
+            // Parse and add media URLs
+            String[] mediaUrls = request.getEvidenceMediaUrls().split(",");
+            for (String mediaUrl : mediaUrls) {
+                String trimmedUrl = mediaUrl.trim();
+                if (!trimmedUrl.isEmpty()) {
+                    tracking.addEvidenceMedia(trimmedUrl, tracking.getTechnician());
+                }
+            }
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
@@ -217,13 +224,13 @@ public class ServiceProcessTrackingManagementService {
     }
     
     /**
-     * Lấy tracking theo slot
+     * Lấy tracking theo bay
      */
     @Transactional(readOnly = true)
-    public List<ServiceProcessTrackingInfoDto> getTrackingsBySlot(UUID slotId) {
-        log.info("Getting trackings for slot: {}", slotId);
+    public List<ServiceProcessTrackingInfoDto> getTrackingsByBay(UUID bayId) {
+        log.info("Getting trackings for bay: {}", bayId);
         
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findBySlot(slotId);
+        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findByBay(bayId);
         return trackings.stream()
                 .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
                 .collect(Collectors.toList());
@@ -300,5 +307,20 @@ public class ServiceProcessTrackingManagementService {
         log.info("Getting total work time for technician: {} from {} to {}", technicianId, startDate, endDate);
         
         return serviceProcessTrackingService.sumActualDurationByTechnician(technicianId, startDate, endDate);
+    }
+    
+    /**
+     * Thêm media evidence cho tracking
+     */
+    public ServiceProcessTrackingInfoDto addEvidenceMedia(UUID trackingId, String mediaUrl) {
+        log.info("Adding evidence media for tracking: {}", trackingId);
+        
+        ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
+        
+        // Add evidence media
+        tracking.addEvidenceMedia(mediaUrl, tracking.getTechnician());
+        
+        ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
 }

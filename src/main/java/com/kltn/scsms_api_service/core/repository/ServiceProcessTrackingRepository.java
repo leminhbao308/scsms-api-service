@@ -24,9 +24,9 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
     List<ServiceProcessTracking> findByTechnician_UserIdOrderByStartTimeDesc(UUID technicianId);
 
     /**
-     * Tìm tracking theo slot
+     * Tìm tracking theo bay
      */
-    List<ServiceProcessTracking> findBySlot_SlotIdOrderByStartTimeDesc(UUID slotId);
+    List<ServiceProcessTracking> findByBay_BayIdOrderByStartTimeDesc(UUID bayId);
 
     /**
      * Tìm tracking theo trạng thái
@@ -46,10 +46,10 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
             UUID technicianId, ServiceProcessTracking.TrackingStatus status);
 
     /**
-     * Tìm tracking theo slot và trạng thái
+     * Tìm tracking theo bay và trạng thái
      */
-    List<ServiceProcessTracking> findBySlot_SlotIdAndStatusOrderByStartTimeDesc(
-            UUID slotId, ServiceProcessTracking.TrackingStatus status);
+    List<ServiceProcessTracking> findByBay_BayIdAndStatusOrderByStartTimeDesc(
+            UUID bayId, ServiceProcessTracking.TrackingStatus status);
 
     /**
      * Tìm tracking theo service step
@@ -87,14 +87,14 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
             @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Tìm tracking theo slot trong khoảng thời gian
+     * Tìm tracking theo bay trong khoảng thời gian
      */
     @Query("SELECT spt FROM ServiceProcessTracking spt WHERE " +
-            "spt.slot.slotId = :slotId AND " +
+            "spt.bay.bayId = :bayId AND " +
             "spt.startTime BETWEEN :startDate AND :endDate " +
             "ORDER BY spt.startTime DESC")
-    List<ServiceProcessTracking> findBySlotAndTimeRange(
-            @Param("slotId") UUID slotId,
+    List<ServiceProcessTracking> findByBayAndTimeRange(
+            @Param("bayId") UUID bayId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
@@ -109,9 +109,9 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
     long countByTechnician_UserId(UUID technicianId);
 
     /**
-     * Đếm tracking theo slot
+     * Đếm tracking theo bay
      */
-    long countBySlot_SlotId(UUID slotId);
+    long countByBay_BayId(UUID bayId);
 
     /**
      * Đếm tracking theo booking

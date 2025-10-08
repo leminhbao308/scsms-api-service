@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Booking Management", description = "APIs for managing bookings")

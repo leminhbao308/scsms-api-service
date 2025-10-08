@@ -27,7 +27,6 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping
 @RequiredArgsConstructor
 @Tag(name = "Branch Management", description = "API endpoints for managing car care branches")
 public class BranchManagementController {

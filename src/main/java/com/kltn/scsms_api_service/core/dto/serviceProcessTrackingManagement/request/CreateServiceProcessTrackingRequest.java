@@ -33,9 +33,9 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("technician_id")
     private UUID technicianId;
     
-    @NotNull(message = "Slot ID không được để trống")
-    @JsonProperty("slot_id")
-    private UUID slotId;
+    @NotNull(message = "Bay ID không được để trống")
+    @JsonProperty("bay_id")
+    private UUID bayId;
     
     @Positive(message = "Thời gian ước lượng phải lớn hơn 0")
     @JsonProperty("estimated_duration")

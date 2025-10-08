@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Center Business Hours Management", description = "APIs for managing center business hours")
