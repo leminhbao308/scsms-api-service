@@ -36,9 +36,26 @@ public class PricingBusinessService {
     
     
     public BigDecimal resolveUnitPrice(UUID productId) {
+        return resolveUnitPrice(productId, null);
+    }
+    
+    /**
+     * Resolve unit price for a product with optional price book
+     * @param productId Product ID
+     * @param priceBookId Optional price book ID (if null, uses active price book)
+     * @return Unit price
+     */
+    public BigDecimal resolveUnitPrice(UUID productId, UUID priceBookId) {
         LocalDateTime today = LocalDateTime.now();
-        PriceBook book = resolveActivePriceBook(today)
-            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
+        PriceBook book;
+        
+        if (priceBookId != null) {
+            book = priceBookEntityService.require(priceBookId);
+        } else {
+            book = resolveActivePriceBook(today)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
+        }
+        
         PriceBookItem item = priceBookItemES.findByPriceBookIdAndProductId(book.getId(), productId)
             .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for product=" + productId + " in book=" + book.getCode()));
         
@@ -49,6 +66,65 @@ public class PricingBusinessService {
                 ProductCostStats stats = productCostStatsES.findByProduct(productId)
                     .orElseThrow(() -> new NoSuchElementException("No ProductCostStats for product=" + productId));
                 yield pct(stats.getPeakPurchasePrice(), item.getMarkupPercent());
+            }
+        };
+    }
+    
+    /**
+     * Resolve unit price for a service
+     * @param serviceId Service ID
+     * @param priceBookId Optional price book ID (if null, uses active price book)
+     * @return Unit price
+     */
+    public BigDecimal resolveServicePrice(UUID serviceId, UUID priceBookId) {
+        LocalDateTime today = LocalDateTime.now();
+        PriceBook book;
+        
+        if (priceBookId != null) {
+            book = priceBookEntityService.require(priceBookId);
+        } else {
+            book = resolveActivePriceBook(today)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
+        }
+        
+        PriceBookItem item = priceBookItemES.findByPriceBookIdAndServiceId(book.getId(), serviceId)
+            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for service=" + serviceId + " in book=" + book.getCode()));
+        
+        return switch (item.getPolicyType()) {
+            case FIXED -> require(item.getFixedPrice());
+            case MARKUP_ON_PEAK -> {
+                // For services, we might use basePrice + laborCost as the base for markup
+                // This would require getting the service entity and calculating its base cost
+                throw new UnsupportedOperationException("MARKUP_ON_PEAK not supported for services yet");
+            }
+        };
+    }
+    
+    /**
+     * Resolve unit price for a service package
+     * @param packageId Service Package ID
+     * @param priceBookId Optional price book ID (if null, uses active price book)
+     * @return Unit price
+     */
+    public BigDecimal resolveServicePackagePrice(UUID packageId, UUID priceBookId) {
+        LocalDateTime today = LocalDateTime.now();
+        PriceBook book;
+        
+        if (priceBookId != null) {
+            book = priceBookEntityService.require(priceBookId);
+        } else {
+            book = resolveActivePriceBook(today)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
+        }
+        
+        PriceBookItem item = priceBookItemES.findByPriceBookIdAndServicePackageId(book.getId(), packageId)
+            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for service package=" + packageId + " in book=" + book.getCode()));
+        
+        return switch (item.getPolicyType()) {
+            case FIXED -> require(item.getFixedPrice());
+            case MARKUP_ON_PEAK -> {
+                // For service packages, we might use calculated package price as the base for markup
+                throw new UnsupportedOperationException("MARKUP_ON_PEAK not supported for service packages yet");
             }
         };
     }

@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface PriceBookItemRepository extends JpaRepository<PriceBookItem, UUID> {
     Optional<PriceBookItem> findByPriceBookIdAndProductProductId(UUID bookId, UUID productId);
+    Optional<PriceBookItem> findByPriceBookIdAndServiceServiceId(UUID bookId, UUID serviceId);
+    Optional<PriceBookItem> findByPriceBookIdAndServicePackagePackageId(UUID bookId, UUID packageId);
 }

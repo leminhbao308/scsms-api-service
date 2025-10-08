@@ -19,7 +19,27 @@ public class PriceBookItemEntityService {
         return repo.findByPriceBookIdAndProductProductId(id, productId);
     }
     
+    public Optional<PriceBookItem> findByPriceBookIdAndServiceId(UUID id, UUID serviceId) {
+        return repo.findByPriceBookIdAndServiceServiceId(id, serviceId);
+    }
+    
+    public Optional<PriceBookItem> findByPriceBookIdAndServicePackageId(UUID id, UUID packageId) {
+        return repo.findByPriceBookIdAndServicePackagePackageId(id, packageId);
+    }
+    
     public PriceBookItem create(PriceBookItem item) {
         return repo.save(item);
+    }
+    
+    public PriceBookItem update(PriceBookItem item) {
+        return repo.save(item);
+    }
+    
+    public void delete(UUID id) {
+        repo.deleteById(id);
+    }
+    
+    public Optional<PriceBookItem> findById(UUID id) {
+        return repo.findById(id);
     }
 }

@@ -5,10 +5,17 @@ import com.kltn.scsms_api_service.core.dto.pricingManagement.PriceBookInfoDto;
 import com.kltn.scsms_api_service.core.dto.pricingManagement.PriceBookItemInfoDto;
 import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreatePriceBookItemRequest;
 import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreatePriceBookRequest;
+import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreateServicePriceBookItemRequest;
+import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreateServicePackagePriceBookItemRequest;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.ServicePricingDto;
+import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackagePricingDto;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.PriceBook;
 import com.kltn.scsms_api_service.core.entity.PriceBookItem;
+import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.businessService.PricingBusinessService;
+import com.kltn.scsms_api_service.core.service.businessService.ServicePricingService;
+import com.kltn.scsms_api_service.core.service.businessService.ServicePackagePricingService;
 import com.kltn.scsms_api_service.core.service.entityService.PriceBookEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.PriceBookItemEntityService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -40,6 +47,8 @@ public class PricingController {
     private final PricingBusinessService pricingBS;
     private final PriceBookEntityService priceBookES;
     private final PriceBookItemEntityService priceBookItemES;
+    private final ServicePricingService servicePricingService;
+    private final ServicePackagePricingService servicePackagePricingService;
     
     private final PriceBookMapper priceBookMapper;
     private final PriceBookItemMapper priceBookItemMapper;
@@ -132,6 +141,92 @@ public class PricingController {
         
         return ResponseBuilder.success("Fetch all price books successfully",
             bookDtos);
+    }
+    
+    // ========== SERVICE PRICING MANAGEMENT ==========
+    
+    @GetMapping("/pricing/services/{serviceId}")
+    public ResponseEntity<ApiResponse<ServicePricingDto>> getServicePricing(
+            @PathVariable UUID serviceId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Getting service pricing for service: {}, priceBook: {}", serviceId, priceBookId);
+        ServicePricingDto pricing = servicePricingService.getServicePricing(serviceId, priceBookId);
+        return ResponseBuilder.success("Get service pricing successfully", pricing);
+    }
+    
+    @PostMapping("/pricing/services/{serviceId}/recalculate")
+    public ResponseEntity<ApiResponse<ServicePricingDto>> recalculateServicePricing(
+            @PathVariable UUID serviceId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Recalculating service pricing for service: {}, priceBook: {}", serviceId, priceBookId);
+        ServicePricingDto pricing = servicePricingService.recalculateBasePrice(serviceId, priceBookId);
+        return ResponseBuilder.success("Recalculate service pricing successfully", pricing);
+    }
+    
+    // ========== SERVICE PACKAGE PRICING MANAGEMENT ==========
+    
+    @GetMapping("/pricing/service-packages/{packageId}")
+    public ResponseEntity<ApiResponse<ServicePackagePricingDto>> getServicePackagePricing(
+            @PathVariable UUID packageId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Getting service package pricing for package: {}, priceBook: {}", packageId, priceBookId);
+        ServicePackagePricingDto pricing = servicePackagePricingService.getServicePackagePricing(packageId, priceBookId);
+        return ResponseBuilder.success("Get service package pricing successfully", pricing);
+    }
+    
+    @PostMapping("/pricing/service-packages/{packageId}/recalculate")
+    public ResponseEntity<ApiResponse<ServicePackagePricingDto>> recalculateServicePackagePricing(
+            @PathVariable UUID packageId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Recalculating service package pricing for package: {}, priceBook: {}", packageId, priceBookId);
+        ServicePackagePricingDto pricing = servicePackagePricingService.recalculatePackagePrice(packageId, priceBookId);
+        return ResponseBuilder.success("Recalculate service package pricing successfully", pricing);
+    }
+    
+    // ========== PRICE BOOK ITEM MANAGEMENT ==========
+    
+    @PostMapping("/pricing/books/{bookId}/create-service-item")
+    public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createServiceItem(
+            @PathVariable UUID bookId, 
+            @RequestBody CreateServicePriceBookItemRequest request) {
+        log.info("Creating service price book item for book: {}, service: {}", bookId, request.getServiceId());
+        
+        PriceBook book = priceBookES.require(bookId);
+        
+        PriceBookItem item = PriceBookItem.builder()
+            .priceBook(book)
+            .service(com.kltn.scsms_api_service.core.entity.Service.builder().serviceId(request.getServiceId()).build())
+            .policyType(request.getPolicyType())
+            .fixedPrice(request.getFixedPrice())
+            .markupPercent(request.getMarkupPercent())
+            .build();
+        
+        PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
+            priceBookItemES.create(item));
+        
+        return ResponseBuilder.created("Create service price book item successfully", createdItem);
+    }
+    
+    @PostMapping("/pricing/books/{bookId}/create-service-package-item")
+    public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createServicePackageItem(
+            @PathVariable UUID bookId, 
+            @RequestBody CreateServicePackagePriceBookItemRequest request) {
+        log.info("Creating service package price book item for book: {}, package: {}", bookId, request.getServicePackageId());
+        
+        PriceBook book = priceBookES.require(bookId);
+        
+        PriceBookItem item = PriceBookItem.builder()
+            .priceBook(book)
+            .servicePackage(ServicePackage.builder().packageId(request.getServicePackageId()).build())
+            .policyType(request.getPolicyType())
+            .fixedPrice(request.getFixedPrice())
+            .markupPercent(request.getMarkupPercent())
+            .build();
+        
+        PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
+            priceBookItemES.create(item));
+        
+        return ResponseBuilder.created("Create service package price book item successfully", createdItem);
     }
     
     @Data

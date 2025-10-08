@@ -214,6 +214,13 @@ public class ApiConstant {
     public static final String RECALCULATE_SERVICE_BASE_PRICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/recalculate-base-price";
     public static final String UPDATE_SERVICE_LABOR_COST_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/update-labor-cost";
     
+    // Pricing Management endpoints
+    public static final String PRICING_PREFIX = "/pricing";
+    public static final String GET_SERVICE_PRICING_BY_PRICEBOOK_API = PRICING_PREFIX + "/services/{serviceId}";
+    public static final String RECALCULATE_SERVICE_PRICING_API = PRICING_PREFIX + "/services/{serviceId}/recalculate";
+    public static final String GET_SERVICE_PACKAGE_PRICING_API = PRICING_PREFIX + "/service-packages/{packageId}";
+    public static final String RECALCULATE_SERVICE_PACKAGE_PRICING_API = PRICING_PREFIX + "/service-packages/{packageId}/recalculate";
+    
     // Service Package management module endpoints
     public static final String SERVICE_PACKAGE_MANAGEMENT_PREFIX = "/service-packages";
     public static final String GET_ALL_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/get-all";
