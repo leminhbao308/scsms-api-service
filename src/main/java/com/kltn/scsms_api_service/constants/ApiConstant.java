@@ -208,6 +208,12 @@ public class ApiConstant {
     public static final String UPDATE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/update";
     public static final String DELETE_SERVICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/delete";
     
+    // Service Pricing management endpoints
+    public static final String GET_SERVICE_PRICING_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/pricing";
+    public static final String GET_SERVICE_PRICING_INFO_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/pricing-info";
+    public static final String RECALCULATE_SERVICE_BASE_PRICE_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/recalculate-base-price";
+    public static final String UPDATE_SERVICE_LABOR_COST_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/update-labor-cost";
+    
     // Service Package management module endpoints
     public static final String SERVICE_PACKAGE_MANAGEMENT_PREFIX = "/service-packages";
     public static final String GET_ALL_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/get-all";

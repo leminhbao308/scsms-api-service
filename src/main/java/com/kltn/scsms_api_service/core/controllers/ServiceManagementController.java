@@ -3,12 +3,16 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.ServicePricingDto;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.ServicePricingInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.param.ServiceFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceRequest;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceRequest;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateLaborCostRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Service;
 import com.kltn.scsms_api_service.core.service.businessService.ServiceManagementService;
+import com.kltn.scsms_api_service.core.service.businessService.ServicePricingService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,6 +36,7 @@ import java.util.UUID;
 public class ServiceManagementController {
     
     private final ServiceManagementService serviceManagementService;
+    private final ServicePricingService servicePricingService;
     
     @GetMapping(ApiConstant.GET_ALL_SERVICES_API)
     @Operation(summary = "Get all services", description = "Retrieve all services with optional filtering and pagination")
@@ -229,5 +234,60 @@ public class ServiceManagementController {
         log.info("Getting service count by skill level: {}", skillLevel);
         long count = serviceManagementService.getServiceCountBySkillLevel(skillLevel);
         return ResponseBuilder.success(count);
+    }
+    
+    // ========== SERVICE PRICING MANAGEMENT ==========
+    
+    @GetMapping("/{serviceId}/pricing")
+    @Operation(summary = "Get service pricing details", description = "Get detailed pricing information for a service including product costs and labor costs")
+    @SwaggerOperation(summary = "Get service pricing details")
+    // @RequirePermission(permissions = {"SERVICE_READ"})
+    public ResponseEntity<ApiResponse<ServicePricingDto>> getServicePricing(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId,
+            @Parameter(description = "Price book ID (optional, uses active price book if not provided)") 
+            @RequestParam(required = false) UUID priceBookId) {
+        
+        log.info("Getting service pricing for service: {}, priceBook: {}", serviceId, priceBookId);
+        ServicePricingDto pricing = servicePricingService.getServicePricing(serviceId, priceBookId);
+        return ResponseBuilder.success(pricing);
+    }
+    
+    @GetMapping("/{serviceId}/pricing-info")
+    @Operation(summary = "Get service pricing info", description = "Get pricing summary information for a service")
+    @SwaggerOperation(summary = "Get service pricing info")
+    // @RequirePermission(permissions = {"SERVICE_READ"})
+    public ResponseEntity<ApiResponse<ServicePricingInfoDto>> getServicePricingInfo(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId) {
+        
+        log.info("Getting service pricing info for service: {}", serviceId);
+        ServicePricingInfoDto pricingInfo = servicePricingService.getServicePricingInfo(serviceId);
+        return ResponseBuilder.success(pricingInfo);
+    }
+    
+    @PostMapping("/{serviceId}/recalculate-base-price")
+    @Operation(summary = "Recalculate service base price", description = "Recalculate and update the base price for a service based on current product costs")
+    @SwaggerOperation(summary = "Recalculate service base price")
+    // @RequirePermission(permissions = {"SERVICE_UPDATE"})
+    public ResponseEntity<ApiResponse<ServicePricingDto>> recalculateBasePrice(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId,
+            @Parameter(description = "Price book ID (optional, uses active price book if not provided)") 
+            @RequestParam(required = false) UUID priceBookId) {
+        
+        log.info("Recalculating base price for service: {}, priceBook: {}", serviceId, priceBookId);
+        ServicePricingDto pricing = servicePricingService.recalculateBasePrice(serviceId, priceBookId);
+        return ResponseBuilder.success(pricing);
+    }
+    
+    @PostMapping("/{serviceId}/update-labor-cost")
+    @Operation(summary = "Update service labor cost", description = "Update the labor cost for a service")
+    @SwaggerOperation(summary = "Update service labor cost")
+    // @RequirePermission(permissions = {"SERVICE_UPDATE"})
+    public ResponseEntity<ApiResponse<ServicePricingInfoDto>> updateLaborCost(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId,
+            @Parameter(description = "Labor cost update request") @Valid @RequestBody UpdateLaborCostRequest request) {
+        
+        log.info("Updating labor cost for service: {}, new cost: {}", serviceId, request.getLaborCost());
+        ServicePricingInfoDto pricingInfo = servicePricingService.updateLaborCost(serviceId, request);
+        return ResponseBuilder.success(pricingInfo);
     }
 }
