@@ -2,7 +2,6 @@ package com.kltn.scsms_api_service.core.entity;
 
 import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
-import com.kltn.scsms_api_service.core.entity.enumAttribute.PurchaseStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -34,15 +33,6 @@ public class PurchaseOrder extends AuditEntity {
     @ManyToOne(optional = false)
     @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_po_wh"))
     private Warehouse warehouse;
-    
-    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 40, nullable = false)
-    private PurchaseStatus status;
-    
-    
-    @Column(name = "expected_at")
-    private LocalDateTime expectedAt;
     
     
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)

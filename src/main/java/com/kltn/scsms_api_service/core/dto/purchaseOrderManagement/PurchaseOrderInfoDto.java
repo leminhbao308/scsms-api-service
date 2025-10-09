@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.dto.warehouseManagement.response.WarehouseInfoDto;
-import com.kltn.scsms_api_service.core.entity.enumAttribute.PurchaseStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,12 +27,6 @@ public class PurchaseOrderInfoDto extends AuditDto {
     private BranchInfoDto branch;
     
     private WarehouseInfoDto warehouse;
-    
-    private PurchaseStatus status;
-    
-    @JsonProperty("expected_at")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime expectedAt;
     
     private List<PurchaseOrderLineInfoDto> lines;
 }

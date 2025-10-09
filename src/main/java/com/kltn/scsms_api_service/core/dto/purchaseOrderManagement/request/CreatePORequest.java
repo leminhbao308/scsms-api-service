@@ -21,9 +21,5 @@ public class CreatePORequest {
     @JsonProperty("warehouse_id")
     private UUID warehouseId;
     
-    @JsonProperty("expected_at")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime expectedAt;
-    
     private List<CreatePOLine> lines;
 }
