@@ -27,4 +27,8 @@ public class PurchaseOrderLineEntityService {
     public PurchaseOrderLine create(PurchaseOrderLine purchaseOrderLine) {
         return repo.save(purchaseOrderLine);
     }
+    
+    public List<PurchaseOrderLine> getByProductId(UUID productId) {
+        return repo.findByProductProductId(productId);
+    }
 }

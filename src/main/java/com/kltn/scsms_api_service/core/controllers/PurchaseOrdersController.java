@@ -2,13 +2,16 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.PurchaseOrderInfoDto;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.PurchaseOrderLineInfoDto;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePORequest;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.response.PurchaseHistoryResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.entity.ProductCostStats;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrder;
+import com.kltn.scsms_api_service.core.entity.PurchaseOrderLine;
 import com.kltn.scsms_api_service.core.service.businessService.PurchasingBusinessService;
-import com.kltn.scsms_api_service.core.service.entityService.BranchService;
+import com.kltn.scsms_api_service.core.service.entityService.ProductCostStatsService;
 import com.kltn.scsms_api_service.core.service.entityService.PurchaseOrderEntityService;
-import com.kltn.scsms_api_service.core.service.entityService.PurchaseOrderLineEntityService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.PurchaseOrderLineMapper;
 import com.kltn.scsms_api_service.mapper.PurchaseOrderMapper;
@@ -18,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -31,9 +35,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Tag(name = "Purchase Order Management", description = "Purchase order management endpoints")
 public class PurchaseOrdersController {
+    private final PurchaseOrderLineMapper purchaseOrderLineMapper;
     
     private final PurchasingBusinessService purchasingBS;
     private final PurchaseOrderEntityService poES;
+    private final ProductCostStatsService costStatsES;
     
     private final PurchaseOrderMapper poMapper;
     
@@ -74,4 +80,20 @@ public class PurchaseOrdersController {
         return ResponseBuilder.success("All purchase orders retrieved", posDto);
     }
     
+    @GetMapping("po/purchase-history/{productId}")
+    @SwaggerOperation(
+        summary = "Get purchase history by product ID",
+        description = "Retrieve purchase order lines associated with a specific product")
+    public ResponseEntity<ApiResponse<PurchaseHistoryResponse>> purchaseHistory(@PathVariable UUID productId) {
+        List<PurchaseOrderLine> pols = purchasingBS.getProductPOHistory(productId);
+        List<PurchaseOrderLineInfoDto> polsDto = pols.stream().map(purchaseOrderLineMapper::toPurchaseOrderLineInfoDto).collect(Collectors.toList());
+        
+        ProductCostStats stats = costStatsES.findByProduct(productId).orElse(null);
+        PurchaseHistoryResponse polsResponse = PurchaseHistoryResponse.builder()
+            .lines(polsDto)
+            .peakUnitCost(stats != null ? stats.getPeakPurchasePrice() : BigDecimal.ZERO)
+            .build();
+        
+        return ResponseBuilder.success("Purchase history retrieved", polsResponse);
+    }
 }

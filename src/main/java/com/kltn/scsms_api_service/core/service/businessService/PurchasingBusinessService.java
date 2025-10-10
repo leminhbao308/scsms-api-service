@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -77,5 +78,9 @@ public class PurchasingBusinessService {
             stats.setPeakPurchasePrice(unitCost);
             costStatsES.update(stats);
         }
+    }
+    
+    public List<PurchaseOrderLine> getProductPOHistory(UUID productId) {
+        return polES.getByProductId(productId);
     }
 }
