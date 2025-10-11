@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface PurchaseOrderLineRepository extends JpaRepository<PurchaseOrderLine, UUID> {
     List<PurchaseOrderLine> findByPurchaseOrderId(UUID poId);
+    
+    List<PurchaseOrderLine> findByProductProductId(UUID productProductId);
 }
