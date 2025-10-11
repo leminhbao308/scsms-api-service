@@ -17,6 +17,12 @@ public interface ServiceMapper {
     @Mapping(target = "serviceProcessName", source = "serviceProcess.name")
     @Mapping(target = "serviceProcessCode", source = "serviceProcess.code")
     @Mapping(target = "estimatedDuration", source = "estimatedDuration")
+    @Mapping(target = "audit.createdDate", source = "createdDate")
+    @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
+    @Mapping(target = "audit.createdBy", source = "createdBy")
+    @Mapping(target = "audit.modifiedBy", source = "modifiedBy")
+    @Mapping(target = "audit.isActive", source = "isActive")
+    @Mapping(target = "audit.isDeleted", source = "isDeleted")
     ServiceInfoDto toServiceInfoDto(Service service);
 
     @Mapping(target = "category", ignore = true) // Will be set in service

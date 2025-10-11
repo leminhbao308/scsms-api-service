@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Mapper cho ServiceBay entity và DTOs
  */
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})
 public interface ServiceBayMapper {
     
     /**

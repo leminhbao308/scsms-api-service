@@ -9,7 +9,7 @@ import org.mapstruct.*;
 /**
  * Mapper for ServiceType entity and DTOs
  */
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})
 public interface ServiceTypeMapper {
     
     /**

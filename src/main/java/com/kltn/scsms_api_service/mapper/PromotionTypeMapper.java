@@ -6,7 +6,7 @@ import com.kltn.scsms_api_service.core.dto.promotionTypeManagement.request.Updat
 import com.kltn.scsms_api_service.core.entity.PromotionType;
 import org.mapstruct.*;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})
 public interface PromotionTypeMapper {
     
     /**

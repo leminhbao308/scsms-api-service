@@ -12,6 +12,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class ServiceInfoDto {
     
     private UUID serviceId;
@@ -36,5 +37,6 @@ public class ServiceInfoDto {
     private Integer estimatedDuration;
     private UUID branchId;
     private String branchName;
-    private AuditDto audit;
+    @Builder.Default
+    private AuditDto audit = AuditDto.builder().build();
 }
