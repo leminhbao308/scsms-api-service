@@ -379,6 +379,10 @@ public class ServiceProcessManagementService {
         // Tạo bước mới
         ServiceProcessStep step = serviceProcessStepMapper.toEntity(request);
         step.setServiceProcess(serviceProcess);
+        
+        // Set đầy đủ audit fields
+        setAuditFieldsForServiceProcessStep(step);
+        
         step = serviceProcessStepService.save(step);
         
         // Xử lý sản phẩm nếu có
@@ -479,6 +483,10 @@ public class ServiceProcessManagementService {
         ServiceProcessStepProduct stepProduct = serviceProcessStepProductMapper.toEntity(request);
         stepProduct.setServiceProcessStep(step);
         stepProduct.setProduct(productService.getById(request.getProductId()));
+        
+        // Set đầy đủ audit fields
+        setAuditFieldsForServiceProcessStepProduct(stepProduct);
+        
         stepProduct = serviceProcessStepProductService.save(stepProduct);
         
         return serviceProcessStepProductMapper.toServiceProcessStepProductInfoDto(stepProduct);
@@ -536,6 +544,10 @@ public class ServiceProcessManagementService {
         for (CreateServiceProcessStepRequest stepRequest : stepRequests) {
             ServiceProcessStep step = serviceProcessStepMapper.toEntity(stepRequest);
             step.setServiceProcess(serviceProcess);
+            
+            // Set đầy đủ audit fields
+            setAuditFieldsForServiceProcessStep(step);
+            
             step = serviceProcessStepService.save(step);
             
             // Xử lý sản phẩm nếu có
@@ -564,6 +576,10 @@ public class ServiceProcessManagementService {
             step.setEstimatedTime(stepRequest.getEstimatedTime());
             step.setIsRequired(stepRequest.getIsRequired());
             step.setServiceProcess(serviceProcess);
+            
+            // Set đầy đủ audit fields
+            setAuditFieldsForServiceProcessStep(step);
+            
             step = serviceProcessStepService.save(step);
             
             // Xử lý sản phẩm nếu có
@@ -581,6 +597,10 @@ public class ServiceProcessManagementService {
             ServiceProcessStepProduct stepProduct = serviceProcessStepProductMapper.toEntity(productRequest);
             stepProduct.setServiceProcessStep(step);
             stepProduct.setProduct(productService.getById(productRequest.getProductId()));
+            
+            // Set đầy đủ audit fields
+            setAuditFieldsForServiceProcessStepProduct(stepProduct);
+            
             serviceProcessStepProductService.save(stepProduct);
         }
     }
@@ -602,7 +622,47 @@ public class ServiceProcessManagementService {
             stepProduct.setUnit(productRequest.getUnit());
             stepProduct.setServiceProcessStep(step);
             stepProduct.setProduct(productService.getById(productRequest.getProductId()));
+            
+            // Set đầy đủ audit fields
+            setAuditFieldsForServiceProcessStepProduct(stepProduct);
+            
             serviceProcessStepProductService.save(stepProduct);
+        }
+    }
+    
+    /**
+     * Helper method để set đầy đủ audit fields cho ServiceProcessStep
+     */
+    private void setAuditFieldsForServiceProcessStep(ServiceProcessStep step) {
+        if (step.getIsActive() == null) {
+            step.setIsActive(true);
+        }
+        if (step.getIsDeleted() == null) {
+            step.setIsDeleted(false);
+        }
+        if (step.getCreatedBy() == null) {
+            step.setCreatedBy("admin@scsms.com"); // TODO: Lấy từ SecurityContext
+        }
+        if (step.getModifiedBy() == null) {
+            step.setModifiedBy("admin@scsms.com"); // TODO: Lấy từ SecurityContext
+        }
+    }
+    
+    /**
+     * Helper method để set đầy đủ audit fields cho ServiceProcessStepProduct
+     */
+    private void setAuditFieldsForServiceProcessStepProduct(ServiceProcessStepProduct stepProduct) {
+        if (stepProduct.getIsActive() == null) {
+            stepProduct.setIsActive(true);
+        }
+        if (stepProduct.getIsDeleted() == null) {
+            stepProduct.setIsDeleted(false);
+        }
+        if (stepProduct.getCreatedBy() == null) {
+            stepProduct.setCreatedBy("admin@scsms.com"); // TODO: Lấy từ SecurityContext
+        }
+        if (stepProduct.getModifiedBy() == null) {
+            stepProduct.setModifiedBy("admin@scsms.com"); // TODO: Lấy từ SecurityContext
         }
     }
 }

@@ -55,6 +55,9 @@ public interface ServiceProcessStepMapper {
         if (updateRequest.getIsRequired() != null) {
             existingServiceProcessStep.setIsRequired(updateRequest.getIsRequired());
         }
+        if (updateRequest.getIsActive() != null) {
+            existingServiceProcessStep.setIsActive(updateRequest.getIsActive());
+        }
         
         return existingServiceProcessStep;
     }

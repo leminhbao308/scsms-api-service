@@ -36,6 +36,9 @@ public class CreateServiceProcessStepRequest {
     @JsonProperty("isRequired")
     private Boolean isRequired;
     
+    @JsonProperty("is_active")
+    private Boolean isActive;
+    
     @Valid
     @JsonProperty("stepProducts")
     private List<CreateServiceProcessStepProductRequest> stepProducts;
