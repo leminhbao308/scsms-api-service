@@ -21,6 +21,12 @@ public interface ServiceProcessStepMapper {
     @Mapping(target = "isLastStep", expression = "java(serviceProcessStep.isLastStep())")
     @Mapping(target = "totalProductCount", expression = "java(serviceProcessStep.getTotalProductCount())")
     @Mapping(target = "stepProducts", source = "stepProducts")
+    @Mapping(target = "audit.createdDate", source = "createdDate")
+    @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
+    @Mapping(target = "audit.createdBy", source = "createdBy")
+    @Mapping(target = "audit.modifiedBy", source = "modifiedBy")
+    @Mapping(target = "audit.isActive", source = "isActive")
+    @Mapping(target = "audit.isDeleted", source = "isDeleted")
     ServiceProcessStepInfoDto toServiceProcessStepInfoDto(ServiceProcessStep serviceProcessStep);
     
     @Mapping(target = "id", ignore = true)

@@ -151,4 +151,14 @@ public interface ServiceProcessStepProductRepository extends JpaRepository<Servi
            "spsp.serviceProcessStep.serviceProcess.id = :processId AND " +
            "spsp.isDeleted = false")
     Double sumQuantityByProcessId(@Param("processId") UUID processId);
+    
+    /**
+     * Tìm tất cả stepProducts với product được load cho một service process
+     */
+    @Query("SELECT spsp FROM ServiceProcessStepProduct spsp " +
+           "LEFT JOIN FETCH spsp.product p " +
+           "WHERE spsp.serviceProcessStep.serviceProcess.id = :processId AND " +
+           "spsp.isDeleted = false " +
+           "ORDER BY spsp.serviceProcessStep.stepOrder ASC, spsp.createdDate ASC")
+    List<ServiceProcessStepProduct> findByProcessIdWithProduct(@Param("processId") UUID processId);
 }

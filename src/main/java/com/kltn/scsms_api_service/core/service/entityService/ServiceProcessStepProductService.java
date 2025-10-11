@@ -62,6 +62,13 @@ public class ServiceProcessStepProductService {
     }
     
     /**
+     * Tìm tất cả stepProducts với product được load cho một service process
+     */
+    public List<ServiceProcessStepProduct> findByProcessIdWithProduct(UUID processId) {
+        return serviceProcessStepProductRepository.findByProcessIdWithProduct(processId);
+    }
+    
+    /**
      * Tìm sản phẩm theo tên sản phẩm trong một bước
      */
     public Page<ServiceProcessStepProduct> findByProductNameContainingAndStepId(UUID stepId, String productName, Pageable pageable) {

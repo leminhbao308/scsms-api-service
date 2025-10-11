@@ -75,6 +75,20 @@ public class ServiceProcessService {
     }
     
     /**
+     * Tìm tất cả service process với processSteps được load
+     */
+    public List<ServiceProcess> findAllWithProcessSteps() {
+        return serviceProcessRepository.findAllWithProcessSteps();
+    }
+    
+    /**
+     * Tìm tất cả service process với processSteps được load (có phân trang)
+     */
+    public Page<ServiceProcess> findAllWithProcessSteps(Pageable pageable) {
+        return serviceProcessRepository.findAllWithProcessSteps(pageable);
+    }
+    
+    /**
      * Tìm service process theo tên (tìm kiếm gần đúng)
      */
     public Page<ServiceProcess> findByNameContaining(String name, Pageable pageable) {

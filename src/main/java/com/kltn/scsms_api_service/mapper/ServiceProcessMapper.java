@@ -17,6 +17,12 @@ public interface ServiceProcessMapper {
     
     @Mapping(target = "stepCount", expression = "java(serviceProcess.getStepCount())")
     @Mapping(target = "processSteps", source = "processSteps")
+    @Mapping(target = "audit.createdDate", source = "createdDate")
+    @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
+    @Mapping(target = "audit.createdBy", source = "createdBy")
+    @Mapping(target = "audit.modifiedBy", source = "modifiedBy")
+    @Mapping(target = "audit.isActive", source = "isActive")
+    @Mapping(target = "audit.isDeleted", source = "isDeleted")
     ServiceProcessInfoDto toServiceProcessInfoDto(ServiceProcess serviceProcess);
     
     @Mapping(target = "id", ignore = true)

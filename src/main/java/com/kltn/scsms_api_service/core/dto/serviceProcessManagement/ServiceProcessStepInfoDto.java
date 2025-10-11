@@ -11,6 +11,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class ServiceProcessStepInfoDto {
     
     private UUID id;
@@ -25,5 +26,6 @@ public class ServiceProcessStepInfoDto {
     private Boolean isLastStep;
     private Integer totalProductCount;
     private List<ServiceProcessStepProductInfoDto> stepProducts;
-    private AuditDto audit;
+    @Builder.Default
+    private AuditDto audit = AuditDto.builder().build();
 }

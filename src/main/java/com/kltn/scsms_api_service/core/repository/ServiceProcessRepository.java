@@ -101,4 +101,25 @@ public interface ServiceProcessRepository extends JpaRepository<ServiceProcess, 
            "sp.isDeleted = false AND " +
            "EXISTS (SELECT 1 FROM ServicePackage spkg WHERE spkg.serviceProcess = sp AND spkg.isDeleted = false)")
     List<ServiceProcess> findProcessesUsedByServicePackages();
+    
+    /**
+     * Tìm tất cả service process với processSteps được load
+     */
+    @Query("SELECT DISTINCT sp FROM ServiceProcess sp " +
+           "LEFT JOIN FETCH sp.processSteps sps " +
+           "LEFT JOIN FETCH sps.serviceProcess " +
+           "WHERE sp.isDeleted = false " +
+           "ORDER BY sp.name ASC")
+    List<ServiceProcess> findAllWithProcessSteps();
+    
+    /**
+     * Tìm tất cả service process với processSteps được load (có phân trang)
+     */
+    @Query(value = "SELECT DISTINCT sp FROM ServiceProcess sp " +
+                   "LEFT JOIN FETCH sp.processSteps sps " +
+                   "LEFT JOIN FETCH sps.serviceProcess " +
+                   "WHERE sp.isDeleted = false " +
+                   "ORDER BY sp.name ASC",
+           countQuery = "SELECT COUNT(DISTINCT sp) FROM ServiceProcess sp WHERE sp.isDeleted = false")
+    Page<ServiceProcess> findAllWithProcessSteps(Pageable pageable);
 }

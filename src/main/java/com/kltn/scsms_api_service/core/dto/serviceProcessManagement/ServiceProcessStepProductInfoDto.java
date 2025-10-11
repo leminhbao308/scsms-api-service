@@ -11,6 +11,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class ServiceProcessStepProductInfoDto {
     
     private UUID id;
@@ -23,5 +24,6 @@ public class ServiceProcessStepProductInfoDto {
     private BigDecimal quantity;
     private String unit;
     private BigDecimal productCost;
-    private AuditDto audit;
+    @Builder.Default
+    private AuditDto audit = AuditDto.builder().build();
 }

@@ -97,11 +97,54 @@ public class ServiceProcessManagementService {
                     filterParam.getMaxEstimatedDuration(), 
                     pageable);
         } else {
-            // Lấy tất cả với phân trang
-            serviceProcesses = serviceProcessService.findAll(pageable);
+            // Lấy tất cả với phân trang và processSteps
+            serviceProcesses = serviceProcessService.findAllWithProcessSteps(pageable);
         }
         
-        return serviceProcesses.map(serviceProcessMapper::toServiceProcessInfoDto);
+        // Load stepProducts riêng biệt để tránh MultipleBagFetchException
+        Page<ServiceProcessInfoDto> result = serviceProcesses.map(serviceProcess -> {
+            ServiceProcessInfoDto dto = serviceProcessMapper.toServiceProcessInfoDto(serviceProcess);
+            
+            // Set processId và processName cho từng step
+            if (dto.getProcessSteps() != null) {
+                dto.getProcessSteps().forEach(step -> {
+                    // Set processId và processName từ serviceProcess
+                    step.setProcessId(serviceProcess.getId());
+                    step.setProcessName(serviceProcess.getName());
+                    
+                    // Set audit fields từ ServiceProcessStep entity
+                    ServiceProcessStep stepEntity = serviceProcess.getProcessSteps().stream()
+                            .filter(sps -> sps.getId().equals(step.getId()))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (stepEntity != null && step.getAudit() != null) {
+                        step.getAudit().setCreatedDate(stepEntity.getCreatedDate());
+                        step.getAudit().setModifiedDate(stepEntity.getModifiedDate());
+                        step.getAudit().setCreatedBy(stepEntity.getCreatedBy());
+                        step.getAudit().setModifiedBy(stepEntity.getModifiedBy());
+                        step.getAudit().setIsActive(stepEntity.getIsActive());
+                        step.getAudit().setIsDeleted(stepEntity.getIsDeleted());
+                    }
+                    
+                    // Load stepProducts cho từng step
+                    List<ServiceProcessStepProduct> stepProducts = serviceProcessStepProductService.findByProcessIdWithProduct(serviceProcess.getId())
+                            .stream()
+                            .filter(spp -> spp.getServiceProcessStep().getId().equals(step.getId()))
+                            .collect(Collectors.toList());
+                    
+                    List<ServiceProcessStepProductInfoDto> stepProductDtos = stepProducts.stream()
+                            .map(serviceProcessStepProductMapper::toServiceProcessStepProductInfoDto)
+                            .collect(Collectors.toList());
+                    
+                    step.setStepProducts(stepProductDtos);
+                });
+            }
+            
+            return dto;
+        });
+        
+        return result;
     }
     
     /**
@@ -151,9 +194,55 @@ public class ServiceProcessManagementService {
      */
     public List<ServiceProcessInfoDto> getAllActiveServiceProcesses() {
         log.info("Getting all active service processes");
-        List<ServiceProcess> serviceProcesses = serviceProcessService.findAllActive();
+        List<ServiceProcess> serviceProcesses = serviceProcessService.findAllWithProcessSteps();
+        // Filter only active processes
+        serviceProcesses = serviceProcesses.stream()
+                .filter(sp -> sp.getIsActive() != null && sp.getIsActive())
+                .collect(Collectors.toList());
+        
+        // Load stepProducts riêng biệt
         return serviceProcesses.stream()
-                .map(serviceProcessMapper::toServiceProcessInfoDto)
+                .map(serviceProcess -> {
+                    ServiceProcessInfoDto dto = serviceProcessMapper.toServiceProcessInfoDto(serviceProcess);
+                    
+                    // Set processId và processName cho từng step
+                    if (dto.getProcessSteps() != null) {
+                        dto.getProcessSteps().forEach(step -> {
+                            // Set processId và processName từ serviceProcess
+                            step.setProcessId(serviceProcess.getId());
+                            step.setProcessName(serviceProcess.getName());
+                            
+                            // Set audit fields từ ServiceProcessStep entity
+                            ServiceProcessStep stepEntity = serviceProcess.getProcessSteps().stream()
+                                    .filter(sps -> sps.getId().equals(step.getId()))
+                                    .findFirst()
+                                    .orElse(null);
+                            
+                            if (stepEntity != null && step.getAudit() != null) {
+                                step.getAudit().setCreatedDate(stepEntity.getCreatedDate());
+                                step.getAudit().setModifiedDate(stepEntity.getModifiedDate());
+                                step.getAudit().setCreatedBy(stepEntity.getCreatedBy());
+                                step.getAudit().setModifiedBy(stepEntity.getModifiedBy());
+                                step.getAudit().setIsActive(stepEntity.getIsActive());
+                                step.getAudit().setIsDeleted(stepEntity.getIsDeleted());
+                            }
+                            
+                            // Load stepProducts cho từng step
+                            List<ServiceProcessStepProduct> stepProducts = serviceProcessStepProductService.findByProcessIdWithProduct(serviceProcess.getId())
+                                    .stream()
+                                    .filter(spp -> spp.getServiceProcessStep().getId().equals(step.getId()))
+                                    .collect(Collectors.toList());
+                            
+                            List<ServiceProcessStepProductInfoDto> stepProductDtos = stepProducts.stream()
+                                    .map(serviceProcessStepProductMapper::toServiceProcessStepProductInfoDto)
+                                    .collect(Collectors.toList());
+                            
+                            step.setStepProducts(stepProductDtos);
+                        });
+                    }
+                    
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
     
