@@ -1,16 +1,18 @@
 package com.kltn.scsms_api_service.core.controllers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleOrderInfoDto;
+import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleReturnInfoDto;
 import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.SalesOrderLine;
-import com.kltn.scsms_api_service.core.entity.SalesReturn;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.service.businessService.SalesBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.SaleOrderMapper;
+import com.kltn.scsms_api_service.mapper.SalesReturnMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -42,6 +44,7 @@ public class SalesOrdersController {
     private final UserService userES;
     
     private final SaleOrderMapper soMapper;
+    private final SalesReturnMapper srMapper;
     
     @PostMapping("/so/create-draft")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> createDraft(@RequestBody CreateSORequest req) {
@@ -85,31 +88,47 @@ public class SalesOrdersController {
     
     
     @PostMapping("/so/fulfill/{soId}")
-    public ResponseEntity<ApiResponse<SalesOrder>> fulfill(@PathVariable UUID soId) {
-        return ResponseBuilder.success("Sales order fulfilled", salesBS.fulfill(soId));
+    public ResponseEntity<ApiResponse<SaleOrderInfoDto>> fulfill(@PathVariable UUID soId) {
+        SalesOrder so = salesBS.fulfill(soId);
+        
+        SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
+        
+        return ResponseBuilder.success("Sales order fulfilled", soDto);
     }
     
     
     @PostMapping("/so/return/{soId}")
-    public ResponseEntity<ApiResponse<SalesReturn>> createReturn(@PathVariable UUID soId, @RequestBody CreateReturnRequest req) {
+    public ResponseEntity<ApiResponse<SaleReturnInfoDto>> createReturn(@PathVariable UUID soId, @RequestBody CreateReturnRequest req) {
         Map<UUID, Long> items = new LinkedHashMap<>();
         Map<UUID, BigDecimal> unitCosts = new LinkedHashMap<>();
         for (ReturnItem i : req.getItems()) {
             items.put(i.getProductId(), i.getQty());
             if (i.getUnitCost() != null) unitCosts.put(i.getProductId(), i.getUnitCost());
         }
-        return ResponseBuilder.success("Sales return created", salesBS.createReturn(soId, items, unitCosts));
+        
+        SaleReturnInfoDto srDto = srMapper.toSaleReturnInfoDto(salesBS.createReturn(soId, items, unitCosts));
+        
+        return ResponseBuilder.success("Sales return created", srDto);
     }
     
     
     @GetMapping("/so/{soId}")
-    public ResponseEntity<ApiResponse<SalesOrder>> get(@PathVariable UUID soId) {
-        return ResponseBuilder.success(soES.require(soId));
+    public ResponseEntity<ApiResponse<SaleOrderInfoDto>> get(@PathVariable UUID soId) {
+        SalesOrder so = soES.require(soId);
+        
+        SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
+        
+        return ResponseBuilder.success("Sales order retrieved", soDto);
     }
     
     @GetMapping("/so/get-all")
-    public ResponseEntity<ApiResponse<List<SalesOrder>>> getAll() {
-        return ResponseBuilder.success(soES.getAll());
+    public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAll() {
+        List<SalesOrder> sos = soES.getAll();
+        
+        List<SaleOrderInfoDto> sosDto = sos.stream()
+            .map(soMapper::toSaleOrderInfoDto).toList();
+        
+        return ResponseBuilder.success("All sales orders retrieved", sosDto);
     }
     
     // ===== DTOs =====
@@ -117,9 +136,16 @@ public class SalesOrdersController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateSORequest {
+        
+        @JsonProperty("branch_id")
         private UUID branchId;
+        
+        @JsonProperty("warehouse_id")
         private UUID warehouseId;
+        
+        @JsonProperty("customer_id")
         private UUID customerId; // optional
+        
         private List<CreateSOLine> lines;
     }
     
@@ -127,8 +153,13 @@ public class SalesOrdersController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateSOLine {
+        
+        @JsonProperty("product_id")
         private UUID productId;
+        
         private Long qty;
+        
+        @JsonProperty("unit_price")
         private BigDecimal unitPrice; // optional, auto-resolve if null
     }
     
@@ -144,8 +175,13 @@ public class SalesOrdersController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReturnItem {
+        
+        @JsonProperty("product_id")
         private UUID productId;
+        
         private Long qty;
+        
+        @JsonProperty("unit_cost")
         private BigDecimal unitCost;
     }
 }
