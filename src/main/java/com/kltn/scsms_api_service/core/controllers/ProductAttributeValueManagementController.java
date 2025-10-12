@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.productManagement.ProductAttributeValueDto;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.AddProductAttributeValueRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValueRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductAttributeValueRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.service.businessService.ProductAttributeValueManagementService;
@@ -115,6 +116,19 @@ public class ProductAttributeValueManagementController {
         log.info("Bulk updating attribute values for {} products and attribute: {}", request.getProductIds().size(), request.getAttributeId());
         
         List<ProductAttributeValueDto> updatedValues = productAttributeValueManagementService.bulkUpdateProductAttributeValues(request);
+        return ResponseBuilder.success("Product attribute values bulk updated successfully", updatedValues);
+    }
+
+    @PostMapping(ApiConstant.BULK_UPDATE_PRODUCT_ATTRIBUTE_VALUES_BY_PRODUCT_API)
+    @Operation(summary = "Bulk update product attribute values by product", description = "Update multiple attribute values for a single product")
+    @SwaggerOperation(summary = "Bulk update product attribute values by product")
+//    @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
+    public ResponseEntity<ApiResponse<List<ProductAttributeValueDto>>> bulkUpdateProductAttributeValuesByProduct(
+            @Parameter(description = "Product ID") @PathVariable UUID productId,
+            @Valid @RequestBody BulkUpdateProductAttributeValuesRequest request) {
+        log.info("Bulk updating {} attribute values for product: {}", request.getAttributeValues().size(), productId);
+        
+        List<ProductAttributeValueDto> updatedValues = productAttributeValueManagementService.bulkUpdateProductAttributeValuesByProduct(productId, request);
         return ResponseBuilder.success("Product attribute values bulk updated successfully", updatedValues);
     }
 

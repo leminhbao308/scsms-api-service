@@ -177,6 +177,7 @@ public class ApiConstant {
     public static final String UPDATE_PRODUCT_ATTRIBUTE_VALUE_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/products/{productId}/attributes/{attributeId}/update";
     public static final String DELETE_PRODUCT_ATTRIBUTE_VALUE_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/products/{productId}/attributes/{attributeId}/delete";
     public static final String BULK_UPDATE_PRODUCT_ATTRIBUTE_VALUES_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/bulk-update";
+    public static final String BULK_UPDATE_PRODUCT_ATTRIBUTE_VALUES_BY_PRODUCT_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/products/{productId}/bulk-update";
     public static final String SEARCH_PRODUCTS_BY_ATTRIBUTE_VALUE_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/attributes/{attributeId}/search";
     public static final String SEARCH_PRODUCTS_BY_ATTRIBUTE_VALUE_RANGE_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/attributes/{attributeId}/search-range";
     public static final String GET_PRODUCT_ATTRIBUTE_VALUE_COUNT_API = PRODUCT_ATTRIBUTE_VALUE_MANAGEMENT_PREFIX + "/products/{productId}/attributes/count";

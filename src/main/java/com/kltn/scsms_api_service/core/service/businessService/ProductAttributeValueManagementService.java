@@ -3,6 +3,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 import com.kltn.scsms_api_service.core.dto.productManagement.ProductAttributeValueDto;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.AddProductAttributeValueRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValueRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductAttributeValueRequest;
 import com.kltn.scsms_api_service.core.entity.ProductAttributeValue;
 import com.kltn.scsms_api_service.core.service.entityService.ProductAttributeValueService;
@@ -95,6 +96,18 @@ public class ProductAttributeValueManagementService {
                 request.getAttributeId(), 
                 request.getValueText(), 
                 request.getValueNumber()
+        );
+        
+        return productAttributeValueMapper.toDtoList(updatedValues);
+    }
+
+    @Transactional
+    public List<ProductAttributeValueDto> bulkUpdateProductAttributeValuesByProduct(UUID productId, BulkUpdateProductAttributeValuesRequest request) {
+        log.info("Bulk updating {} attribute values for product: {}", request.getAttributeValues().size(), productId);
+        
+        List<ProductAttributeValue> updatedValues = productAttributeValueService.bulkUpdateProductAttributeValuesByProduct(
+                productId, 
+                request.getAttributeValues()
         );
         
         return productAttributeValueMapper.toDtoList(updatedValues);

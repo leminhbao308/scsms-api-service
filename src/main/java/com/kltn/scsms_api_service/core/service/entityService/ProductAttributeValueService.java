@@ -47,6 +47,8 @@ public class ProductAttributeValueService {
         
         // Create new attribute value
         ProductAttributeValue attributeValue = ProductAttributeValue.builder()
+                .productId(productId)
+                .attributeId(attributeId)
                 .product(product)
                 .productAttribute(attribute)
                 .valueText(valueText)
@@ -166,5 +168,78 @@ public class ProductAttributeValueService {
     @Transactional(readOnly = true)
     public long countProductsByAttribute(UUID attributeId) {
         return productAttributeValueRepository.countByAttributeIdAndIsDeletedFalse(attributeId);
+    }
+
+    @Transactional
+    public List<ProductAttributeValue> bulkUpdateProductAttributeValuesByProduct(UUID productId, List<com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest.ProductAttributeValueUpdateRequest> attributeValueRequests) {
+        log.info("Bulk updating {} attribute values for product: {}", attributeValueRequests.size(), productId);
+        
+        // Validate product exists
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product not found with ID: " + productId));
+        
+        List<ProductAttributeValue> updatedValues = new java.util.ArrayList<>();
+        
+        for (com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest.ProductAttributeValueUpdateRequest request : attributeValueRequests) {
+            try {
+                UUID attributeId = request.getAttributeId();
+                String operation = request.getOperation();
+                
+                // Validate attribute exists
+                ProductAttribute attribute = productAttributeRepository.findById(attributeId)
+                        .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product attribute not found with ID: " + attributeId));
+                
+                ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
+                Optional<ProductAttributeValue> existingValue = productAttributeValueRepository.findById(id);
+                
+                if ("CREATE".equalsIgnoreCase(operation)) {
+                    if (existingValue.isPresent()) {
+                        log.warn("Attribute value already exists for product: {} and attribute: {}, skipping CREATE operation", productId, attributeId);
+                        continue;
+                    }
+                    // Create new value
+                    ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, request.getValueText(), request.getValueNumber());
+                    updatedValues.add(newValue);
+                } else if ("UPDATE".equalsIgnoreCase(operation)) {
+                    if (existingValue.isPresent()) {
+                        // Update existing value
+                        ProductAttributeValue attributeValue = existingValue.get();
+                        attributeValue.setValueText(request.getValueText());
+                        attributeValue.setValueNumber(request.getValueNumber());
+                        updatedValues.add(productAttributeValueRepository.save(attributeValue));
+                    } else {
+                        log.warn("Attribute value not found for product: {} and attribute: {}, skipping UPDATE operation", productId, attributeId);
+                    }
+                } else if ("DELETE".equalsIgnoreCase(operation)) {
+                    if (existingValue.isPresent()) {
+                        // Soft delete existing value
+                        ProductAttributeValue attributeValue = existingValue.get();
+                        attributeValue.setIsActive(false);
+                        attributeValue.setIsDeleted(true);
+                        productAttributeValueRepository.save(attributeValue);
+                        log.info("Deleted attribute value for product: {} and attribute: {}", productId, attributeId);
+                    } else {
+                        log.warn("Attribute value not found for product: {} and attribute: {}, skipping DELETE operation", productId, attributeId);
+                    }
+                } else {
+                    // Default behavior: UPDATE if exists, CREATE if not
+                    if (existingValue.isPresent()) {
+                        // Update existing value
+                        ProductAttributeValue attributeValue = existingValue.get();
+                        attributeValue.setValueText(request.getValueText());
+                        attributeValue.setValueNumber(request.getValueNumber());
+                        updatedValues.add(productAttributeValueRepository.save(attributeValue));
+                    } else {
+                        // Create new value
+                        ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, request.getValueText(), request.getValueNumber());
+                        updatedValues.add(newValue);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to update attribute value for product: {} and attribute: {}", productId, request.getAttributeId(), e);
+            }
+        }
+        
+        return updatedValues;
     }
 }
