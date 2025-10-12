@@ -16,7 +16,7 @@ import java.util.UUID;
 public class CreateServiceProcessStepProductRequest {
     
     @NotNull(message = "Product ID is required")
-    @JsonProperty("productId")
+    @JsonProperty("product_id")
     private UUID productId;
     
     @NotNull(message = "Quantity is required")

@@ -260,4 +260,12 @@ public class ServiceProcessStepService {
             serviceProcessStepRepository.save(step);
         }
     }
+    
+    /**
+     * Flush pending changes to database
+     */
+    @Transactional
+    public void flush() {
+        serviceProcessStepRepository.flush();
+    }
 }

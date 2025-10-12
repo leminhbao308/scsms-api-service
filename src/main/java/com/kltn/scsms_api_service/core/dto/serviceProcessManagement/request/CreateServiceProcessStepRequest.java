@@ -17,7 +17,7 @@ public class CreateServiceProcessStepRequest {
     
     @NotNull(message = "Step order is required")
     @Min(value = 1, message = "Step order must be at least 1")
-    @JsonProperty("stepOrder")
+    @JsonProperty("step_order")
     private Integer stepOrder;
     
     @NotBlank(message = "Step name is required")
@@ -30,16 +30,16 @@ public class CreateServiceProcessStepRequest {
     private String description;
     
     @Min(value = 1, message = "Estimated time must be at least 1 minute")
-    @JsonProperty("estimatedTime")
+    @JsonProperty("estimated_time")
     private Integer estimatedTime;
     
-    @JsonProperty("isRequired")
+    @JsonProperty("is_required")
     private Boolean isRequired;
     
     @JsonProperty("is_active")
     private Boolean isActive;
     
     @Valid
-    @JsonProperty("stepProducts")
+    @JsonProperty("step_products")
     private List<CreateServiceProcessStepProductRequest> stepProducts;
 }

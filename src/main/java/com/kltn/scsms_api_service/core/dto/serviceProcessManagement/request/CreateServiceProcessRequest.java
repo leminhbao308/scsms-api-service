@@ -29,17 +29,17 @@ public class CreateServiceProcessRequest {
     @JsonProperty("description")
     private String description;
     
-    @Min(value = 1, message = "Estimated duration must be at least 1 minute")
-    @JsonProperty("estimatedDuration")
+    @Min(value = 0, message = "Estimated duration must be at least 0 minutes")
+    @JsonProperty("estimated_duration")
     private Integer estimatedDuration;
     
-    @JsonProperty("isDefault")
+    @JsonProperty("is_default")
     private Boolean isDefault;
     
-    @JsonProperty("isActive")
+    @JsonProperty("is_active")
     private Boolean isActive;
     
     @Valid
-    @JsonProperty("processSteps")
+    @JsonProperty("process_steps")
     private List<CreateServiceProcessStepRequest> processSteps;
 }

@@ -27,7 +27,7 @@ public class UpdateServiceProcessRequest {
     @JsonProperty("description")
     private String description;
     
-    @Min(value = 1, message = "Estimated duration must be at least 1 minute")
+    @Min(value = 0, message = "Estimated duration must be at least 0 minutes")
     @JsonProperty("estimated_duration")
     private Integer estimatedDuration;
     

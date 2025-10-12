@@ -290,13 +290,13 @@ public class ServiceProcessManagementService {
             }
         }
         
-        // Cập nhật thông tin cơ bản
-        serviceProcessMapper.updateEntity(existingServiceProcess, request);
-        
-        // Xử lý các bước nếu có
-        if (request.getProcessSteps() != null && !request.getProcessSteps().isEmpty()) {
+        // Xử lý các bước trước (bao gồm cả trường hợp xóa tất cả steps)
+        if (request.getProcessSteps() != null) {
             processUpdateServiceProcessSteps(existingServiceProcess, request.getProcessSteps());
         }
+        
+        // Cập nhật thông tin cơ bản sau khi đã xử lý steps
+        serviceProcessMapper.updateEntity(existingServiceProcess, request);
         
         // Cập nhật thời gian dự kiến
         existingServiceProcess.updateEstimatedDuration();
@@ -561,11 +561,17 @@ public class ServiceProcessManagementService {
      * Xử lý cập nhật các bước
      */
     private void processUpdateServiceProcessSteps(ServiceProcess serviceProcess, List<UpdateServiceProcessStepRequest> stepRequests) {
-        // Xóa tất cả bước cũ
+        // Xóa tất cả bước cũ trước
         List<ServiceProcessStep> existingSteps = serviceProcessStepService.findByProcessId(serviceProcess.getId());
         for (ServiceProcessStep step : existingSteps) {
             serviceProcessStepService.delete(step);
         }
+        
+        // Clear collection để tránh Hibernate cascade issues
+        serviceProcess.getProcessSteps().clear();
+        
+        // Flush để đảm bảo delete operations được thực hiện
+        serviceProcessStepService.flush();
         
         // Tạo lại các bước mới
         for (UpdateServiceProcessStepRequest stepRequest : stepRequests) {

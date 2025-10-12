@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.serviceProcessManagement.param;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.abstracts.BaseFilterParam;
 import lombok.*;
 
@@ -12,9 +13,19 @@ public class ServiceProcessFilterParam extends BaseFilterParam<ServiceProcessFil
     
     private String code;
     private String name;
+    
+    @JsonProperty("is_default")
     private Boolean isDefault;
+    
+    @JsonProperty("is_active")
     private Boolean isActive;
+    
+    @JsonProperty("has_steps")
     private Boolean hasSteps;
+    
+    @JsonProperty("min_estimated_duration")
     private Integer minEstimatedDuration;
+    
+    @JsonProperty("max_estimated_duration")
     private Integer maxEstimatedDuration;
 }
