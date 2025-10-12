@@ -156,7 +156,7 @@ public class InventoryController {
     @AllArgsConstructor
     public static class InventoryLevelsBatchResponse {
         
-        private Map<UUID, InventoryView> items;
+        private Map<UUID, InventoryView> items = new LinkedHashMap<>();
     }
     
     @Data
