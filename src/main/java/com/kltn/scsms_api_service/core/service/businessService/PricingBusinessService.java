@@ -14,10 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +30,7 @@ public class PricingBusinessService {
             date, null);
         // Lấy PriceBook mới nhất (validFrom gần nhất)
         return books.stream()
-            .max((b1, b2) -> b1.getValidFrom().compareTo(b2.getValidFrom()));
+            .max(Comparator.comparing(PriceBook::getValidFrom));
     }
     
     
@@ -43,7 +40,8 @@ public class PricingBusinessService {
     
     /**
      * Resolve unit price for a product with optional price book
-     * @param productId Product ID
+     *
+     * @param productId   Product ID
      * @param priceBookId Optional price book ID (if null, uses active price book)
      * @return Unit price
      */
@@ -59,8 +57,10 @@ public class PricingBusinessService {
         }
         
         PriceBookItem item = priceBookItemES.findByPriceBookIdAndProductId(book.getId(), productId)
-            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for product=" + productId + " in book=" + book.getCode()));
-        
+            .orElse(null);
+//            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for product=" + productId + " in book=" + book.getCode()));
+        if (item == null)
+            return BigDecimal.ZERO;
         
         return switch (item.getPolicyType()) {
             case FIXED -> require(item.getFixedPrice());
@@ -74,7 +74,8 @@ public class PricingBusinessService {
     
     /**
      * Resolve unit price for a service
-     * @param serviceId Service ID
+     *
+     * @param serviceId   Service ID
      * @param priceBookId Optional price book ID (if null, uses active price book)
      * @return Unit price
      */
@@ -104,7 +105,8 @@ public class PricingBusinessService {
     
     /**
      * Resolve unit price for a service package
-     * @param packageId Service Package ID
+     *
+     * @param packageId   Service Package ID
      * @param priceBookId Optional price book ID (if null, uses active price book)
      * @return Unit price
      */
@@ -137,7 +139,7 @@ public class PricingBusinessService {
     }
     
     private BigDecimal require(BigDecimal fixedPrice) {
-                if (fixedPrice == null) throw new IllegalStateException("Missing field: fixedPrice");
+        if (fixedPrice == null) throw new IllegalStateException("Missing field: fixedPrice");
         return fixedPrice;
     }
     
