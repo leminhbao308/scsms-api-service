@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.servicePackageTypeManagement.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -28,14 +29,18 @@ public class CreateServicePackageTypeRequest {
     private String description;
     
     @Size(max = 255, message = "Price policy must not exceed 255 characters")
+    @JsonProperty("price_policy")
     private String pricePolicy;
     
     @Size(max = 100, message = "Applicable customer type must not exceed 100 characters")
+    @JsonProperty("applicable_customer_type")
     private String applicableCustomerType;
     
+    @JsonProperty("is_default")
     @Builder.Default
     private Boolean isDefault = false;
     
+    @JsonProperty("is_active")
     @Builder.Default
     private Boolean isActive = true;
 }

@@ -26,10 +26,12 @@ public class CreateServicePackageServiceRequest {
     @JsonProperty("quantity")
     private Integer quantity;
     
+    @JsonProperty("unit_price")
     private BigDecimal unitPrice;
     
     private String notes;
     
+    @JsonProperty("is_required")
     @Builder.Default
     private Boolean isRequired = true;
 }

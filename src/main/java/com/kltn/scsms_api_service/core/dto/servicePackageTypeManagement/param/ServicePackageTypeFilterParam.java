@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.servicePackageTypeManagement.param;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.abstracts.BaseFilterParam;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -11,9 +12,15 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class ServicePackageTypeFilterParam extends BaseFilterParam {
     
+    @JsonProperty("is_active")
     private Boolean isActive;
+    
+    @JsonProperty("is_default")
     private Boolean isDefault;
+    
+    @JsonProperty("customer_type")
     private String customerType;
+    
     private String keyword;
     
     /**
