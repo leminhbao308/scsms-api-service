@@ -153,4 +153,8 @@ public class ServicePackageService {
         servicePackage.setIsActive(false);
         servicePackageRepository.save(servicePackage);
     }
+    
+    public ServicePackage getRefById(UUID servicePackageId) {
+        return servicePackageRepository.getReferenceById(servicePackageId);
+    }
 }

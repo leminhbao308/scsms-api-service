@@ -24,10 +24,7 @@ import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.PriceBookItemMapper;
 import com.kltn.scsms_api_service.mapper.PriceBookMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -94,6 +91,35 @@ public class PricingController {
             createdItem);
     }
     
+    @PostMapping("/pricing/books/update/{bookId}")
+    public ResponseEntity<ApiResponse<PriceBookInfoDto>> updateBook(@PathVariable UUID bookId, @RequestBody CreatePriceBookRequest priceBookRequest) {
+        PriceBook book = priceBookES.require(bookId);
+        
+        PriceBookInfoDto updatedBook = priceBookMapper.toPriceBookInfoDto(
+            priceBookES.update(book, priceBookMapper.toEntityWithItems(priceBookRequest)));
+        
+        return ResponseBuilder.success("Updated price book successfully",
+            updatedBook);
+    }
+    
+    
+    @PostMapping("/pricing/books/{bookId}/update-item/{itemId}")
+    public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> updateItem(
+        @PathVariable UUID bookId,
+        @PathVariable UUID itemId,
+        @RequestBody CreatePriceBookItemRequest priceBookItemRequest) {
+        PriceBook book = priceBookES.getRefById(bookId);
+        
+        PriceBookItem item = priceBookItemES.require(itemId);
+        item.setPriceBook(book);
+        
+        PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
+            priceBookItemES.update(item, priceBookItemMapper.toEntity(priceBookItemRequest)));
+        
+        return ResponseBuilder.created("Create price book item successfully",
+            createdItem);
+    }
+    
     @PostMapping("/pricing/preview-batch")
     public ResponseEntity<ApiResponse<PricingPreviewBatchResponse>> previewBatch(@RequestBody PricingPreviewBatchRequest req) {
         PricingPreviewBatchResponse result = new PricingPreviewBatchResponse();
@@ -136,7 +162,7 @@ public class PricingController {
     
     @GetMapping("/pricing/books/get-all")
     public ResponseEntity<ApiResponse<List<PriceBookInfoDto>>> getAllBooks() {
-        List<PriceBook> books = priceBookES.getActivePriceBooksInRange(
+        List<PriceBook> books = priceBookES.getPriceBooksInRange(
             null,
             null);
         
@@ -213,7 +239,7 @@ public class PricingController {
     
     @PostMapping("/pricing/books/{bookId}/create-service-item")
     public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createServiceItem(
-            @PathVariable UUID bookId, 
+            @PathVariable UUID bookId,
             @RequestBody CreateServicePriceBookItemRequest request) {
         log.info("Creating service price book item for book: {}, service: {}", bookId, request.getServiceId());
         
@@ -238,7 +264,7 @@ public class PricingController {
     
     @PostMapping("/pricing/books/{bookId}/create-service-package-item")
     public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createServicePackageItem(
-            @PathVariable UUID bookId, 
+            @PathVariable UUID bookId,
             @RequestBody CreateServicePackagePriceBookItemRequest request) {
         log.info("Creating service package price book item for book: {}, package: {}", bookId, request.getServicePackageId());
         

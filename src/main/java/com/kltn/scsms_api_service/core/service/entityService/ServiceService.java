@@ -180,4 +180,8 @@ public class ServiceService {
         service.setIsActive(false);
         serviceRepository.save(service);
     }
+    
+    public Service getRefById(UUID serviceId) {
+        return serviceRepository.getReferenceById(serviceId);
+    }
 }
