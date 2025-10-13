@@ -255,4 +255,24 @@ public class BookingManagementController {
         bookingManagementService.completeService(bookingId);
         return ResponseBuilder.success("Service completed successfully");
     }
+    
+    @GetMapping("/bookings/pending-payment")
+    @Operation(summary = "Get bookings with pending payment", description = "Retrieve all bookings with pending payment status and not cancelled")
+    @SwaggerOperation(summary = "Get bookings with pending payment")
+    public ResponseEntity<ApiResponse<List<BookingInfoDto>>> getBookingsWithPendingPayment() {
+        log.info("Getting bookings with pending payment status");
+        List<BookingInfoDto> bookings = bookingManagementService.getBookingsWithPendingPayment();
+        return ResponseBuilder.success(bookings);
+    }
+    
+    @PostMapping("/bookings/{bookingId}/mark-paid")
+    @Operation(summary = "Mark booking as paid", description = "Update booking payment status to PAID")
+    @SwaggerOperation(summary = "Mark booking as paid")
+    public ResponseEntity<ApiResponse<BookingInfoDto>> markBookingAsPaid(
+            @Parameter(description = "Booking ID") @PathVariable UUID bookingId,
+            @Parameter(description = "Payment details") @RequestBody(required = false) Map<String, String> paymentDetails) {
+        log.info("Marking booking as paid: {}", bookingId);
+        BookingInfoDto booking = bookingManagementService.markBookingAsPaid(bookingId, paymentDetails);
+        return ResponseBuilder.success("Booking marked as paid successfully", booking);
+    }
 }

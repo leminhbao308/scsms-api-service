@@ -29,11 +29,9 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("service_step_id")
     private UUID serviceStepId;
     
-    @NotNull(message = "Technician ID không được để trống")
     @JsonProperty("technician_id")
     private UUID technicianId;
     
-    @NotNull(message = "Bay ID không được để trống")
     @JsonProperty("bay_id")
     private UUID bayId;
     

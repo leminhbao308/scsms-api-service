@@ -18,7 +18,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class StartStepRequest {
     
-    @NotNull(message = "Technician ID không được để trống")
     @JsonProperty("technician_id")
     private UUID technicianId;
     
