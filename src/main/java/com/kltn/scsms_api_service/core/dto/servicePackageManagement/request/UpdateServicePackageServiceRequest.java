@@ -32,4 +32,7 @@ public class UpdateServicePackageServiceRequest {
     
     @JsonProperty("is_required")
     private Boolean isRequired;
+    
+    @JsonProperty("operation")
+    private String operation; // CREATE, UPDATE, DELETE
 }
