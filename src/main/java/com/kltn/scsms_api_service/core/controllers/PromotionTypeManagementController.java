@@ -10,6 +10,7 @@ import com.kltn.scsms_api_service.core.dto.promotionTypeManagement.request.Creat
 import com.kltn.scsms_api_service.core.dto.promotionTypeManagement.request.UpdatePromotionTypeRequest;
 import com.kltn.scsms_api_service.core.dto.promotionTypeManagement.request.PromotionTypeStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.dto.response.PaginatedResponse;
 import com.kltn.scsms_api_service.core.service.businessService.PromotionTypeManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,11 +39,11 @@ public class PromotionTypeManagementController {
     @Operation(summary = "Get all promotion types", description = "Retrieve all promotion types with optional filtering and pagination")
     @SwaggerOperation(summary = "Get all promotion types")
 //    @RequirePermission(permissions = {PermissionConstant.PROMOTION_READ})
-    public ResponseEntity<ApiResponse<Page<PromotionTypeInfoDto>>> getAllPromotionTypes(
+    public ResponseEntity<ApiResponse<PaginatedResponse<PromotionTypeInfoDto>>> getAllPromotionTypes(
             @Parameter(description = "Filter parameters") @ModelAttribute PromotionTypeFilterParam filterParam) {
         log.info("Getting all promotion types with filter: {}", filterParam);
         Page<PromotionTypeInfoDto> promotionTypes = promotionTypeManagementService.getAllPromotionTypes(filterParam);
-        return ResponseBuilder.success("Promotion types fetched successfully", promotionTypes);
+        return ResponseBuilder.paginated("Promotion types fetched successfully", promotionTypes);
     }
 
     @GetMapping(ApiConstant.GET_PROMOTION_TYPE_BY_ID_API)

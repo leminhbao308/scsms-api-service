@@ -212,7 +212,7 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
     
     @Override
     protected String getDefaultSortField() {
-        return "createdAt"; // Promotion specific default sort field
+        return "createdDate"; // Promotion specific default sort field
     }
     
     @Override
@@ -246,7 +246,7 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
      * Check if filter has any date range filters
      */
     public boolean hasDateRangeFilters() {
-        return startAtFrom != null || startAtTo != null || 
+        return startAtFrom != null || startAtTo != null ||
                endAtFrom != null || endAtTo != null;
     }
     
