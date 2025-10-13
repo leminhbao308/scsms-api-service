@@ -1,18 +1,23 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.request.InitiatePaymentRequest;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.response.PaymentResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleOrderInfoDto;
 import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleReturnInfoDto;
 import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.SalesOrderLine;
 import com.kltn.scsms_api_service.core.entity.User;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentMethod;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
+import com.kltn.scsms_api_service.core.service.businessService.PaymentBusinessService;
 import com.kltn.scsms_api_service.core.service.businessService.SalesBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.SaleOrderMapper;
 import com.kltn.scsms_api_service.mapper.SalesReturnMapper;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -35,6 +40,7 @@ import java.util.*;
 @Tag(name = "Sales Order Management", description = "Sale order management endpoints")
 public class SalesOrdersController {
     private final SalesBusinessService salesBS;
+    private final PaymentBusinessService paymentBS;
     private final SalesOrderEntityService soES;
     private final SalesOrderLineEntityService solES;
     
@@ -47,6 +53,7 @@ public class SalesOrdersController {
     private final SalesReturnMapper srMapper;
     
     @PostMapping("/so/create-draft")
+    @Operation(summary = "Create draft order", description = "Create a new draft sales order")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> createDraft(@RequestBody CreateSORequest req) {
         User customer = null;
         if (req.getCustomerId() != null)
@@ -76,8 +83,94 @@ public class SalesOrdersController {
         return ResponseBuilder.success("Sales order draft created", soDto);
     }
     
+    /**
+     * Create draft order and initiate payment (Combined endpoint for POS)
+     */
+    @PostMapping("/so/create-and-pay")
+    @Operation(summary = "Create order and initiate payment",
+        description = "Create sales order, confirm, fulfill, and initiate payment in one call")
+    public ResponseEntity<ApiResponse<CreateAndPayResponse>> createAndPay(@RequestBody CreateAndPayRequest req) {
+        try {
+            // 1. Create draft order
+            User customer = null;
+            if (req.getCustomerId() != null) {
+                customer = userES.getUserRefById(req.getCustomerId());
+            }
+            
+            SalesOrder so = SalesOrder.builder()
+                .branch(branchES.getRefById(req.getBranchId()))
+                .warehouse(warehouseES.getRefByWarehouseId(req.getWarehouseId()))
+                .customer(customer)
+                .status(SalesStatus.DRAFT)
+                .build();
+            so = salesBS.createDraft(so);
+            
+            // 2. Add order lines
+            List<SalesOrderLine> createdLines = new ArrayList<>();
+            for (CreateSOLine l : req.getLines()) {
+                createdLines.add(solES.create(SalesOrderLine.builder()
+                    .salesOrder(so)
+                    .product(productES.getRefByProductId(l.productId))
+                    .quantity(l.getQty())
+                    .unitPrice(l.getUnitPrice())
+                    .build()));
+            }
+            so.getLines().clear();
+            so.getLines().addAll(createdLines);
+            
+            // 3. Confirm order
+            so = salesBS.confirm(so.getId());
+            
+            // 4. Fulfill order
+            so = salesBS.fulfill(so.getId());
+            
+            // 5. Initiate payment
+            PaymentResponse paymentResponse = null;
+            if (req.getPaymentMethod() != null && !req.getPaymentMethod().equals(PaymentMethod.CASH)) {
+                InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
+                    .salesOrderId(so.getId())
+                    .paymentMethod(req.getPaymentMethod())
+                    .returnUrl(req.getReturnUrl())
+                    .cancelUrl(req.getCancelUrl())
+                    .build();
+                
+                paymentResponse = paymentBS.initiatePayment(paymentRequest);
+            } else {
+                // For cash payment, create pending payment record
+                InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
+                    .salesOrderId(so.getId())
+                    .paymentMethod(PaymentMethod.CASH)
+                    .build();
+                
+                paymentResponse = paymentBS.initiatePayment(paymentRequest);
+                
+                // Immediately complete cash payment
+                if (paymentResponse != null && paymentResponse.getPaymentId() != null) {
+                    paymentBS.completeDirectPayment(
+                        paymentResponse.getPaymentId(),
+                        "CASH-" + System.currentTimeMillis()
+                    );
+                }
+            }
+            
+            // 6. Build response
+            SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
+            
+            CreateAndPayResponse response = CreateAndPayResponse.builder()
+                .order(soDto)
+                .payment(paymentResponse)
+                .build();
+            
+            return ResponseBuilder.success("Order created and payment initiated successfully", response);
+            
+        } catch (Exception e) {
+            log.error("Error in create and pay: ", e);
+            throw e;
+        }
+    }
     
     @PostMapping("/so/confirm/{soId}")
+    @Operation(summary = "Confirm order", description = "Confirm a draft sales order")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> confirm(@PathVariable UUID soId) {
         SalesOrder so = salesBS.confirm(soId);
         
@@ -86,8 +179,8 @@ public class SalesOrdersController {
         return ResponseBuilder.success("Sales order confirmed", soDto);
     }
     
-    
     @PostMapping("/so/fulfill/{soId}")
+    @Operation(summary = "Fulfill order", description = "Fulfill a confirmed sales order")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> fulfill(@PathVariable UUID soId) {
         SalesOrder so = salesBS.fulfill(soId);
         
@@ -96,8 +189,8 @@ public class SalesOrdersController {
         return ResponseBuilder.success("Sales order fulfilled", soDto);
     }
     
-    
     @PostMapping("/so/return/{soId}")
+    @Operation(summary = "Create return", description = "Create a return for a sales order")
     public ResponseEntity<ApiResponse<SaleReturnInfoDto>> createReturn(@PathVariable UUID soId, @RequestBody CreateReturnRequest req) {
         Map<UUID, Long> items = new LinkedHashMap<>();
         Map<UUID, BigDecimal> unitCosts = new LinkedHashMap<>();
@@ -111,8 +204,8 @@ public class SalesOrdersController {
         return ResponseBuilder.success("Sales return created", srDto);
     }
     
-    
     @GetMapping("/so/{soId}")
+    @Operation(summary = "Get order", description = "Get sales order by ID")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> get(@PathVariable UUID soId) {
         SalesOrder so = soES.require(soId);
         
@@ -122,6 +215,7 @@ public class SalesOrdersController {
     }
     
     @GetMapping("/so/get-all")
+    @Operation(summary = "Get all orders", description = "Get all sales orders")
     public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAll() {
         List<SalesOrder> sos = soES.getAll();
         
@@ -163,6 +257,40 @@ public class SalesOrdersController {
         private BigDecimal unitPrice; // optional, auto-resolve if null
     }
     
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CreateAndPayRequest {
+        
+        @JsonProperty("branch_id")
+        private UUID branchId;
+        
+        @JsonProperty("warehouse_id")
+        private UUID warehouseId;
+        
+        @JsonProperty("customer_id")
+        private UUID customerId; // optional
+        
+        private List<CreateSOLine> lines;
+        
+        @JsonProperty("payment_method")
+        private PaymentMethod paymentMethod; // PAYOS, CASH, BANK_TRANSFER
+        
+        @JsonProperty("return_url")
+        private String returnUrl;
+        
+        @JsonProperty("cancel_url")
+        private String cancelUrl;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @lombok.Builder
+    public static class CreateAndPayResponse {
+        private SaleOrderInfoDto order;
+        private PaymentResponse payment;
+    }
     
     @Data
     @NoArgsConstructor
