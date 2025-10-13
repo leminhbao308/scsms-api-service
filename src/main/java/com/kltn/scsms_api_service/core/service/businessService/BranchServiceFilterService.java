@@ -1,0 +1,331 @@
+package com.kltn.scsms_api_service.core.service.businessService;
+
+import com.kltn.scsms_api_service.core.dto.branchServiceFilter.BranchServiceFilterResult;
+import com.kltn.scsms_api_service.core.dto.branchServiceFilter.ServiceAvailabilityInfo;
+import com.kltn.scsms_api_service.core.entity.*;
+import com.kltn.scsms_api_service.core.service.entityService.*;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
+import com.kltn.scsms_api_service.mapper.ServiceMapper;
+import com.kltn.scsms_api_service.mapper.ServicePackageMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Service để lọc các service và service package có thể sử dụng theo branch
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class BranchServiceFilterService {
+
+    private final BranchService branchService;
+    private final WarehouseEntityService warehouseEntityService;
+    private final InventoryLevelEntityService inventoryLevelEntityService;
+    private final ServiceProcessStepProductService serviceProcessStepProductService;
+    private final ServiceService serviceEntityService;
+    private final com.kltn.scsms_api_service.core.service.entityService.ServicePackageService servicePackageEntityService;
+    private final ServiceMapper serviceMapper;
+    private final ServicePackageMapper servicePackageMapper;
+
+    /**
+     * Lọc các service có thể sử dụng theo branch
+     */
+    public BranchServiceFilterResult filterServicesByBranch(UUID branchId, boolean requireFullInventory) {
+        log.info("Filtering services by branch: {} with full inventory requirement: {}", branchId,
+                requireFullInventory);
+
+        // Validate branch exists
+        Branch branch = branchService.findById(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
+
+        // Get warehouse for branch
+        Warehouse warehouse = warehouseEntityService.findByBranch(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                        "Warehouse not found for branch: " + branch.getBranchName()));
+
+        // Get all active services
+        List<com.kltn.scsms_api_service.core.entity.Service> allServices = serviceEntityService.findAll();
+        List<ServiceAvailabilityInfo> availableServices = new ArrayList<>();
+        List<ServiceAvailabilityInfo> unavailableServices = new ArrayList<>();
+
+        for (com.kltn.scsms_api_service.core.entity.Service service : allServices) {
+            if (service.getIsActive() && service.getServiceProcess() != null) {
+                ServiceAvailabilityInfo serviceInfo = checkServiceAvailability(service, warehouse,
+                        requireFullInventory);
+
+                if (serviceInfo.isAvailable()) {
+                    availableServices.add(serviceInfo);
+                } else {
+                    unavailableServices.add(serviceInfo);
+                }
+            }
+        }
+
+        return BranchServiceFilterResult.builder()
+                .branchId(branchId)
+                .branchName(branch.getBranchName())
+                .warehouseId(warehouse.getId())
+                .availableServices(availableServices)
+                .unavailableServices(unavailableServices)
+                .totalServicesChecked(allServices.size())
+                .availableServicesCount(availableServices.size())
+                .build();
+    }
+
+    /**
+     * Lọc các service package có thể sử dụng theo branch
+     */
+    public BranchServiceFilterResult filterServicePackagesByBranch(UUID branchId, boolean requireFullInventory) {
+        log.info("Filtering service packages by branch: {} with full inventory requirement: {}", branchId,
+                requireFullInventory);
+
+        // Validate branch exists
+        Branch branch = branchService.findById(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
+
+        // Get warehouse for branch
+        Warehouse warehouse = warehouseEntityService.findByBranch(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                        "Warehouse not found for branch: " + branch.getBranchName()));
+
+        // Get all active service packages
+        List<ServicePackage> allServicePackages = servicePackageEntityService.findAll();
+        List<ServiceAvailabilityInfo> availablePackages = new ArrayList<>();
+        List<ServiceAvailabilityInfo> unavailablePackages = new ArrayList<>();
+
+        for (ServicePackage servicePackage : allServicePackages) {
+            if (servicePackage.getIsActive()) {
+                ServiceAvailabilityInfo packageInfo = checkServicePackageAvailability(servicePackage, warehouse,
+                        requireFullInventory);
+
+                if (packageInfo.isAvailable()) {
+                    availablePackages.add(packageInfo);
+                } else {
+                    unavailablePackages.add(packageInfo);
+                }
+            }
+        }
+
+        return BranchServiceFilterResult.builder()
+                .branchId(branchId)
+                .branchName(branch.getBranchName())
+                .warehouseId(warehouse.getId())
+                .availableServices(availablePackages)
+                .unavailableServices(unavailablePackages)
+                .totalServicesChecked(allServicePackages.size())
+                .availableServicesCount(availablePackages.size())
+                .build();
+    }
+
+    /**
+     * Lọc cả service và service package có thể sử dụng theo branch
+     */
+    public BranchServiceFilterResult filterAllServicesByBranch(UUID branchId, boolean requireFullInventory) {
+        log.info("Filtering all services and packages by branch: {} with full inventory requirement: {}", branchId,
+                requireFullInventory);
+
+        // Validate branch exists
+        Branch branch = branchService.findById(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
+
+        // Get warehouse for branch
+        Warehouse warehouse = warehouseEntityService.findByBranch(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                        "Warehouse not found for branch: " + branch.getBranchName()));
+
+        List<ServiceAvailabilityInfo> allAvailable = new ArrayList<>();
+        List<ServiceAvailabilityInfo> allUnavailable = new ArrayList<>();
+
+        // Check services
+        List<com.kltn.scsms_api_service.core.entity.Service> allServices = serviceEntityService.findAll();
+        for (com.kltn.scsms_api_service.core.entity.Service service : allServices) {
+            if (service.getIsActive() && service.getServiceProcess() != null) {
+                ServiceAvailabilityInfo serviceInfo = checkServiceAvailability(service, warehouse,
+                        requireFullInventory);
+                serviceInfo.setType("SERVICE");
+
+                if (serviceInfo.isAvailable()) {
+                    allAvailable.add(serviceInfo);
+                } else {
+                    allUnavailable.add(serviceInfo);
+                }
+            }
+        }
+
+        // Check service packages
+        List<ServicePackage> allServicePackages = servicePackageEntityService.findAll();
+        for (ServicePackage servicePackage : allServicePackages) {
+            if (servicePackage.getIsActive()) {
+                ServiceAvailabilityInfo packageInfo = checkServicePackageAvailability(servicePackage, warehouse,
+                        requireFullInventory);
+                packageInfo.setType("SERVICE_PACKAGE");
+
+                if (packageInfo.isAvailable()) {
+                    allAvailable.add(packageInfo);
+                } else {
+                    allUnavailable.add(packageInfo);
+                }
+            }
+        }
+
+        return BranchServiceFilterResult.builder()
+                .branchId(branchId)
+                .branchName(branch.getBranchName())
+                .warehouseId(warehouse.getId())
+                .availableServices(allAvailable)
+                .unavailableServices(allUnavailable)
+                .totalServicesChecked(allServices.size() + allServicePackages.size())
+                .availableServicesCount(allAvailable.size())
+                .build();
+    }
+
+    /**
+     * Kiểm tra tính khả dụng của một service
+     */
+    private ServiceAvailabilityInfo checkServiceAvailability(com.kltn.scsms_api_service.core.entity.Service service,
+            Warehouse warehouse, boolean requireFullInventory) {
+        try {
+            // Get all products required for this service
+            List<ServiceProcessStepProduct> requiredProducts = serviceProcessStepProductService
+                    .findByProcessIdWithProduct(service.getServiceProcess().getId());
+
+            int totalProducts = requiredProducts.size();
+            int availableProducts = 0;
+            List<String> missingProducts = new ArrayList<>();
+            List<String> insufficientProducts = new ArrayList<>();
+
+            for (ServiceProcessStepProduct stepProduct : requiredProducts) {
+                UUID productId = stepProduct.getProduct().getProductId();
+
+                // Check inventory level
+                var inventoryLevelOpt = inventoryLevelEntityService.find(warehouse.getId(), productId);
+
+                if (inventoryLevelOpt.isEmpty()) {
+                    missingProducts.add(stepProduct.getProduct().getProductName());
+                } else {
+                    InventoryLevel inventoryLevel = inventoryLevelOpt.get();
+                    if (inventoryLevel.getAvailable() >= stepProduct.getQuantity().longValue()) {
+                        availableProducts++;
+                    } else {
+                        insufficientProducts.add(String.format("%s (Required: %s, Available: %d)",
+                                stepProduct.getProduct().getProductName(),
+                                stepProduct.getQuantity(),
+                                inventoryLevel.getAvailable()));
+                    }
+                }
+            }
+
+            boolean isAvailable = requireFullInventory
+                    ? (availableProducts == totalProducts && missingProducts.isEmpty()
+                            && insufficientProducts.isEmpty())
+                    : (availableProducts > 0);
+
+            return ServiceAvailabilityInfo.builder()
+                    .id(service.getServiceId())
+                    .name(service.getServiceName())
+                    .type("SERVICE")
+                    .available(isAvailable)
+                    .totalProductsRequired(totalProducts)
+                    .availableProductsCount(availableProducts)
+                    .missingProducts(missingProducts)
+                    .insufficientProducts(insufficientProducts)
+                    .serviceInfo(serviceMapper.toServiceInfoDto(service))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error checking service availability: {}", service.getServiceName(), e);
+            return ServiceAvailabilityInfo.builder()
+                    .id(service.getServiceId())
+                    .name(service.getServiceName())
+                    .type("SERVICE")
+                    .available(false)
+                    .reason("Error checking availability: " + e.getMessage())
+                    .serviceInfo(serviceMapper.toServiceInfoDto(service))
+                    .build();
+        }
+    }
+
+    /**
+     * Kiểm tra tính khả dụng của một service package
+     */
+    private ServiceAvailabilityInfo checkServicePackageAvailability(ServicePackage servicePackage, Warehouse warehouse,
+            boolean requireFullInventory) {
+        try {
+            // Get all products required for all services in this package
+            List<ServiceProcessStepProduct> allRequiredProducts = new ArrayList<>();
+
+            for (com.kltn.scsms_api_service.core.entity.ServicePackageService packageService : servicePackage
+                    .getPackageServices()) {
+                if (!packageService.getIsDeleted() && packageService.getService().getServiceProcess() != null) {
+                    List<ServiceProcessStepProduct> serviceProducts = serviceProcessStepProductService
+                            .findByProcessIdWithProduct(packageService.getService().getServiceProcess().getId());
+                    allRequiredProducts.addAll(serviceProducts);
+                }
+            }
+
+            int totalProducts = allRequiredProducts.size();
+            int availableProducts = 0;
+            List<String> missingProducts = new ArrayList<>();
+            List<String> insufficientProducts = new ArrayList<>();
+
+            for (ServiceProcessStepProduct stepProduct : allRequiredProducts) {
+                UUID productId = stepProduct.getProduct().getProductId();
+
+                // Check inventory level
+                var inventoryLevelOpt = inventoryLevelEntityService.find(warehouse.getId(), productId);
+
+                if (inventoryLevelOpt.isEmpty()) {
+                    missingProducts.add(stepProduct.getProduct().getProductName());
+                } else {
+                    InventoryLevel inventoryLevel = inventoryLevelOpt.get();
+                    if (inventoryLevel.getAvailable() >= stepProduct.getQuantity().longValue()) {
+                        availableProducts++;
+                    } else {
+                        insufficientProducts.add(String.format("%s (Required: %s, Available: %d)",
+                                stepProduct.getProduct().getProductName(),
+                                stepProduct.getQuantity(),
+                                inventoryLevel.getAvailable()));
+                    }
+                }
+            }
+
+            boolean isAvailable = requireFullInventory
+                    ? (availableProducts == totalProducts && missingProducts.isEmpty()
+                            && insufficientProducts.isEmpty())
+                    : (availableProducts > 0);
+
+            return ServiceAvailabilityInfo.builder()
+                    .id(servicePackage.getPackageId())
+                    .name(servicePackage.getPackageName())
+                    .type("SERVICE_PACKAGE")
+                    .available(isAvailable)
+                    .totalProductsRequired(totalProducts)
+                    .availableProductsCount(availableProducts)
+                    .missingProducts(missingProducts)
+                    .insufficientProducts(insufficientProducts)
+                    .servicePackageInfo(servicePackageMapper.toServicePackageInfoDto(servicePackage))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error checking service package availability: {}", servicePackage.getPackageName(), e);
+            return ServiceAvailabilityInfo.builder()
+                    .id(servicePackage.getPackageId())
+                    .name(servicePackage.getPackageName())
+                    .type("SERVICE_PACKAGE")
+                    .available(false)
+                    .reason("Error checking availability: " + e.getMessage())
+                    .servicePackageInfo(servicePackageMapper.toServicePackageInfoDto(servicePackage))
+                    .build();
+        }
+    }
+}

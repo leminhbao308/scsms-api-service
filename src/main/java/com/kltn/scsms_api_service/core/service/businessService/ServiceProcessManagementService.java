@@ -466,6 +466,41 @@ public class ServiceProcessManagementService {
     }
     
     /**
+     * Lấy tất cả sản phẩm của một service process
+     */
+    public List<ServiceProcessStepProductInfoDto> getServiceProcessProducts(UUID processId) {
+        log.info("Getting all products for service process: {}", processId);
+        
+        // Validate process exists
+        serviceProcessService.findByIdOrThrow(processId);
+        
+        // Get all products in the process
+        List<ServiceProcessStepProduct> products = serviceProcessStepProductService.findByProcessIdWithProduct(processId);
+        
+        return products.stream()
+                .map(serviceProcessStepProductMapper::toServiceProcessStepProductInfoDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Lấy danh sách ID của tất cả sản phẩm trong service process
+     */
+    public List<UUID> getServiceProcessProductIds(UUID processId) {
+        log.info("Getting product IDs for service process: {}", processId);
+        
+        // Validate process exists
+        serviceProcessService.findByIdOrThrow(processId);
+        
+        // Get all products in the process
+        List<ServiceProcessStepProduct> products = serviceProcessStepProductService.findByProcessIdWithProduct(processId);
+        
+        return products.stream()
+                .map(product -> product.getProduct().getProductId())
+                .distinct() // Remove duplicates in case same product is used in multiple steps
+                .collect(Collectors.toList());
+    }
+    
+    /**
      * Thêm sản phẩm vào bước
      */
     @Transactional
