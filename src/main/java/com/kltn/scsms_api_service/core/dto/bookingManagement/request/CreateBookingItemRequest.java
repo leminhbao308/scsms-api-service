@@ -2,8 +2,8 @@ package com.kltn.scsms_api_service.core.dto.bookingManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.BookingItem;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+// import jakarta.validation.constraints.NotNull;
+// import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -39,17 +39,17 @@ public class CreateBookingItemRequest {
     private String itemDescription;
     
     // @NotNull(message = "Unit price is required")
-    @Positive(message = "Unit price must be positive")
+    // @Positive(message = "Unit price must be positive")
     @JsonProperty("unit_price")
     private BigDecimal unitPrice;
     
     @Builder.Default
-    @Positive(message = "Quantity must be positive")
+    // @Positive(message = "Quantity must be positive")
     @JsonProperty("quantity")
     private Integer quantity = 1;
     
     // @NotNull(message = "Duration minutes is required")
-    @Positive(message = "Duration must be positive")
+    // @Positive(message = "Duration must be positive")
     @JsonProperty("duration_minutes")
     private Integer durationMinutes;
     

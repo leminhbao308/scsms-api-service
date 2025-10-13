@@ -12,7 +12,7 @@ import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+// import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -176,7 +176,7 @@ public class BookingManagementController {
     @Operation(summary = "Create booking", description = "Create a new booking")
     @SwaggerOperation(summary = "Create booking")
     public ResponseEntity<ApiResponse<BookingInfoDto>> createBooking(
-            @Parameter(description = "Booking creation request") @Valid @RequestBody CreateBookingRequest request) {
+            @Parameter(description = "Booking creation request") @RequestBody CreateBookingRequest request) {
         log.info("Creating booking for customer: {} at branch: {}", request.getCustomerName(), request.getBranchId());
         BookingInfoDto booking = bookingManagementService.createBooking(request);
         return ResponseBuilder.created(booking);
@@ -187,7 +187,7 @@ public class BookingManagementController {
     @SwaggerOperation(summary = "Update booking")
     public ResponseEntity<ApiResponse<BookingInfoDto>> updateBooking(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId,
-            @Parameter(description = "Booking update request") @Valid @RequestBody UpdateBookingRequest request) {
+            @Parameter(description = "Booking update request") @RequestBody UpdateBookingRequest request) {
         log.info("Updating booking: {}", bookingId);
         BookingInfoDto booking = bookingManagementService.updateBooking(bookingId, request);
         return ResponseBuilder.success(booking);
