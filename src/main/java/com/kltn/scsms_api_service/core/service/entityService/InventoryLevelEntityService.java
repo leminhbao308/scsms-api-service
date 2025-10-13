@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,5 +27,13 @@ public class InventoryLevelEntityService {
     
     public void update(InventoryLevel inventoryLevel) {
         repo.save(inventoryLevel);
+    }
+    
+    public List<InventoryLevel> findAllByWarehouse(UUID warehouseId) {
+        return repo.findAllByWarehouse_Id(warehouseId);
+    }
+    
+    public List<InventoryLevel> getAll() {
+        return repo.findAll();
     }
 }

@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface InventoryLotRepository extends JpaRepository<InventoryLot, UUID> {
     List<InventoryLot> findByWarehouseIdAndProductProductIdOrderByReceivedAtAsc(UUID warehouseId, UUID productId); // FIFO
+    
+    List<InventoryLot> findAllByWarehouse_Id(UUID warehouseId);
 }
