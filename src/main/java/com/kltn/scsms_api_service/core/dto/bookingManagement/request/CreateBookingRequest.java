@@ -2,8 +2,8 @@ package com.kltn.scsms_api_service.core.dto.bookingManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.Booking;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
+// import jakarta.validation.Valid;
+// import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -100,7 +100,7 @@ public class CreateBookingRequest {
     private List<String> specialRequests;
     
     // Booking items
-    @Valid
+    // @Valid
     @JsonProperty("booking_items")
     private List<CreateBookingItemRequest> bookingItems;
     

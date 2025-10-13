@@ -232,6 +232,29 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/{processId}/products")
+    @SwaggerOperation(summary = "Lấy danh sách tất cả sản phẩm của service process", description = "Lấy danh sách tất cả sản phẩm trong toàn bộ quy trình dịch vụ")
+    @Operation(summary = "Lấy danh sách tất cả sản phẩm của service process")
+    public ResponseEntity<List<ServiceProcessStepProductInfoDto>> getServiceProcessProducts(
+            @Parameter(description = "ID của service process") @PathVariable UUID processId) {
+
+        log.info("Getting all products for service process: {}", processId);
+        List<ServiceProcessStepProductInfoDto> result = serviceProcessManagementService
+                .getServiceProcessProducts(processId);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{processId}/product-ids")
+    @SwaggerOperation(summary = "Lấy danh sách ID của tất cả sản phẩm trong service process", description = "Lấy danh sách ID của tất cả sản phẩm trong toàn bộ quy trình dịch vụ (chỉ trả về ID)")
+    @Operation(summary = "Lấy danh sách ID của tất cả sản phẩm trong service process")
+    public ResponseEntity<List<UUID>> getServiceProcessProductIds(
+            @Parameter(description = "ID của service process") @PathVariable UUID processId) {
+
+        log.info("Getting product IDs for service process: {}", processId);
+        List<UUID> result = serviceProcessManagementService.getServiceProcessProductIds(processId);
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/steps/{stepId}/products")
     @SwaggerOperation(summary = "Thêm sản phẩm vào bước", description = "Thêm một sản phẩm mới vào bước trong quy trình")
     @Operation(summary = "Thêm sản phẩm vào bước")

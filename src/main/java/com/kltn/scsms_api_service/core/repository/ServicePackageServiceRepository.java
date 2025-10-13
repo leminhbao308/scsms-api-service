@@ -33,6 +33,15 @@ public interface ServicePackageServiceRepository extends JpaRepository<ServicePa
                                                                @Param("serviceId") UUID serviceId);
     
     /**
+     * Tìm service trong package theo package ID và service ID (bao gồm cả service đã bị soft delete)
+     */
+    @Query("SELECT sps FROM ServicePackageService sps " +
+           "WHERE sps.servicePackage.packageId = :packageId " +
+           "AND sps.service.serviceId = :serviceId")
+    Optional<ServicePackageService> findByPackageIdAndServiceIdIncludingDeleted(@Param("packageId") UUID packageId, 
+                                                                               @Param("serviceId") UUID serviceId);
+    
+    /**
      * Kiểm tra service đã tồn tại trong package chưa
      */
     @Query("SELECT COUNT(sps) > 0 FROM ServicePackageService sps " +

@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -582,5 +583,68 @@ public class BookingManagementService {
         private long confirmedBookings;
         private long completedBookings;
         private long cancelledBookings;
+    }
+    
+    /**
+     * Lấy tất cả booking có trạng thái thanh toán pending và trạng thái booking không phải cancelled
+     */
+    public List<BookingInfoDto> getBookingsWithPendingPayment() {
+        log.info("Getting bookings with pending payment status and not cancelled");
+        
+        List<Booking> bookings = bookingService.findByPaymentStatusAndStatusNot(
+            Booking.PaymentStatus.PENDING, 
+            Booking.BookingStatus.CANCELLED
+        );
+        
+        return bookings.stream()
+                .map(bookingMapper::toBookingInfoDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Đánh dấu booking đã thanh toán
+     */
+    @Transactional
+    public BookingInfoDto markBookingAsPaid(UUID bookingId, Map<String, String> paymentDetails) {
+        log.info("Marking booking as paid: {}", bookingId);
+        
+        // Lấy booking từ database
+        Booking booking = bookingService.getById(bookingId);
+        
+        // Kiểm tra trạng thái booking
+        if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Cannot mark cancelled booking as paid");
+        }
+        
+        // Kiểm tra trạng thái thanh toán hiện tại
+        if (booking.getPaymentStatus() == Booking.PaymentStatus.PAID) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Booking is already marked as paid");
+        }
+        
+        // Cập nhật trạng thái thanh toán
+        booking.setPaymentStatus(Booking.PaymentStatus.PAID);
+        
+        // Cập nhật thông tin thanh toán nếu có
+        if (paymentDetails != null) {
+            String paymentMethod = paymentDetails.get("paymentMethod");
+            String transactionId = paymentDetails.get("transactionId");
+            String notes = paymentDetails.get("notes");
+            
+            if (paymentMethod != null) {
+                log.info("Payment method: {}", paymentMethod);
+            }
+            if (transactionId != null) {
+                log.info("Transaction ID: {}", transactionId);
+            }
+            if (notes != null) {
+                log.info("Payment notes: {}", notes);
+            }
+        }
+        
+        // Lưu booking
+        Booking savedBooking = bookingService.save(booking);
+        
+        log.info("Successfully marked booking {} as paid", bookingId);
+        return bookingMapper.toBookingInfoDto(savedBooking);
     }
 }

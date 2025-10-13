@@ -15,6 +15,7 @@ import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
 import com.kltn.scsms_api_service.core.service.entityService.ServicePackageServiceEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
+import com.kltn.scsms_api_service.core.repository.ServicePackageServiceRepository;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ServicePackageMapper;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,6 +43,7 @@ public class ServicePackageManagementService {
     
     private final com.kltn.scsms_api_service.core.service.entityService.ServicePackageService servicePackageEntityService;
     private final ServicePackageServiceEntityService servicePackageServiceEntityService;
+    private final ServicePackageServiceRepository servicePackageServiceRepository;
     private final CategoryService categoryService;
     private final ServiceService serviceService;
     private final ServiceProcessService serviceProcessService;
@@ -196,9 +199,80 @@ public class ServicePackageManagementService {
         ServicePackage savedServicePackage = servicePackageEntityService.update(updatedServicePackage);
         
         
-        // Process package services if provided
-        if (updateServicePackageRequest.getPackageServices() != null && !updateServicePackageRequest.getPackageServices().isEmpty()) {
+        // Process package services
+        if (updateServicePackageRequest.getPackageServices() == null) {
+            // No package_services in payload means delete all existing services
+            log.info("No package_services in payload - deleting all existing services from package: {}", packageId);
+            List<ServicePackageService> existingServices = servicePackageServiceEntityService.findByPackageIdOrdered(packageId);
+            for (ServicePackageService existingService : existingServices) {
+                servicePackageServiceEntityService.softDeleteById(existingService.getServicePackageServiceId());
+            }
+            log.info("Deleted {} existing services from package (no package_services in payload)", existingServices.size());
+        } else if (updateServicePackageRequest.getPackageServices().isEmpty()) {
+            // Empty array means delete all existing services
+            log.info("Empty package_services array - deleting all existing services from package: {}", packageId);
+            List<ServicePackageService> existingServices = servicePackageServiceEntityService.findByPackageIdOrdered(packageId);
+            for (ServicePackageService existingService : existingServices) {
+                servicePackageServiceEntityService.softDeleteById(existingService.getServicePackageServiceId());
+            }
+            log.info("Deleted {} existing services from package", existingServices.size());
+        } else {
+            // First, get all existing services BEFORE processing the request
+            List<ServicePackageService> existingServices = servicePackageServiceEntityService.findByPackageIdOrdered(packageId);
+            Set<UUID> existingServiceIds = existingServices.stream()
+                .map(ServicePackageService::getServicePackageServiceId)
+                .collect(Collectors.toSet());
+            
+            log.info("Found {} existing services in package: {}", existingServiceIds.size(), existingServiceIds);
+            
+            // Get the service IDs that are being kept (not deleted) from the request
+            Set<UUID> keptServiceIds = new java.util.HashSet<>();
+            
+            // Process each service in the request to determine which ones to keep
+            for (UpdateServicePackageServiceRequest serviceRequest : updateServicePackageRequest.getPackageServices()) {
+                // Skip DELETE operations as they are handled separately
+                if (serviceRequest.getOperation() != null && "DELETE".equalsIgnoreCase(serviceRequest.getOperation())) {
+                    continue;
+                }
+                
+                // If service_package_service_id is provided, keep this service
+                if (serviceRequest.getServicePackageServiceId() != null) {
+                    keptServiceIds.add(serviceRequest.getServicePackageServiceId());
+                    log.debug("Keeping service by service_package_service_id: {}", serviceRequest.getServicePackageServiceId());
+                }
+                // If only service_id is provided, find the corresponding service_package_service_id and keep it
+                else if (serviceRequest.getServiceId() != null) {
+                    Optional<ServicePackageService> existing = servicePackageServiceEntityService.findByPackageIdAndServiceId(
+                        packageId, serviceRequest.getServiceId());
+                    if (existing.isPresent()) {
+                        keptServiceIds.add(existing.get().getServicePackageServiceId());
+                        log.debug("Keeping service by service_id: {} (service_package_service_id: {})", 
+                            serviceRequest.getServiceId(), existing.get().getServicePackageServiceId());
+                    }
+                }
+            }
+            
+            log.info("Services to keep: {}", keptServiceIds);
+            
+            // Delete services that are not in the kept list
+            Set<UUID> servicesToDelete = existingServiceIds.stream()
+                .filter(id -> !keptServiceIds.contains(id))
+                .collect(Collectors.toSet());
+            
+            log.info("Services to delete: {}", servicesToDelete);
+            
+            // Hard delete services that are not in the request
+            for (UUID serviceIdToDelete : servicesToDelete) {
+                servicePackageServiceEntityService.hardDeleteById(serviceIdToDelete);
+                log.info("Hard deleted service from package (not in request): {}", serviceIdToDelete);
+            }
+            
+            // Process the services in the request (including DELETE operations)
             processUpdateServicePackageServices(savedServicePackage, updateServicePackageRequest.getPackageServices());
+            
+            if (!servicesToDelete.isEmpty()) {
+                log.info("Deleted {} services that were not in the request", servicesToDelete.size());
+            }
         }
         
         // Update pricing after products and services are processed
@@ -269,17 +343,61 @@ public class ServicePackageManagementService {
         log.info("Processing {} service updates for service package: {}", serviceRequests.size(), servicePackage.getPackageName());
         
         for (UpdateServicePackageServiceRequest serviceRequest : serviceRequests) {
-            if (serviceRequest.getServiceId() != null) {
-                // Check if service already exists in package
-                Optional<ServicePackageService> existingServiceOpt = servicePackageServiceEntityService.findByPackageIdAndServiceId(
-                    servicePackage.getPackageId(), serviceRequest.getServiceId());
+            String operation = serviceRequest.getOperation();
+            log.info("Processing service request - service_id: {}, service_package_service_id: {}, operation: {}", 
+                serviceRequest.getServiceId(), serviceRequest.getServicePackageServiceId(), operation);
+            
+            // Handle DELETE operation
+            if (operation != null && "DELETE".equalsIgnoreCase(operation)) {
+                log.info("Processing DELETE operation for service_id: {}, service_package_service_id: {}", 
+                    serviceRequest.getServiceId(), serviceRequest.getServicePackageServiceId());
+                
+                if (serviceRequest.getServicePackageServiceId() != null) {
+                    // Delete by servicePackageServiceId
+                    servicePackageServiceEntityService.hardDeleteById(serviceRequest.getServicePackageServiceId());
+                    log.info("Hard deleted service from service package by ID: {}", serviceRequest.getServicePackageServiceId());
+                } else if (serviceRequest.getServiceId() != null) {
+                    // Delete by serviceId
+                    Optional<ServicePackageService> existingServiceOpt = servicePackageServiceEntityService.findByPackageIdAndServiceId(
+                        servicePackage.getPackageId(), serviceRequest.getServiceId());
+                    if (existingServiceOpt.isPresent()) {
+                        servicePackageServiceEntityService.hardDeleteById(existingServiceOpt.get().getServicePackageServiceId());
+                        log.info("Hard deleted service from service package by serviceId: {}", serviceRequest.getServiceId());
+                    } else {
+                        log.warn("Service not found in package for deletion: {}", serviceRequest.getServiceId());
+                    }
+                } else {
+                    log.warn("DELETE operation requires either service_package_service_id or service_id");
+                }
+                continue;
+            }
+            
+            // Handle CREATE/UPDATE operations (existing logic)
+            if (serviceRequest.getServiceId() != null && (operation == null || "CREATE".equalsIgnoreCase(operation) || "UPDATE".equalsIgnoreCase(operation))) {
+                log.info("Processing CREATE/UPDATE operation for service_id: {}, operation: {}", serviceRequest.getServiceId(), operation);
+                Optional<ServicePackageService> existingServiceOpt = Optional.empty();
+                
+                // First, try to find by service_package_service_id if provided
+                if (serviceRequest.getServicePackageServiceId() != null) {
+                    existingServiceOpt = servicePackageServiceRepository.findById(serviceRequest.getServicePackageServiceId());
+                    log.info("Looking for existing service by service_package_service_id: {}", serviceRequest.getServicePackageServiceId());
+                }
+                
+                // If not found by service_package_service_id, try by package_id and service_id
+                if (existingServiceOpt.isEmpty()) {
+                    existingServiceOpt = servicePackageServiceEntityService.findByPackageIdAndServiceId(
+                        servicePackage.getPackageId(), serviceRequest.getServiceId());
+                    log.info("Looking for existing service by package_id and service_id: {} - {}", 
+                        servicePackage.getPackageId(), serviceRequest.getServiceId());
+                }
                 
                 if (existingServiceOpt.isPresent()) {
                     // Update existing service
                     ServicePackageService existingService = existingServiceOpt.get();
                     ServicePackageService updatedService = servicePackageServiceMapper.updateEntity(existingService, serviceRequest);
                     servicePackageServiceEntityService.update(updatedService);
-                    log.info("Updated existing service in service package: {}", serviceRequest.getServiceId());
+                    log.info("Updated existing service in service package: {} (service_package_service_id: {})", 
+                        serviceRequest.getServiceId(), existingService.getServicePackageServiceId());
                 } else {
                     // Add new service
                     com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(serviceRequest.getServiceId());
@@ -297,6 +415,9 @@ public class ServicePackageManagementService {
                     servicePackageServiceEntityService.save(servicePackageEntityService);
                     log.info("Added new service to service package: {}", serviceRequest.getServiceId());
                 }
+            } else {
+                log.warn("Skipping service request - service_id: {}, operation: {} (not supported or missing service_id)", 
+                    serviceRequest.getServiceId(), operation);
             }
         }
     }
@@ -369,17 +490,30 @@ public class ServicePackageManagementService {
         log.info("Removing service from service package with package ID: {} and service ID: {}", packageId, serviceId);
         
         // Validate package exists
-        servicePackageEntityService.getById(packageId);
+        ServicePackage servicePackage = servicePackageEntityService.getById(packageId);
         
-        // Validate service exists
-        servicePackageServiceEntityService.getByPackageIdAndServiceId(packageId, serviceId);
+        // Find service (including soft deleted ones)
+        Optional<ServicePackageService> serviceOpt = servicePackageServiceEntityService.findByPackageIdAndServiceIdIncludingDeleted(packageId, serviceId);
         
-        // Soft delete the service
-        servicePackageServiceEntityService.softDeleteByPackageIdAndServiceId(packageId, serviceId);
+        if (serviceOpt.isEmpty()) {
+            throw new ClientSideException(ErrorCode.SERVICE_PACKAGE_SERVICE_NOT_FOUND,
+                "Service package service not found for package ID: " + packageId + " and service ID: " + serviceId);
+        }
+        
+        ServicePackageService servicePackageService = serviceOpt.get();
+        
+        // Remove from package's service list first to avoid cascade issues
+        servicePackage.getPackageServices().removeIf(sps -> 
+            sps.getServicePackageServiceId().equals(servicePackageService.getServicePackageServiceId()));
+        
+        // Hard delete the service
+        servicePackageServiceEntityService.hardDeleteById(servicePackageService.getServicePackageServiceId());
+        log.info("Hard deleted service from service package: {}", servicePackageService.getServicePackageServiceId());
         
         // Update package pricing
-        ServicePackage servicePackage = servicePackageEntityService.getById(packageId);
         servicePackage.updatePricing();
         servicePackageEntityService.update(servicePackage);
+        
+        log.info("Successfully removed service from service package");
     }
 }

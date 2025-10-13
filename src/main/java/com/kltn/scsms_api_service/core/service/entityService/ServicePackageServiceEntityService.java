@@ -31,6 +31,11 @@ public class ServicePackageServiceEntityService {
         return servicePackageServiceRepository.findByPackageIdAndServiceId(packageId, serviceId);
     }
     
+    public Optional<ServicePackageService> findByPackageIdAndServiceIdIncludingDeleted(UUID packageId, UUID serviceId) {
+        log.info("Finding service package service by package ID: {} and service ID: {} (including deleted)", packageId, serviceId);
+        return servicePackageServiceRepository.findByPackageIdAndServiceIdIncludingDeleted(packageId, serviceId);
+    }
+    
     public ServicePackageService getByPackageIdAndServiceId(UUID packageId, UUID serviceId) {
         log.info("Getting service package service by package ID: {} and service ID: {}", packageId, serviceId);
         return findByPackageIdAndServiceId(packageId, serviceId)
@@ -91,5 +96,25 @@ public class ServicePackageServiceEntityService {
         servicePackageService.setIsDeleted(true);
         servicePackageService.setIsActive(false);
         servicePackageServiceRepository.save(servicePackageService);
+    }
+    
+    @Transactional
+    public void hardDeleteById(UUID servicePackageServiceId) {
+        log.info("Hard deleting service package service with ID: {}", servicePackageServiceId);
+        
+        if (!servicePackageServiceRepository.existsById(servicePackageServiceId)) {
+            throw new ClientSideException(ErrorCode.SERVICE_PACKAGE_SERVICE_NOT_FOUND,
+                    "Service package service not found with ID: " + servicePackageServiceId);
+        }
+        
+        servicePackageServiceRepository.deleteById(servicePackageServiceId);
+    }
+    
+    @Transactional
+    public void hardDeleteByPackageIdAndServiceId(UUID packageId, UUID serviceId) {
+        log.info("Hard deleting service package service by package ID: {} and service ID: {}", packageId, serviceId);
+        
+        ServicePackageService servicePackageService = getByPackageIdAndServiceId(packageId, serviceId);
+        servicePackageServiceRepository.deleteById(servicePackageService.getServicePackageServiceId());
     }
 }

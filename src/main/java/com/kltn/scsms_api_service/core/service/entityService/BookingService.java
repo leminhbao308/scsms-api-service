@@ -173,4 +173,11 @@ public class BookingService {
     public List<Booking> findConflictingBookings(UUID bayId, LocalDateTime startTime, LocalDateTime endTime) {
         return bookingRepository.findConflictingBookings(bayId, startTime, endTime);
     }
+    
+    /**
+     * Tìm các booking có trạng thái thanh toán cụ thể và trạng thái booking không phải cancelled
+     */
+    public List<Booking> findByPaymentStatusAndStatusNot(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus) {
+        return bookingRepository.findByPaymentStatusAndStatusNot(paymentStatus, bookingStatus);
+    }
 }

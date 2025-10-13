@@ -2,8 +2,8 @@ package com.kltn.scsms_api_service.core.dto.bookingManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.BookingPayment;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+// import jakarta.validation.constraints.NotNull;
+// import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CreateBookingPaymentRequest {
     
-    @Positive(message = "Amount must be positive")
+    // @Positive(message = "Amount must be positive")
     @JsonProperty("amount")
     private BigDecimal amount;
     

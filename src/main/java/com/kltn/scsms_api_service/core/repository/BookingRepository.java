@@ -217,4 +217,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     @Query("SELECT b FROM Booking b WHERE b.vehicleLicensePlate LIKE %:licensePlate% " +
            "ORDER BY b.scheduledStartAt DESC")
     List<Booking> findByVehicleLicensePlateContaining(@Param("licensePlate") String licensePlate);
+    
+    /**
+     * Tìm booking theo trạng thái thanh toán và trạng thái booking không phải cancelled
+     */
+    List<Booking> findByPaymentStatusAndStatusNot(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus);
 }
