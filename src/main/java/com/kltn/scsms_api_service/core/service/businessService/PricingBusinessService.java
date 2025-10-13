@@ -33,6 +33,29 @@ public class PricingBusinessService {
             .max(Comparator.comparing(PriceBook::getValidFrom));
     }
     
+    /**
+     * Resolve active price book for a specific branch
+     * @param branchId Branch ID (null for global price book)
+     * @param date Date to check validity
+     * @return Optional PriceBook
+     */
+    public Optional<PriceBook> resolveActivePriceBook(UUID branchId, LocalDateTime date) {
+        List<PriceBook> books;
+        
+        if (branchId != null) {
+            // Tìm PriceBook của chi nhánh cụ thể
+            books = priceBookEntityService.getActivePriceInRangeForBranch(branchId, date, null);
+            
+            if (!books.isEmpty()) {
+                return books.stream()
+                    .max(Comparator.comparing(PriceBook::getValidFrom));
+            }
+        }
+        
+        // Fallback: Tìm global PriceBook (branchId = null)
+        return resolveActivePriceBook(date);
+    }
+    
     
     public BigDecimal resolveUnitPrice(UUID productId) {
         return resolveUnitPrice(productId, null);
@@ -46,14 +69,26 @@ public class PricingBusinessService {
      * @return Unit price
      */
     public BigDecimal resolveUnitPrice(UUID productId, UUID priceBookId) {
+        return resolveUnitPrice(productId, null, priceBookId);
+    }
+    
+    /**
+     * Resolve unit price for a product with branch and optional price book
+     *
+     * @param productId   Product ID
+     * @param branchId    Branch ID (null for global price book)
+     * @param priceBookId Optional price book ID (if null, uses active price book for branch)
+     * @return Unit price
+     */
+    public BigDecimal resolveUnitPrice(UUID productId, UUID branchId, UUID priceBookId) {
         LocalDateTime today = LocalDateTime.now();
         PriceBook book;
         
         if (priceBookId != null) {
             book = priceBookEntityService.require(priceBookId);
         } else {
-            book = resolveActivePriceBook(today)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
+            book = resolveActivePriceBook(branchId, today)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for branch " + branchId + " and date " + today));
         }
         
         PriceBookItem item = priceBookItemES.findByPriceBookIdAndProductId(book.getId(), productId)

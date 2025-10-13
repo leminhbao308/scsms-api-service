@@ -60,6 +60,9 @@ public class ServicePackage extends AuditEntity {
     @Builder.Default
     private Boolean isDefaultProcess = false; // Có sử dụng quy trình mặc định hay không
     
+    @Column(name = "branch_id")
+    private UUID branchId; // Chi nhánh cung cấp gói dịch vụ (nullable)
+    
     // Business methods
     
     /**
@@ -76,10 +79,25 @@ public class ServicePackage extends AuditEntity {
     }
     
     /**
-     * Tính tổng giá của package (chỉ từ services)
+     * Tính tổng giá của package
+     * Hỗ trợ 2 trường hợp:
+     * 1. Combo Services: Tính từ các service con
+     * 2. Service Process Only: Tính từ quy trình chăm sóc (KHÔNG có services)
      */
     public BigDecimal calculateTotalPrice() {
-        return calculateServiceCost();
+        // Trường hợp 1: Combo Services
+        if (packageServices != null && !packageServices.isEmpty()) {
+            return calculateServiceCost();
+        }
+        
+        // Trường hợp 2: Service Process Only - có serviceProcess và KHÔNG có packageServices
+        if (serviceProcess != null && (packageServices == null || packageServices.isEmpty())) {
+            // Logic tính giá từ process sẽ được thực hiện bởi ServicePackagePricingCalculator
+            // Entity chỉ trả về packagePrice đã được tính toán trước đó
+            return packagePrice != null ? packagePrice : BigDecimal.ZERO;
+        }
+        
+        return BigDecimal.ZERO;
     }
     
     /**

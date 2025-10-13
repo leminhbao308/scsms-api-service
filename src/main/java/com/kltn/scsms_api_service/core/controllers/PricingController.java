@@ -158,6 +158,18 @@ public class PricingController {
         return ResponseBuilder.success("Get service pricing successfully", pricing);
     }
     
+    // ========== BRANCH-SPECIFIC PRICING MANAGEMENT ==========
+    
+    @GetMapping("/pricing/branches/{branchId}/services/{serviceId}")
+    public ResponseEntity<ApiResponse<ServicePricingDto>> getServicePricingForBranch(
+            @PathVariable UUID branchId,
+            @PathVariable UUID serviceId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Getting service pricing for branch: {}, service: {}, priceBook: {}", branchId, serviceId, priceBookId);
+        ServicePricingDto pricing = servicePricingService.getServicePricingForBranch(serviceId, branchId, priceBookId);
+        return ResponseBuilder.success("Get service pricing for branch successfully", pricing);
+    }
+    
     @PostMapping("/pricing/services/{serviceId}/recalculate")
     public ResponseEntity<ApiResponse<ServicePricingDto>> recalculateServicePricing(
             @PathVariable UUID serviceId,
@@ -176,6 +188,16 @@ public class PricingController {
         log.info("Getting service package pricing for package: {}, priceBook: {}", packageId, priceBookId);
         ServicePackagePricingDto pricing = servicePackagePricingService.getServicePackagePricing(packageId, priceBookId);
         return ResponseBuilder.success("Get service package pricing successfully", pricing);
+    }
+    
+    @GetMapping("/pricing/branches/{branchId}/service-packages/{packageId}")
+    public ResponseEntity<ApiResponse<ServicePackagePricingDto>> getServicePackagePricingForBranch(
+            @PathVariable UUID branchId,
+            @PathVariable UUID packageId,
+            @RequestParam(required = false) UUID priceBookId) {
+        log.info("Getting service package pricing for branch: {}, package: {}, priceBook: {}", branchId, packageId, priceBookId);
+        ServicePackagePricingDto pricing = servicePackagePricingService.getServicePackagePricingForBranch(packageId, branchId, priceBookId);
+        return ResponseBuilder.success("Get service package pricing for branch successfully", pricing);
     }
     
     @PostMapping("/pricing/service-packages/{packageId}/recalculate")

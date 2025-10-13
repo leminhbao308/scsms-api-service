@@ -68,5 +68,11 @@ public class ServicePackageInfoDto {
     @JsonProperty("service_count")
     private Integer serviceCount;
     
+    @JsonProperty("branch_id")
+    private UUID branchId;
+    
+    @JsonProperty("branch_name")
+    private String branchName;
+    
     private AuditDto audit;
 }

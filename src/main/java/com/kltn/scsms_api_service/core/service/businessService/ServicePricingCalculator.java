@@ -31,30 +31,34 @@ public class ServicePricingCalculator {
     public final PricingBusinessService pricingBusinessService;
     
     /**
-     * Tính tổng chi phí sản phẩm cho một service
-     * @param serviceId ID của service
+     * Tính tổng chi phí sản phẩm cho một service process
+     * @param processId ID của service process
      * @param priceBookId ID của price book (optional, nếu null sẽ dùng active price book)
      * @return Tổng chi phí sản phẩm
      */
-    public BigDecimal calculateProductCosts(UUID serviceId, UUID priceBookId) {
-        log.info("Calculating product costs for service: {}, priceBook: {}", serviceId, priceBookId);
-        
-        Service service = serviceService.getById(serviceId);
-        
-        if (service.getServiceProcess() == null) {
-            log.warn("Service {} has no service process, returning zero product costs", serviceId);
-            return BigDecimal.ZERO;
-        }
+    public BigDecimal calculateProductCosts(UUID processId, UUID priceBookId) {
+        return calculateProductCosts(processId, null, priceBookId);
+    }
+    
+    /**
+     * Tính tổng chi phí sản phẩm cho một service process với branch context
+     * @param processId ID của service process
+     * @param branchId ID của chi nhánh (null cho global pricing)
+     * @param priceBookId ID của price book (optional, nếu null sẽ dùng active price book cho branch)
+     * @return Tổng chi phí sản phẩm
+     */
+    public BigDecimal calculateProductCosts(UUID processId, UUID branchId, UUID priceBookId) {
+        log.info("Calculating product costs for service process: {}, branch: {}, priceBook: {}", processId, branchId, priceBookId);
         
         BigDecimal totalProductCosts = BigDecimal.ZERO;
         
         // Lấy tất cả sản phẩm trong service process
-        var stepProducts = serviceProcessStepProductService.findByProcessId(service.getServiceProcess().getId());
+        var stepProducts = serviceProcessStepProductService.findByProcessId(processId);
         
         for (ServiceProcessStepProduct stepProduct : stepProducts) {
             try {
-                // Lấy giá sản phẩm từ PriceBook
-                BigDecimal productPrice = pricingBusinessService.resolveUnitPrice(stepProduct.getProduct().getProductId(), priceBookId);
+                // Lấy giá sản phẩm từ PriceBook với branch context
+                BigDecimal productPrice = pricingBusinessService.resolveUnitPrice(stepProduct.getProduct().getProductId(), branchId, priceBookId);
                 
                 // Tính chi phí cho sản phẩm này
                 BigDecimal productCost = productPrice.multiply(stepProduct.getQuantity());
@@ -67,15 +71,45 @@ public class ServicePricingCalculator {
                     productCost);
                     
             } catch (Exception e) {
-                log.error("Error calculating price for product {} in service {}", 
-                    stepProduct.getProduct().getProductId(), serviceId, e);
+                log.error("Error calculating price for product {} in process {}", 
+                    stepProduct.getProduct().getProductId(), processId, e);
                 throw new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, 
                     "Cannot calculate price for product: " + stepProduct.getProduct().getProductName());
             }
         }
         
-        log.info("Total product costs for service {}: {}", serviceId, totalProductCosts);
+        log.info("Total product costs for service process {}: {}", processId, totalProductCosts);
         return totalProductCosts;
+    }
+    
+    /**
+     * Tính tổng chi phí sản phẩm cho một service (wrapper method)
+     * @param serviceId ID của service
+     * @param priceBookId ID của price book (optional, nếu null sẽ dùng active price book)
+     * @return Tổng chi phí sản phẩm
+     */
+    public BigDecimal calculateProductCostsForService(UUID serviceId, UUID priceBookId) {
+        return calculateProductCostsForBranch(serviceId, null, priceBookId);
+    }
+    
+    /**
+     * Tính tổng chi phí sản phẩm cho một service với branch context
+     * @param serviceId ID của service
+     * @param branchId ID của chi nhánh (null cho global pricing)
+     * @param priceBookId ID của price book (optional, nếu null sẽ dùng active price book cho branch)
+     * @return Tổng chi phí sản phẩm
+     */
+    public BigDecimal calculateProductCostsForBranch(UUID serviceId, UUID branchId, UUID priceBookId) {
+        log.info("Calculating product costs for service: {}, branch: {}, priceBook: {}", serviceId, branchId, priceBookId);
+        
+        Service service = serviceService.getById(serviceId);
+        
+        if (service.getServiceProcess() == null) {
+            log.warn("Service {} has no service process, returning zero product costs", serviceId);
+            return BigDecimal.ZERO;
+        }
+        
+        return calculateProductCosts(service.getServiceProcess().getId(), branchId, priceBookId);
     }
     
     /**
@@ -90,7 +124,7 @@ public class ServicePricingCalculator {
         Service service = serviceService.getById(serviceId);
         
         // Tính tổng chi phí sản phẩm
-        BigDecimal totalProductCosts = calculateProductCosts(serviceId, priceBookId);
+        BigDecimal totalProductCosts = calculateProductCostsForService(serviceId, priceBookId);
         
         // Cập nhật basePrice (chỉ system mới được làm việc này)
         service.setBasePrice(totalProductCosts);
@@ -112,7 +146,7 @@ public class ServicePricingCalculator {
         Service service = serviceService.getById(serviceId);
         
         // Tính chi phí sản phẩm
-        BigDecimal productCosts = calculateProductCosts(serviceId, priceBookId);
+        BigDecimal productCosts = calculateProductCostsForService(serviceId, priceBookId);
         
         // Lấy tiền công lao động
         BigDecimal laborCost = service.getLaborCost() != null ? service.getLaborCost() : BigDecimal.ZERO;

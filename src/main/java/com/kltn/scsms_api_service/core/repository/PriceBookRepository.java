@@ -20,4 +20,21 @@ public interface PriceBookRepository extends JpaRepository<PriceBook, UUID> {
     List<PriceBook> findByIsActiveAndValidFromGreaterThanEqual(Boolean isActive, LocalDateTime validFromIsGreaterThan);
     
     List<PriceBook> findByIsActiveAndValidToGreaterThanEqual(Boolean isActive, LocalDateTime validToIsGreaterThan);
+    
+    // Branch-specific price book queries
+    List<PriceBook> findByBranchIdAndIsActiveAndValidFromLessThanEqualAndValidToGreaterThanEqual(
+        UUID branchId, boolean isActive, LocalDateTime from, LocalDateTime to);
+    
+    List<PriceBook> findByBranchIdAndIsActiveAndValidFromLessThanEqual(
+        UUID branchId, boolean isActive, LocalDateTime from);
+    
+    List<PriceBook> findByBranchIdAndIsActiveAndValidToGreaterThanEqual(
+        UUID branchId, boolean isActive, LocalDateTime to);
+    
+    // Global price book queries (branchId = null)
+    List<PriceBook> findByBranchIdIsNullAndIsActiveAndValidFromLessThanEqualAndValidToGreaterThanEqual(
+        boolean isActive, LocalDateTime from, LocalDateTime to);
+    
+    List<PriceBook> findByBranchIdIsNullAndIsActiveAndValidFromLessThanEqual(
+        boolean isActive, LocalDateTime from);
 }

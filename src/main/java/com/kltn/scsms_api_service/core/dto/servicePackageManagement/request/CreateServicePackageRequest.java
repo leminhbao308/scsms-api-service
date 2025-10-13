@@ -49,4 +49,7 @@ public class CreateServicePackageRequest {
     
     @JsonProperty("is_default_process")
     private Boolean isDefaultProcess;
+    
+    @JsonProperty("branch_id")
+    private UUID branchId;
 }

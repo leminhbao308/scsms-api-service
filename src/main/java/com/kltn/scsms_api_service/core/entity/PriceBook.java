@@ -50,6 +50,9 @@ public class PriceBook extends AuditEntity {
     @Column(name = "valid_to")
     private LocalDateTime validTo;
     
+    @Column(name = "branch_id")
+    private UUID branchId; // Chi nhánh áp dụng bảng giá (nullable - null = global price book)
+    
     
     @OneToMany(mappedBy = "priceBook", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
