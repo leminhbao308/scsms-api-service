@@ -139,6 +139,11 @@ public class ServicePackageManagementService {
         servicePackage.setCategory(category);
         servicePackage.setServiceProcess(serviceProcess);
         
+        // Set branchId if provided
+        if (createServicePackageRequest.getBranchId() != null) {
+            servicePackage.setBranchId(createServicePackageRequest.getBranchId());
+        }
+        
         // Set default values
         if (servicePackage.getIsActive() == null) {
             servicePackage.setIsActive(true);

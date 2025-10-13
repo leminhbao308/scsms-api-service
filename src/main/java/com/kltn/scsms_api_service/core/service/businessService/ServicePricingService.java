@@ -40,7 +40,18 @@ public class ServicePricingService {
      * @return ServicePricingDto
      */
     public ServicePricingDto getServicePricing(UUID serviceId, UUID priceBookId) {
-        log.info("Getting service pricing for service: {}, priceBook: {}", serviceId, priceBookId);
+        return getServicePricingForBranch(serviceId, null, priceBookId);
+    }
+    
+    /**
+     * Lấy thông tin pricing chi tiết của service cho chi nhánh cụ thể
+     * @param serviceId ID của service
+     * @param branchId ID của chi nhánh (null cho global pricing)
+     * @param priceBookId ID của price book (optional)
+     * @return ServicePricingDto
+     */
+    public ServicePricingDto getServicePricingForBranch(UUID serviceId, UUID branchId, UUID priceBookId) {
+        log.info("Getting service pricing for service: {}, branch: {}, priceBook: {}", serviceId, branchId, priceBookId);
         
         com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(serviceId);
         
@@ -49,13 +60,13 @@ public class ServicePricingService {
         if (priceBookId != null) {
             priceBook = priceBookEntityService.require(priceBookId);
         } else {
-            // Lấy active price book
-            priceBook = pricingBusinessService.resolveActivePriceBook(LocalDateTime.now())
+            // Lấy active price book cho branch
+            priceBook = pricingBusinessService.resolveActivePriceBook(branchId, LocalDateTime.now())
                 .orElse(null);
         }
         
         // Tính toán pricing
-        BigDecimal calculatedBasePrice = servicePricingCalculator.calculateProductCosts(serviceId, 
+        BigDecimal calculatedBasePrice = servicePricingCalculator.calculateProductCostsForBranch(serviceId, branchId,
             priceBook != null ? priceBook.getId() : null);
         BigDecimal laborCost = service.getLaborCost() != null ? service.getLaborCost() : BigDecimal.ZERO;
         BigDecimal totalEstimatedPrice = calculatedBasePrice.add(laborCost);

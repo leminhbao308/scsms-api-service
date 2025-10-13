@@ -54,4 +54,22 @@ public class PriceBookEntityService {
         if (validTo == null) return repo.findByIsActiveAndValidToGreaterThanEqual(true, validFrom);
         return repo.findByIsActiveAndValidFromLessThanEqualAndValidToGreaterThanEqual(true, validFrom, validTo);
     }
+    
+    /**
+     * Get active price books for a specific branch in the given time range
+     * @param branchId Branch ID
+     * @param from If null, defaults to now
+     * @param to If null, fetches all active price books from 'from' onwards
+     * @return List of active PriceBooks for the branch
+     */
+    public List<PriceBook> getActivePriceInRangeForBranch(UUID branchId, LocalDateTime from, LocalDateTime to) {
+        LocalDateTime fromCheck = from;
+        
+        if (fromCheck == null) fromCheck = LocalDateTime.now();
+        
+        if (to == null)
+            return repo.findByBranchIdAndIsActiveAndValidFromLessThanEqual(branchId, true, fromCheck);
+        
+        return repo.findByBranchIdAndIsActiveAndValidFromLessThanEqualAndValidToGreaterThanEqual(branchId, true, fromCheck, to);
+    }
 }

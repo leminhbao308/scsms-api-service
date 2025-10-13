@@ -51,4 +51,10 @@ public class ServicePackagePricingInfoDto {
     
     @JsonProperty("total_duration")
     private Integer totalDuration;
+    
+    @JsonProperty("branch_id")
+    private UUID branchId;
+    
+    @JsonProperty("branch_name")
+    private String branchName;
 }

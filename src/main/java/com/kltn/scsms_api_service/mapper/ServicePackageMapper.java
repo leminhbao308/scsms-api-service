@@ -23,6 +23,8 @@ public interface ServicePackageMapper {
     @Mapping(target = "serviceProcessName", source = "serviceProcess.name")
     @Mapping(target = "serviceProcessCode", source = "serviceProcess.code")
     @Mapping(target = "serviceCount", expression = "java(servicePackage.getServiceCount())")
+    @Mapping(target = "branchId", source = "branchId")
+    @Mapping(target = "branchName", ignore = true) // Will be set in service layer
     ServicePackageInfoDto toServicePackageInfoDto(ServicePackage servicePackage);
     
     @Mapping(target = "category", ignore = true) // Will be set in service
@@ -34,6 +36,7 @@ public interface ServicePackageMapper {
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "isDefaultProcess", constant = "false")
     @Mapping(target = "isDeleted", constant = "false")
+    @Mapping(target = "branchId", source = "branchId")
     ServicePackage toEntity(CreateServicePackageRequest createServicePackageRequest);
     
     default ServicePackage updateEntity(ServicePackage existingServicePackage, UpdateServicePackageRequest updateRequest) {
@@ -61,6 +64,9 @@ public interface ServicePackageMapper {
         }
         if (updateRequest.getIsDefaultProcess() != null) {
             existingServicePackage.setIsDefaultProcess(updateRequest.getIsDefaultProcess());
+        }
+        if (updateRequest.getBranchId() != null) {
+            existingServicePackage.setBranchId(updateRequest.getBranchId());
         }
         
         return existingServicePackage;
