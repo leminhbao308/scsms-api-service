@@ -116,4 +116,16 @@ public class PaymentController {
         
         return ResponseBuilder.success("Payment retrieved successfully", response);
     }
+    
+    @GetMapping("/payment-link/{salesOrderId}")
+    @Operation(summary = "Get payment link by sales order", description = "Retrieve payment link by sales order ID")
+    public ResponseEntity<ApiResponse<String>> getPaymentLinkBySalesOrder(
+        @PathVariable UUID salesOrderId) {
+        
+        log.info("Getting payment link for sales order: {}", salesOrderId);
+        
+        String paymentLink = paymentBS.getPaymentLinkBySalesOrderId(salesOrderId);
+        
+        return ResponseBuilder.success("Payment link retrieved successfully", paymentLink);
+    }
 }

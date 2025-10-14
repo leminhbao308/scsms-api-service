@@ -30,18 +30,18 @@ public class SalesBusinessService {
     
     
     @Transactional
-    public SalesOrder createDraft(SalesOrder so){
+    public SalesOrder createDraft(SalesOrder so) {
         so.setStatus(SalesStatus.DRAFT);
         return salesOrderEntityService.create(so);
     }
     
     
     @Transactional
-    public SalesOrder confirm(UUID soId){
+    public SalesOrder confirm(UUID soId) {
         SalesOrder so = salesOrderEntityService.require(soId);
         // price resolution + reservation
-        for(SalesOrderLine line : solES.byOrder(so.getId())){
-            if(line.getUnitPrice() == null){
+        for (SalesOrderLine line : solES.byOrder(so.getId())) {
+            if (line.getUnitPrice() == null) {
                 line.setUnitPrice(pricingBS.resolveUnitPrice(line.getProduct().getProductId()));
                 solES.update(line);
             }
@@ -53,9 +53,9 @@ public class SalesBusinessService {
     
     
     @Transactional
-    public SalesOrder fulfill(UUID soId){
+    public SalesOrder fulfill(UUID soId) {
         SalesOrder so = salesOrderEntityService.require(soId);
-        for(SalesOrderLine line : solES.byOrder(so.getId())){
+        for (SalesOrderLine line : solES.byOrder(so.getId())) {
             inventoryBS.fulfillStockFIFO(so.getWarehouse().getId(), line.getProduct().getProductId(), line.getQuantity(), so.getId(), StockRefType.SALE_ORDER);
         }
         so.setStatus(SalesStatus.FULFILLED);
@@ -64,8 +64,11 @@ public class SalesBusinessService {
     
     
     @Transactional
-    public SalesReturn createReturn(UUID soId, Map<UUID, Long> productQtyMap, Map<UUID, BigDecimal> unitCostOptional){
+    public SalesReturn createReturn(UUID soId, Map<UUID, Long> productQtyMap, Map<UUID, BigDecimal> unitCostOptional) {
         SalesOrder so = salesOrderEntityService.require(soId);
+        so.setStatus(SalesStatus.RETURNED);
+        salesOrderEntityService.update(so);
+        
         SalesReturn sr = srES.create(SalesReturn.builder().salesOrder(so).warehouse(so.getWarehouse()).build());
         productQtyMap.forEach((productId, qty) -> {
             srlES.create(SalesReturnLine.builder()
