@@ -54,6 +54,21 @@ public class ServiceProcessService {
     }
     
     /**
+     * Tìm service process theo service ID
+     */
+    public Optional<ServiceProcess> findByServiceId(UUID serviceId) {
+        return serviceProcessRepository.findByServiceIdAndIsDeletedFalse(serviceId);
+    }
+    
+    /**
+     * Tìm service process theo service ID và throw exception nếu không tìm thấy
+     */
+    public ServiceProcess findByServiceIdOrThrow(UUID serviceId) {
+        return findByServiceId(serviceId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PROCESS_NOT_FOUND));
+    }
+    
+    /**
      * Tìm service process mặc định
      */
     public Optional<ServiceProcess> findDefaultProcess() {

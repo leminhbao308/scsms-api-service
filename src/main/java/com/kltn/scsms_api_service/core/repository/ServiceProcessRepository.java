@@ -21,6 +21,14 @@ public interface ServiceProcessRepository extends JpaRepository<ServiceProcess, 
     Optional<ServiceProcess> findByCodeAndIsDeletedFalse(String code);
     
     /**
+     * Tìm service process theo service ID
+     */
+    @Query("SELECT sp FROM ServiceProcess sp WHERE " +
+           "sp.isDeleted = false AND " +
+           "EXISTS (SELECT 1 FROM Service s WHERE s.serviceProcess = sp AND s.id = :serviceId AND s.isDeleted = false)")
+    Optional<ServiceProcess> findByServiceIdAndIsDeletedFalse(@Param("serviceId") UUID serviceId);
+    
+    /**
      * Tìm service process mặc định
      */
     Optional<ServiceProcess> findByIsDefaultTrueAndIsActiveTrueAndIsDeletedFalse();

@@ -81,6 +81,16 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/service/{serviceId}")
+    @SwaggerOperation(summary = "Lấy service process theo service", description = "Lấy thông tin service process theo service ID")
+    @Operation(summary = "Lấy service process theo service")
+    public ResponseEntity<ServiceProcessInfoDto> getServiceProcessByService(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId) {
+        log.info("Getting service process by service ID: {}", serviceId);
+        ServiceProcessInfoDto result = serviceProcessManagementService.getServiceProcessByService(serviceId);
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/default")
     @SwaggerOperation(summary = "Lấy quy trình mặc định", description = "Lấy thông tin quy trình chăm sóc xe mặc định")
     @Operation(summary = "Lấy quy trình mặc định")
