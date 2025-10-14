@@ -240,6 +240,7 @@ public class ApiConstant {
     public static final String GET_ALL_SERVICE_PROCESSES_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/get-all";
     public static final String GET_SERVICE_PROCESS_BY_ID_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/{processId}";
     public static final String GET_SERVICE_PROCESS_BY_CODE_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/code/{code}";
+    public static final String GET_SERVICE_PROCESS_BY_SERVICE_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/service/{serviceId}";
     public static final String GET_DEFAULT_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/default";
     public static final String GET_ALL_ACTIVE_SERVICE_PROCESSES_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/active";
     public static final String CREATE_SERVICE_PROCESS_API = SERVICE_PROCESS_MANAGEMENT_PREFIX + "/create";

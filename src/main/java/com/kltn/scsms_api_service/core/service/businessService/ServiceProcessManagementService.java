@@ -166,6 +166,15 @@ public class ServiceProcessManagementService {
     }
     
     /**
+     * Lấy service process theo service ID
+     */
+    public ServiceProcessInfoDto getServiceProcessByService(UUID serviceId) {
+        log.info("Getting service process by service ID: {}", serviceId);
+        ServiceProcess serviceProcess = serviceProcessService.findByServiceIdOrThrow(serviceId);
+        return serviceProcessMapper.toServiceProcessInfoDto(serviceProcess);
+    }
+    
+    /**
      * Lấy service process mặc định
      */
     public ServiceProcessInfoDto getDefaultServiceProcess() {
