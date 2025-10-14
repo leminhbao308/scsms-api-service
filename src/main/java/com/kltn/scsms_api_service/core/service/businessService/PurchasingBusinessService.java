@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -82,5 +83,9 @@ public class PurchasingBusinessService {
     
     public List<PurchaseOrderLine> getProductPOHistory(UUID productId) {
         return polES.getByProductId(productId);
+    }
+    
+    public List<PurchaseOrder> getPurchaseOrdersByDateAndBranch(LocalDateTime fromDate, LocalDateTime toDate, UUID branchId) {
+        return purchaseOrderEntityService.getByDateAndBranch(fromDate, toDate, branchId);
     }
 }

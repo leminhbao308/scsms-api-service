@@ -2,6 +2,8 @@ package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.core.entity.PriceBookItem;
 import com.kltn.scsms_api_service.core.repository.PriceBookItemRepository;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,7 +33,13 @@ public class PriceBookItemEntityService {
         return repo.save(item);
     }
     
-    public PriceBookItem update(PriceBookItem item) {
+    public PriceBookItem update(PriceBookItem item, PriceBookItem updates) {
+        if (updates.getFixedPrice() != null) item.setFixedPrice(updates.getFixedPrice());
+        if (updates.getPolicyType() != null) item.setPolicyType(updates.getPolicyType());
+        if (updates.getMarkupPercent() != null) item.setMarkupPercent(updates.getMarkupPercent());
+        if (updates.getProduct() != null) item.setProduct(updates.getProduct());
+        if (updates.getService() != null) item.setService(updates.getService());
+        if (updates.getServicePackage() != null) item.setServicePackage(updates.getServicePackage());
         return repo.save(item);
     }
     
@@ -41,5 +49,11 @@ public class PriceBookItemEntityService {
     
     public Optional<PriceBookItem> findById(UUID id) {
         return repo.findById(id);
+    }
+    
+    public PriceBookItem require(UUID itemId) {
+        return findById(itemId).orElseThrow(() ->
+            new ClientSideException(ErrorCode.NOT_FOUND, "PriceBookItem not found: " + itemId)
+        );
     }
 }

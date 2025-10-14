@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,10 +26,25 @@ public class PurchaseOrderEntityService {
     }
     
     public PurchaseOrder require(UUID purchaseOrderId) {
-        return repo.findById(purchaseOrderId).orElseThrow(() -> new IllegalArgumentException("Purchase order not found") );
+        return repo.findById(purchaseOrderId).orElseThrow(() -> new IllegalArgumentException("Purchase order not found"));
     }
     
     public List<PurchaseOrder> getAll() {
         return repo.findAll();
+    }
+    
+    public List<PurchaseOrder> getByDateAndBranch(LocalDateTime fromDate, LocalDateTime toDate, UUID branchId) {
+        if (fromDate == null && toDate == null && branchId == null) {
+            return repo.findAll();
+        } else if (fromDate == null && toDate == null) {
+            return repo.findByBranch_BranchId(branchId);
+        } else if (fromDate == null) {
+            return repo.findByCreatedDateLessThanEqualAndBranch_BranchId(toDate, branchId);
+        } else if (toDate == null) {
+            return repo.findByCreatedDateGreaterThanEqualAndBranch_BranchId(fromDate, branchId);
+        } else if (branchId == null) {
+            return repo.findByCreatedDateBetween(fromDate, toDate);
+        }
+        return repo.findByCreatedDateBetweenAndBranch_BranchId(fromDate, toDate, branchId);
     }
 }

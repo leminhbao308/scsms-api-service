@@ -12,6 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -28,6 +29,9 @@ public class PriceBookInfoDto extends AuditDto {
     private String name;
     
     private String currency;
+    
+    @JsonProperty("branch_id")
+    private UUID branchId;
     
     @JsonProperty("valid_from")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

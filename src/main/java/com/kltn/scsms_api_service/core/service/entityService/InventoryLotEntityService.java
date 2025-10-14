@@ -34,4 +34,12 @@ public class InventoryLotEntityService {
     public InventoryLot update(InventoryLot lot) {
         return repo.save(lot);
     }
+    
+    public List<InventoryLot> findByWarehouse(UUID warehouseId) {
+        return repo.findAllByWarehouse_Id(warehouseId);
+    }
+    
+    public List<InventoryLot> getAll() {
+        return repo.findAll();
+    }
 }
