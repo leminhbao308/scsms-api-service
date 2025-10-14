@@ -253,7 +253,7 @@ public class ServiceProcessTracking extends AuditEntity {
     /**
      * Cập nhật thời gian modified
      */
-    @PreUpdate
+    @Override
     protected void onUpdate() {
         this.lastUpdatedAt = LocalDateTime.now();
     }
