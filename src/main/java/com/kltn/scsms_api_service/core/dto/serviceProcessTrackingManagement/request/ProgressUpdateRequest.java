@@ -20,9 +20,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ProgressUpdateRequest {
     
-    @NotNull(message = "Tiến độ không được để trống")
-    @DecimalMin(value = "0.00", message = "Tiến độ phải từ 0% trở lên")
-    @DecimalMax(value = "100.00", message = "Tiến độ không được vượt quá 100%")
     @JsonProperty("progress_percent")
     private BigDecimal progressPercent;
     
