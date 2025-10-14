@@ -323,6 +323,20 @@ public class PaymentBusinessService {
             .build();
     }
     
+    public String getPaymentLinkBySalesOrderId(UUID salesOrderId) {
+        Payment payment = paymentES.findBySaleOrderId(salesOrderId);
+        
+        if (payment == null) {
+            throw new ClientSideException(ErrorCode.NOT_FOUND, "Payment not found for sales order: " + salesOrderId);
+        }
+        
+        if (payment.getPaymentMethod() != PaymentMethod.BANK || payment.getPaymentURL() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "No payment link available for this payment method");
+        }
+        
+        return payment.getPaymentURL();
+    }
+    
     private String fromUuidToBase36(UUID uuid) {
         int len = 25;
         

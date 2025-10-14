@@ -26,15 +26,15 @@ public class InventoryBusinessService {
     
     
     @Transactional
-    public void addStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType){
-        increaseStock(warehouseId, productId, qty, unitCost, refId, refType, StockTxnType.PURCHASE_RECEIPT);
+    public void addStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType) {
+        increaseStock(warehouseId, productId, qty, unitCost, lotCode, refId, refType, StockTxnType.PURCHASE_RECEIPT);
     }
     
     
     @Transactional
-    public void reserveStock(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType){
+    public void reserveStock(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
         InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
-                if(level.getAvailable() < qty) {
+        if (level.getAvailable() < qty) {
             Product product = level.getProduct();
             Warehouse warehouse = level.getWarehouse();
             throw new IllegalStateException(
@@ -58,7 +58,7 @@ public class InventoryBusinessService {
     
     
     @Transactional
-    public void releaseReservation(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType){
+    public void releaseReservation(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
         InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
         level.setReserved(Math.max(0, level.getReserved() - qty));
         inventoryLevelEntityService.update(level);
@@ -73,20 +73,20 @@ public class InventoryBusinessService {
      * Make sure to oldest lots are used first
      *
      * @param warehouseId Warehouse to fulfill from
-     * @param productId Product to fulfill
-     * @param qty Quantity to fulfill
-     * @param refId Reference ID for the transaction
-     * @param refType Reference type for the transaction
+     * @param productId   Product to fulfill
+     * @param qty         Quantity to fulfill
+     * @param refId       Reference ID for the transaction
+     * @param refType     Reference type for the transaction
      */
     @Transactional
-    public void fulfillStockFIFO(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType){
+    public void fulfillStockFIFO(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
         InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
         List<InventoryLot> lots = lotES.fifoLots(warehouseId, productId);
         long remaining = qty;
-        for(InventoryLot lot : lots){
-            if(remaining <= 0) break;
+        for (InventoryLot lot : lots) {
+            if (remaining <= 0) break;
             long take = (long) Math.min(remaining, lot.getQuantity());
-            if(take <= 0) continue;
+            if (take <= 0) continue;
             lot.setQuantity(lot.getQuantity() - take);
             lotES.update(lot);
             
@@ -98,11 +98,11 @@ public class InventoryBusinessService {
                 .refType(refType).refId(refId).build());
             remaining -= take;
         }
-                if(remaining > 0) throw new IllegalStateException(
+        if (remaining > 0) throw new IllegalStateException(
             "Not enough stock to fulfill. Warehouse: " + warehouseId +
-            ", Product: " + productId +
-            ", Requested: " + qty +
-            ", Unfulfilled: " + remaining
+                ", Product: " + productId +
+                ", Requested: " + qty +
+                ", Unfulfilled: " + remaining
         );
         level.setOnHand(level.getOnHand() - qty);
         level.setReserved(Math.max(0, level.getReserved() - qty));
@@ -111,11 +111,11 @@ public class InventoryBusinessService {
     
     
     @Transactional
-    public void returnToStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType){
-        increaseStock(warehouseId, productId, qty, unitCost, refId, refType, StockTxnType.RETURN);
+    public void returnToStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType) {
+        increaseStock(warehouseId, productId, qty, unitCost, null, refId, refType, StockTxnType.RETURN);
     }
     
-    private void increaseStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType, StockTxnType adjustType){
+    private void increaseStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType, StockTxnType adjustType) {
         Warehouse warehouseRef = warehouseES.getRefByWarehouseId(warehouseId);
         Product productRef = productES.getRefByProductId(productId);
         
@@ -133,6 +133,7 @@ public class InventoryBusinessService {
             .product(productRef)
             .receivedAt(LocalDateTime.now())
             .unitCost(unitCost).quantity(qty)
+            .lotCode(lotCode)
             .build();
         lotES.create(lot);
         

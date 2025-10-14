@@ -8,6 +8,7 @@ import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleOrderInfoDto;
 import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleReturnInfoDto;
 import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.SalesOrderLine;
+import com.kltn.scsms_api_service.core.entity.SalesReturn;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentMethod;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
@@ -15,6 +16,8 @@ import com.kltn.scsms_api_service.core.service.businessService.PaymentBusinessSe
 import com.kltn.scsms_api_service.core.service.businessService.SalesBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.SaleOrderMapper;
 import com.kltn.scsms_api_service.mapper.SalesReturnMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,10 +42,12 @@ import java.util.*;
 @Slf4j
 @Tag(name = "Sales Order Management", description = "Sale order management endpoints")
 public class SalesOrdersController {
+    private final SalesReturnMapper salesReturnMapper;
     private final SalesBusinessService salesBS;
     private final PaymentBusinessService paymentBS;
     private final SalesOrderEntityService soES;
     private final SalesOrderLineEntityService solES;
+    private final SalesReturnEntityService srES;
     
     private final ProductService productES;
     private final BranchService branchES;
@@ -121,10 +126,7 @@ public class SalesOrdersController {
             // 3. Confirm order
             so = salesBS.confirm(so.getId());
             
-            // 4. Fulfill order
-            so = salesBS.fulfill(so.getId());
-            
-            // 5. Initiate payment
+            // 4. Initiate payment
             PaymentResponse paymentResponse = null;
             if (req.getPaymentMethod() != null && !req.getPaymentMethod().equals(PaymentMethod.CASH)) {
                 InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
@@ -153,7 +155,7 @@ public class SalesOrdersController {
                 }
             }
             
-            // 6. Build response
+            // 5. Build response
             SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
             
             CreateAndPayResponse response = CreateAndPayResponse.builder()
@@ -191,12 +193,25 @@ public class SalesOrdersController {
     
     @PostMapping("/so/return/{soId}")
     @Operation(summary = "Create return", description = "Create a return for a sales order")
-    public ResponseEntity<ApiResponse<SaleReturnInfoDto>> createReturn(@PathVariable UUID soId, @RequestBody CreateReturnRequest req) {
+    public ResponseEntity<ApiResponse<SaleReturnInfoDto>> createReturn(@PathVariable UUID soId, @RequestBody(required = false) CreateReturnRequest req) {
         Map<UUID, Long> items = new LinkedHashMap<>();
         Map<UUID, BigDecimal> unitCosts = new LinkedHashMap<>();
-        for (ReturnItem i : req.getItems()) {
-            items.put(i.getProductId(), i.getQty());
-            if (i.getUnitCost() != null) unitCosts.put(i.getProductId(), i.getUnitCost());
+        if (req != null)
+            for (ReturnItem i : req.getItems()) {
+                items.put(i.getProductId(), i.getQty());
+                if (i.getUnitCost() != null) unitCosts.put(i.getProductId(), i.getUnitCost());
+            }
+        else {
+            SalesOrder so = soES.require(soId);
+            if (!(so.getStatus() == SalesStatus.FULFILLED || so.getStatus() == SalesStatus.PARTIALLY_RETURNED)) {
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Only fulfilled orders can be returned");
+            }
+            
+            for (SalesOrderLine line : so.getLines()) {
+                items.put(line.getProduct().getProductId(), line.getQuantity());
+                
+                unitCosts.put(line.getProduct().getProductId(), line.getUnitPrice());
+            }
         }
         
         SaleReturnInfoDto srDto = srMapper.toSaleReturnInfoDto(salesBS.createReturn(soId, items, unitCosts));
@@ -223,6 +238,27 @@ public class SalesOrdersController {
             .map(soMapper::toSaleOrderInfoDto).toList();
         
         return ResponseBuilder.success("All sales orders retrieved", sosDto);
+    }
+    
+    @GetMapping("/so/get-all-return")
+    @Operation(summary = "Get all returned orders", description = "Get all sales orders that have returned")
+    public ResponseEntity<ApiResponse<List<SaleReturnInfoDto>>> getAllReturns() {
+        List<SalesReturn> sos = srES.getAllReturns();
+        
+        List<SaleReturnInfoDto> sosDto = sos.stream().map(salesReturnMapper::toSaleReturnInfoDto).toList();
+        
+        return ResponseBuilder.success("All returned orders retrieved", sosDto);
+    }
+    
+    @GetMapping("/so/get-all-fullfilled")
+    @Operation(summary = "Get all fullfilled orders", description = "Get all sales orders that have been fullfilled")
+    public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAllFullfills() {
+        List<SalesOrder> sos = soES.getAllFullfills();
+        
+        List<SaleOrderInfoDto> sosDto = sos.stream()
+            .map(soMapper::toSaleOrderInfoDto).toList();
+        
+        return ResponseBuilder.success("All fullfilled orders retrieved", sosDto);
     }
     
     // ===== DTOs =====

@@ -57,6 +57,7 @@ public class PurchasingBusinessService {
                 lineReq.getProductId(),
                 lineReq.getQty(),
                 lineReq.getUnitCost(),
+                lineReq.getLotCode(),
                 createdPO.getId(),
                 StockRefType.PURCHASE_ORDER
             );

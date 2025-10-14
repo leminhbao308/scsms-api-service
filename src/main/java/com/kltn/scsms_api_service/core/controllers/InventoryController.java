@@ -68,7 +68,7 @@ public class InventoryController {
     
     @PostMapping("/inv/add-stock")
     public ResponseEntity<ApiResponse<Void>> add(@RequestBody AddStockRequest req) {
-        inventoryBS.addStock(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getRefId(), req.getRefType());
+        inventoryBS.addStock(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getLotCode(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Add stock successfully");
     }
     
@@ -549,6 +549,9 @@ public class InventoryController {
         
         @JsonProperty("unit_cost")
         private BigDecimal unitCost;
+        
+        @JsonProperty("lot_code")
+        private String lotCode;
         
         @JsonProperty("ref_id")
         private UUID refId;
