@@ -19,12 +19,24 @@ public class InitiatePaymentRequest {
     @JsonProperty("sales_order_id")
     private UUID salesOrderId;
     
+    @JsonProperty("booking_id")
+    private UUID bookingId;
+    
+    @JsonProperty("amount")
+    private Integer amount;
+    
     @JsonProperty("payment_method")
     private PaymentMethod paymentMethod;
+    
+    @JsonProperty("description")
+    private String description;
     
     @JsonProperty("return_url")
     private String returnUrl;
     
     @JsonProperty("cancel_url")
     private String cancelUrl;
+    
+    @JsonProperty("callback_url")
+    private String callbackUrl;
 }
