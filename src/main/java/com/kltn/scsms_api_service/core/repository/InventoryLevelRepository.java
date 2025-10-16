@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface InventoryLevelRepository extends JpaRepository<InventoryLevel, UUID> {
-    Optional<InventoryLevel> findByWarehouseIdAndProductProductId(UUID warehouseId, UUID productId);
+    List<InventoryLevel> findAllByBranch_BranchId(UUID branchId);
     
-    List<InventoryLevel> findAllByWarehouse_Id(UUID warehouseId);
+    Optional<InventoryLevel> findByBranch_BranchIdAndProduct_ProductId(UUID branchBranchId, UUID productProductId);
 }

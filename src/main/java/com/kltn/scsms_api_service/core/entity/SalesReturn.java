@@ -30,8 +30,8 @@ public class SalesReturn extends AuditEntity {
     
     
     @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_sr_wh"))
-    private Warehouse warehouse;
+    @JoinColumn(name = "branch_id", nullable = false, foreignKey = @ForeignKey(name = "fk_sr_branch"))
+    private Branch branch;
     
     
     @OneToMany(mappedBy = "salesReturn", cascade = CascadeType.ALL, orphanRemoval = true)

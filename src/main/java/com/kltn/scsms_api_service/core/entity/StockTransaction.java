@@ -18,7 +18,7 @@ import java.util.UUID;
 @Table(name = "stock_txn",
     schema = GeneralConstant.DB_SCHEMA_DEV,
     indexes = {
-        @Index(name = "idx_txn_wh", columnList = "warehouse_id"),
+        @Index(name = "idx_txn_branch", columnList = "branch_id"),
         @Index(name = "idx_txn_product", columnList = "product_id"),
         @Index(name = "idx_txn_created", columnList = "createdDate")
     })
@@ -32,8 +32,8 @@ public class StockTransaction extends AuditEntity {
     
     
     @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_txn_wh"))
-    private Warehouse warehouse;
+    @JoinColumn(name = "branch_id", nullable = false, foreignKey = @ForeignKey(name = "fk_txn_branch"))
+    private Branch branch;
     
     
     @ManyToOne(optional = false)
@@ -65,7 +65,7 @@ public class StockTransaction extends AuditEntity {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "ref_type", length = 40)
-    private StockRefType refType; // SO: Sales Order, SR: Sales Return, PO: Purchase Order, PR: Purchase Receipt
+    private StockRefType refType;
     
     
     @Column(name = "ref_id")

@@ -1,7 +1,9 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.core.dto.paymentManagement.request.*;
-import com.kltn.scsms_api_service.core.dto.paymentManagement.response.*;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.request.InitiatePaymentRequest;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.request.PayOSWebhookData;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.response.PaymentResponse;
+import com.kltn.scsms_api_service.core.dto.paymentManagement.response.PaymentStatusResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.service.businessService.PaymentBusinessService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -34,7 +36,7 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
         @RequestBody InitiatePaymentRequest request) {
         
-        log.info("Initiating payment for sales order: {}", request.getSalesOrderId());
+        log.info("Initiating payment for sales order: {} | booking: {}", request.getSalesOrderId(), request.getBookingId());
         
         PaymentResponse response = paymentBS.initiatePayment(request);
         

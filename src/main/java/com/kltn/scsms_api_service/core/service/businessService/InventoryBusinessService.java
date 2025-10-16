@@ -4,6 +4,8 @@ import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.StockTxnType;
 import com.kltn.scsms_api_service.core.service.entityService.*;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,27 +24,29 @@ public class InventoryBusinessService {
     private final InventoryLotEntityService lotES;
     private final StockTransactionEntityService txnES;
     private final ProductService productES;
-    private final WarehouseEntityService warehouseES;
+    private final BranchService branchES;
     
     
     @Transactional
-    public void addStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType) {
-        increaseStock(warehouseId, productId, qty, unitCost, lotCode, refId, refType, StockTxnType.PURCHASE_RECEIPT);
+    public void addStock(UUID branchId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType) {
+        increaseStock(branchId, productId, qty, unitCost, lotCode, refId, refType, StockTxnType.PURCHASE_RECEIPT);
     }
     
     
     @Transactional
-    public void reserveStock(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
-        InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
+    public void reserveStock(UUID branchId, UUID productId, Long qty, UUID refId, StockRefType refType) {
+        InventoryLevel level = inventoryLevelEntityService.find(branchId, productId).orElseThrow();
         if (level.getAvailable() < qty) {
             Product product = level.getProduct();
-            Warehouse warehouse = level.getWarehouse();
-            throw new IllegalStateException(
+            Branch branch = level.getBranch();
+            throw new ClientSideException(
+                ErrorCode.BAD_REQUEST,
                 String.format(
-                    "Insufficient available stock for product '%s' (ID: %s) in warehouse '%s' (ID: %s): requested=%d, available=%d",
+                    "Insufficient available stock for product '%s' (ID: %s) in branch '%s' (ID: %s): requested=%d, available=%d",
                     product != null ? product.getProductName() : "Unknown",
                     product != null ? product.getProductId() : productId,
-                    warehouse != null ? warehouse.getId() : warehouseId,
+                    branch != null ? branch.getBranchName() : "Unknown",
+                    branch != null ? branch.getBranchId() : branchId,
                     qty,
                     level.getAvailable()
                 )
@@ -51,19 +55,21 @@ public class InventoryBusinessService {
         level.setReserved(level.getReserved() + qty);
         inventoryLevelEntityService.update(level);
         txnES.create(StockTransaction.builder()
-            .warehouse(level.getWarehouse()).product(level.getProduct())
+            .branch(level.getBranch())
+            .product(level.getProduct())
             .type(StockTxnType.RESERVATION).quantity(-qty)
             .refType(refType).refId(refId).build());
     }
     
     
     @Transactional
-    public void releaseReservation(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
-        InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
+    public void releaseReservation(UUID branchId, UUID productId, Long qty, UUID refId, StockRefType refType) {
+        InventoryLevel level = inventoryLevelEntityService.find(branchId, productId).orElseThrow();
         level.setReserved(Math.max(0, level.getReserved() - qty));
         inventoryLevelEntityService.update(level);
         txnES.create(StockTransaction.builder()
-            .warehouse(level.getWarehouse()).product(level.getProduct())
+            .branch(level.getBranch())
+            .product(level.getProduct())
             .type(StockTxnType.RELEASE).quantity(qty)
             .refType(refType).refId(refId).build());
     }
@@ -72,16 +78,16 @@ public class InventoryBusinessService {
      * Fulfill stock using First-In-First-Out (FIFO) method
      * Make sure to oldest lots are used first
      *
-     * @param warehouseId Warehouse to fulfill from
-     * @param productId   Product to fulfill
-     * @param qty         Quantity to fulfill
-     * @param refId       Reference ID for the transaction
-     * @param refType     Reference type for the transaction
+     * @param branchId  Branch to fulfill from
+     * @param productId Product to fulfill
+     * @param qty       Quantity to fulfill
+     * @param refId     Reference ID for the transaction
+     * @param refType   Reference type for the transaction
      */
     @Transactional
-    public void fulfillStockFIFO(UUID warehouseId, UUID productId, Long qty, UUID refId, StockRefType refType) {
-        InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId).orElseThrow();
-        List<InventoryLot> lots = lotES.fifoLots(warehouseId, productId);
+    public void fulfillStockFIFO(UUID branchId, UUID productId, Long qty, UUID refId, StockRefType refType) {
+        InventoryLevel level = inventoryLevelEntityService.find(branchId, productId).orElseThrow();
+        List<InventoryLot> lots = lotES.fifoLots(branchId, productId);
         long remaining = qty;
         for (InventoryLot lot : lots) {
             if (remaining <= 0) break;
@@ -92,14 +98,16 @@ public class InventoryBusinessService {
             
             
             txnES.create(StockTransaction.builder()
-                .warehouse(level.getWarehouse()).product(level.getProduct())
+                .branch(level.getBranch())
+                .product(level.getProduct())
                 .inventoryLot(lot).type(StockTxnType.SALE)
                 .quantity(-take).unitCost(lot.getUnitCost())
                 .refType(refType).refId(refId).build());
             remaining -= take;
         }
-        if (remaining > 0) throw new IllegalStateException(
-            "Not enough stock to fulfill. Warehouse: " + warehouseId +
+        if (remaining > 0) throw new ClientSideException(
+            ErrorCode.BAD_REQUEST,
+            "Not enough stock to fulfill. Branch: " + branchId +
                 ", Product: " + productId +
                 ", Requested: " + qty +
                 ", Unfulfilled: " + remaining
@@ -111,17 +119,17 @@ public class InventoryBusinessService {
     
     
     @Transactional
-    public void returnToStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType) {
-        increaseStock(warehouseId, productId, qty, unitCost, null, refId, refType, StockTxnType.RETURN);
+    public void returnToStock(UUID branchId, UUID productId, Long qty, BigDecimal unitCost, UUID refId, StockRefType refType) {
+        increaseStock(branchId, productId, qty, unitCost, null, refId, refType, StockTxnType.RETURN);
     }
     
-    private void increaseStock(UUID warehouseId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType, StockTxnType adjustType) {
-        Warehouse warehouseRef = warehouseES.getRefByWarehouseId(warehouseId);
+    private void increaseStock(UUID branchId, UUID productId, Long qty, BigDecimal unitCost, String lotCode, UUID refId, StockRefType refType, StockTxnType adjustType) {
+        Branch branchRef = branchES.getRefById(branchId);
         Product productRef = productES.getRefByProductId(productId);
         
-        InventoryLevel level = inventoryLevelEntityService.find(warehouseId, productId)
+        InventoryLevel level = inventoryLevelEntityService.find(branchId, productId)
             .orElseGet(() -> inventoryLevelEntityService.create(InventoryLevel.builder()
-                .warehouse(warehouseRef)
+                .branch(branchRef)
                 .product(productRef)
                 .onHand(0L).reserved(0L).build()));
         level.setOnHand(level.getOnHand() + qty);
@@ -129,7 +137,7 @@ public class InventoryBusinessService {
         
         
         InventoryLot lot = InventoryLot.builder()
-            .warehouse(warehouseRef)
+            .branch(branchRef)
             .product(productRef)
             .receivedAt(LocalDateTime.now())
             .unitCost(unitCost).quantity(qty)
@@ -139,7 +147,8 @@ public class InventoryBusinessService {
         
         
         txnES.create(StockTransaction.builder()
-            .warehouse(warehouseRef).product(productRef)
+            .branch(branchRef)
+            .product(productRef)
             .inventoryLot(lot).type(adjustType)
             .quantity(qty).unitCost(unitCost)
             .refType(refType).refId(refId).build());

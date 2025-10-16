@@ -17,8 +17,8 @@ public class InventoryLevelEntityService {
     
     private final InventoryLevelRepository repo;
     
-    public Optional<InventoryLevel> find(UUID warehouseId, UUID productId) {
-        return repo.findByWarehouseIdAndProductProductId(warehouseId, productId);
+    public Optional<InventoryLevel> find(UUID branchId, UUID productId) {
+        return repo.findByBranch_BranchIdAndProduct_ProductId(branchId, productId);
     }
     
     public InventoryLevel create(InventoryLevel inventoryLevel) {
@@ -27,10 +27,6 @@ public class InventoryLevelEntityService {
     
     public void update(InventoryLevel inventoryLevel) {
         repo.save(inventoryLevel);
-    }
-    
-    public List<InventoryLevel> findAllByWarehouse(UUID warehouseId) {
-        return repo.findAllByWarehouse_Id(warehouseId);
     }
     
     public List<InventoryLevel> getAll() {

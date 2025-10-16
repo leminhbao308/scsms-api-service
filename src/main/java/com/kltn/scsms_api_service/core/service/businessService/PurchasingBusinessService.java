@@ -31,7 +31,6 @@ public class PurchasingBusinessService {
     private final ProductService productES;
     private final SupplierService supplierES;
     private final BranchService branchES;
-    private final WarehouseEntityService warehouseES;
     
     private final PurchaseOrderMapper poMapper;
     private final PurchaseOrderLineMapper polMapper;
@@ -39,7 +38,7 @@ public class PurchasingBusinessService {
     @Transactional
     public PurchaseOrder createDraft(CreatePORequest poReq) {
         PurchaseOrder createdPO = purchaseOrderEntityService.create(
-            poMapper.toEntity(poReq, branchES, warehouseES)
+            poMapper.toEntity(poReq, branchES)
         );
         
         // Create and process lines
@@ -53,7 +52,7 @@ public class PurchasingBusinessService {
             
             // Update inventory & create lot
             inventoryBS.addStock(
-                createdPO.getWarehouse().getId(),
+                createdPO.getBranch().getBranchId(),
                 lineReq.getProductId(),
                 lineReq.getQty(),
                 lineReq.getUnitCost(),

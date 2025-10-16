@@ -44,7 +44,7 @@ public class CatalogController {
     
     @GetMapping("/catalogs/for-sale")
     public ResponseEntity<ApiResponse<CatalogResponse>> forSale(
-        @RequestParam UUID warehouseId,
+        @RequestParam UUID branchId,
         @RequestParam(defaultValue = "1") long qty,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "999999") int size,
@@ -61,7 +61,7 @@ public class CatalogController {
         List<CatalogItem> items = new ArrayList<>();
         for (Product p : products) {
             BigDecimal price = pricingBS.resolveUnitPrice(p.getProductId());
-            InventoryLevel level = invLevelES.find(warehouseId, p.getProductId()).orElse(null);
+            InventoryLevel level = invLevelES.find(branchId, p.getProductId()).orElse(null);
             long onHand = level != null ? Optional.ofNullable(level.getOnHand()).orElse(0L) : 0L;
             long reserved = level != null ? Optional.ofNullable(level.getReserved()).orElse(0L) : 0L;
             long available = onHand - reserved;

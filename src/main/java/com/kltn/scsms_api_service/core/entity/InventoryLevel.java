@@ -15,7 +15,7 @@ import java.util.UUID;
 @Table(name = "inventory_level",
     schema = GeneralConstant.DB_SCHEMA_DEV,
     uniqueConstraints = {
-    @UniqueConstraint(name = "uq_inventory_level", columnNames = {"warehouse_id", "product_id"})
+    @UniqueConstraint(name = "uq_inventory_level", columnNames = {"branch_id", "product_id"})
 })
 @SuperBuilder
 @NoArgsConstructor
@@ -27,8 +27,8 @@ public class InventoryLevel extends AuditEntity {
     
     
     @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_il_wh"))
-    private Warehouse warehouse;
+    @JoinColumn(name = "branch_id", nullable = false, foreignKey = @ForeignKey(name = "fk_il_branch"))
+    private Branch branch;
     
     
     @ManyToOne(optional = false)

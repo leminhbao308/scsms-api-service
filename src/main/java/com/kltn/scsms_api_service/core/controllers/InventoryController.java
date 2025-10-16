@@ -4,13 +4,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.inventoryManagement.InventoryLevelInfoDto;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
-import com.kltn.scsms_api_service.core.entity.*;
+import com.kltn.scsms_api_service.core.entity.Branch;
+import com.kltn.scsms_api_service.core.entity.InventoryLevel;
+import com.kltn.scsms_api_service.core.entity.InventoryLot;
+import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType;
 import com.kltn.scsms_api_service.core.service.businessService.InventoryBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.InventoryLevelEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.InventoryLotEntityService;
-import com.kltn.scsms_api_service.core.service.entityService.WarehouseEntityService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
@@ -48,7 +50,6 @@ import java.util.*;
 public class InventoryController {
     private final InventoryBusinessService inventoryBS;
     private final InventoryLevelEntityService invLevelES;
-    private final WarehouseEntityService warehouseES;
     private final BranchService branchES;
     private final InventoryLotEntityService lotES;
     
@@ -56,8 +57,8 @@ public class InventoryController {
     
     
     @GetMapping("/inv/level")
-    public ResponseEntity<ApiResponse<InventoryLevelInfoDto>> level(@RequestParam UUID warehouseId, @RequestParam UUID productId) {
-        InventoryLevel invLevel = invLevelES.find(warehouseId, productId)
+    public ResponseEntity<ApiResponse<InventoryLevelInfoDto>> level(@RequestParam UUID branchId, @RequestParam UUID productId) {
+        InventoryLevel invLevel = invLevelES.find(branchId, productId)
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Inventory level not found"));
         
         InventoryLevelInfoDto invLevelDto = invLevelMapper.toInventoryLevelInfoDto(invLevel);
@@ -68,35 +69,35 @@ public class InventoryController {
     
     @PostMapping("/inv/add-stock")
     public ResponseEntity<ApiResponse<Void>> add(@RequestBody AddStockRequest req) {
-        inventoryBS.addStock(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getLotCode(), req.getRefId(), req.getRefType());
+        inventoryBS.addStock(req.getBranchId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getLotCode(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Add stock successfully");
     }
     
     
     @PostMapping("/inv/reserve")
     public ResponseEntity<ApiResponse<Void>> reserve(@RequestBody MoveRequest req) {
-        inventoryBS.reserveStock(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
+        inventoryBS.reserveStock(req.getBranchId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Reserve stock successfully");
     }
     
     
     @PostMapping("/inv/release")
     public ResponseEntity<ApiResponse<Void>> release(@RequestBody MoveRequest req) {
-        inventoryBS.releaseReservation(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
+        inventoryBS.releaseReservation(req.getBranchId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Release reservation successfully");
     }
     
     
     @PostMapping("/inv/fulfill")
     public ResponseEntity<ApiResponse<Void>> fulfill(@RequestBody MoveRequest req) {
-        inventoryBS.fulfillStockFIFO(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
+        inventoryBS.fulfillStockFIFO(req.getBranchId(), req.getProductId(), req.getQty(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Fulfill stock successfully");
     }
     
     
     @PostMapping("/inv/return")
     public ResponseEntity<ApiResponse<Void>> returnToStock(@RequestBody AddStockRequest req) {
-        inventoryBS.returnToStock(req.getWarehouseId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getRefId(), req.getRefType());
+        inventoryBS.returnToStock(req.getBranchId(), req.getProductId(), req.getQty(), req.getUnitCost(), req.getRefId(), req.getRefType());
         return ResponseBuilder.success("Return to stock successfully");
     }
     
@@ -104,7 +105,7 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<InventoryLevelsBatchResponse>> levelsBatch(@RequestBody InventoryLevelsBatchRequest req) {
         Map<UUID, InventoryView> map = new LinkedHashMap<>();
         for (UUID productId : req.getProductIds()) {
-            InventoryLevel level = invLevelES.find(req.getWarehouseId(), productId).orElse(null);
+            InventoryLevel level = invLevelES.find(req.getBranchId(), productId).orElse(null);
             long onHand = level != null ? Optional.ofNullable(level.getOnHand()).orElse(0L) : 0L;
             long reserved = level != null ? Optional.ofNullable(level.getReserved()).orElse(0L) : 0L;
             map.put(productId, new InventoryView(onHand, reserved, onHand - reserved));
@@ -122,24 +123,12 @@ public class InventoryController {
         
         try {
             // Get branch info
-            Branch branch = null;
-            if (branchId != null) {
-                branch = branchES.findById(branchId)
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
-            }
+            Branch branch = branchES.findById(branchId)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
             
-            // Get warehouse info
-            assert branch != null;
-            Warehouse warehouse = warehouseES.findByBranch(branch.getBranchId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Warehouse not found"));
+            // Get all inventory lots for the branch (or all branches if branchId is null)
+            List<InventoryLot> inventoryLots = lotES.findByBranch(branch.getBranchId());
             
-            // Get all inventory lots for the warehouse
-            List<InventoryLot> inventoryLots;
-            if (warehouse != null) {
-                inventoryLots = lotES.findByWarehouse(warehouse.getId());
-            } else {
-                inventoryLots = lotES.getAll();
-            }
             
             // Build report data - one line per lot
             List<InventoryReportLine> reportLines = new ArrayList<>();
@@ -173,7 +162,7 @@ public class InventoryController {
                 line.totalValue = line.unitCost.multiply(BigDecimal.valueOf(line.quantity));
                 
                 // Get reserved quantity for this product in this warehouse
-                InventoryLevel level = invLevelES.find(lot.getWarehouse().getId(), product.getProductId())
+                InventoryLevel level = invLevelES.find(lot.getBranch().getBranchId(), product.getProductId())
                     .orElse(null);
                 if (level != null) {
                     line.totalOnHand = level.getOnHand() != null ? level.getOnHand() : 0L;
@@ -252,7 +241,7 @@ public class InventoryController {
             Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue("BÁO CÁO TỒN KHO CHI TIẾT THEO LÔ");
             titleCell.setCellStyle(titleStyle);
-            sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 15));
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
             
             // Report date
             Row dateRow = sheet.createRow(rowNum++);
@@ -539,8 +528,8 @@ public class InventoryController {
     @AllArgsConstructor
     public static class AddStockRequest {
         
-        @JsonProperty("warehouse_id")
-        private UUID warehouseId;
+        @JsonProperty("branch_id")
+        private UUID branchId;
         
         @JsonProperty("product_id")
         private UUID productId;
@@ -565,8 +554,8 @@ public class InventoryController {
     @AllArgsConstructor
     public static class MoveRequest {
         
-        @JsonProperty("warehouse_id")
-        private UUID warehouseId;
+        @JsonProperty("branch_id")
+        private UUID branchId;
         
         @JsonProperty("product_id")
         private UUID productId;
@@ -585,8 +574,8 @@ public class InventoryController {
     @AllArgsConstructor
     public static class InventoryLevelsBatchRequest {
         
-        @JsonProperty("warehouse_id")
-        private UUID warehouseId;
+        @JsonProperty("branch_id")
+        private UUID branchId;
         
         @JsonProperty("product_ids")
         private List<UUID> productIds;

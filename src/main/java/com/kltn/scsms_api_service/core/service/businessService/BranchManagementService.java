@@ -8,11 +8,9 @@ import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranch
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
-import com.kltn.scsms_api_service.core.entity.Warehouse;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.CenterService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
-import com.kltn.scsms_api_service.core.service.entityService.WarehouseEntityService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.BranchMapper;
@@ -31,7 +29,6 @@ public class BranchManagementService {
     
     private final BranchMapper branchMapper;
     private final BranchService branchService;
-    private final WarehouseEntityService warehouseEntityService;
     private final CenterService centerService;
     private final UserService userService;
     
@@ -42,7 +39,7 @@ public class BranchManagementService {
         return branchPage.map(branchMapper::toBranchInfoDtoWithRelations);
     }
     
-    public BranchInfoDto createBranchWithWarehouse(CreateBranchRequest createBranchRequest) {
+    public BranchInfoDto createBranch(CreateBranchRequest createBranchRequest) {
         // Validate branch name not already in use
         if (branchService.existsByBranchName(createBranchRequest.getBranchName())) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST,
@@ -82,11 +79,6 @@ public class BranchManagementService {
         
         log.info("Created new branch with name: {} for center: {}",
             createdBranch.getBranchName(), center.getCenterName());
-        
-        // Create associated warehouse
-        warehouseEntityService.saveWarehouse(
-            Warehouse.builder().branch(createdBranch).locked(true).build()
-        );
         
         return branchMapper.toBranchInfoDtoWithRelations(createdBranch);
     }
