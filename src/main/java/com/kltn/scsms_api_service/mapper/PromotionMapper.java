@@ -13,7 +13,6 @@ public interface PromotionMapper {
      * Convert CreatePromotionRequest to Promotion entity
      */
     @Mapping(target = "promotionId", ignore = true)
-    @Mapping(target = "promotionType", ignore = true) // Will be set manually
     @Mapping(target = "branch", ignore = true) // Will be set manually
     @Mapping(target = "usages", ignore = true)
     @Mapping(target = "promotionLines", ignore = true)
@@ -28,7 +27,6 @@ public interface PromotionMapper {
      * Update Promotion entity from UpdatePromotionRequest
      */
     @Mapping(target = "promotionId", ignore = true)
-    @Mapping(target = "promotionType", ignore = true) // Will be set manually
     @Mapping(target = "branch", ignore = true) // Will be set manually
     @Mapping(target = "usages", ignore = true)
     @Mapping(target = "promotionLines", ignore = true)
@@ -42,7 +40,6 @@ public interface PromotionMapper {
     /**
      * Convert Promotion entity to PromotionInfoDto
      */
-    @Mapping(source = "promotionType", target = "promotionType")
     @Mapping(source = "branch", target = "branch")
     @Mapping(source = "promotionLines", target = "promotionLines")
     @Mapping(target = "totalUsageCount", expression = "java(promotion.getUsages() != null ? (long) promotion.getUsages().size() : 0L)")

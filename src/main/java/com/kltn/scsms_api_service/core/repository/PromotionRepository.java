@@ -34,22 +34,17 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
     boolean existsByPromotionCode(String promotionCode);
     
     /**
-     * Find promotions by promotion type
-     */
-    List<Promotion> findByPromotionTypePromotionTypeId(UUID promotionTypeId);
-    
-    /**
      * Find active promotions (within date range and not deleted)
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
+        "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
     List<Promotion> findActivePromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find auto-apply promotions
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
+        "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now)")
     List<Promotion> findAutoApplyPromotions(@Param("now") LocalDateTime now);
     
     /**
@@ -62,8 +57,8 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Find promotions starting soon
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.startAt > :now AND p.startAt <= :futureTime")
-    List<Promotion> findPromotionsStartingSoon(@Param("now") LocalDateTime now, 
+        "AND p.startAt > :now AND p.startAt <= :futureTime")
+    List<Promotion> findPromotionsStartingSoon(@Param("now") LocalDateTime now,
                                                @Param("futureTime") LocalDateTime futureTime);
     
     /**
@@ -86,17 +81,15 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Search promotions by name with limit
      */
     @Query("SELECT p FROM Promotion p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
-           "ORDER BY p.name")
+        "ORDER BY p.name")
     List<Promotion> findByNameContainingIgnoreCase(@Param("name") String name, Pageable pageable);
     
     /**
      * Find promotions for autocomplete suggestions
      */
     @Query("SELECT p FROM Promotion p WHERE LOWER(p.name) LIKE LOWER(CONCAT(:partial, '%')) " +
-           "AND (:promotionTypeId IS NULL OR p.promotionType.promotionTypeId = :promotionTypeId) " +
-           "ORDER BY p.name")
+        "ORDER BY p.name")
     List<Promotion> findPromotionSuggestions(@Param("partial") String partial,
-                                             @Param("promotionTypeId") UUID promotionTypeId,
                                              Pageable pageable);
     
     /**
@@ -131,7 +124,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Get promotions by date range
      */
     @Query("SELECT p FROM Promotion p WHERE p.startAt BETWEEN :startDate AND :endDate " +
-           "OR p.endAt BETWEEN :startDate AND :endDate")
+        "OR p.endAt BETWEEN :startDate AND :endDate")
     List<Promotion> findPromotionsByDateRange(@Param("startDate") LocalDateTime startDate,
                                               @Param("endDate") LocalDateTime endDate);
     
@@ -139,7 +132,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Get promotions ending soon
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND p.endAt > :now AND p.endAt <= :futureTime")
+        "AND p.endAt > :now AND p.endAt <= :futureTime")
     List<Promotion> findPromotionsEndingSoon(@Param("now") LocalDateTime now,
                                              @Param("futureTime") LocalDateTime futureTime);
     
@@ -172,22 +165,21 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID>, Jpa
      * Find promotions that can be applied to an order
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now) " +
-           "AND (p.usageLimit IS NULL OR SIZE(p.usages) < p.usageLimit)")
+        "AND (p.startAt IS NULL OR p.startAt <= :now) AND (p.endAt IS NULL OR p.endAt >= :now) " +
+        "AND (p.usageLimit IS NULL OR SIZE(p.usages) < p.usageLimit)")
     List<Promotion> findApplicablePromotions(@Param("now") LocalDateTime now);
     
     /**
      * Find promotions by multiple criteria
      */
     @Query("SELECT p FROM Promotion p WHERE p.isDeleted = false AND p.isActive = true " +
-           "AND (:promotionTypeId IS NULL OR p.promotionType.promotionTypeId = :promotionTypeId) " +
-           "AND (:branchId IS NULL OR p.branch.branchId = :branchId) " +
-           "AND (:isStackable IS NULL OR p.isStackable = :isStackable) " +
-           "AND (:couponRedeemOnce IS NULL OR p.couponRedeemOnce = :couponRedeemOnce)")
-    List<Promotion> findPromotionsByMultipleCriteria(@Param("promotionTypeId") UUID promotionTypeId,
-                                                     @Param("branchId") UUID branchId,
-                                                     @Param("isStackable") Boolean isStackable,
-                                                     @Param("couponRedeemOnce") Boolean couponRedeemOnce);
+        "AND (:branchId IS NULL OR p.branch.branchId = :branchId) " +
+        "AND (:isStackable IS NULL OR p.isStackable = :isStackable) " +
+        "AND (:couponRedeemOnce IS NULL OR p.couponRedeemOnce = :couponRedeemOnce)")
+    List<Promotion> findPromotionsByMultipleCriteria(
+        @Param("branchId") UUID branchId,
+        @Param("isStackable") Boolean isStackable,
+        @Param("couponRedeemOnce") Boolean couponRedeemOnce);
     
     /**
      * Get promotion reference by ID (for lazy loading)

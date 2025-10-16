@@ -124,14 +124,11 @@ public class PromotionService {
         CriteriaQuery<Promotion> query = cb.createQuery(Promotion.class);
         Root<Promotion> promotionRoot = query.from(Promotion.class);
         
-        // Join with PromotionType entity for promotion type-based filtering
-        Join<Object, Object> promotionTypeJoin = promotionRoot.join("promotionType", JoinType.LEFT);
-        
         // Join with Branch entity for branch-based filtering
         Join<Object, Object> branchJoin = promotionRoot.join("branch", JoinType.LEFT);
         
-        List<Predicate> predicates = buildPredicates(cb, promotionRoot, promotionTypeJoin, 
-                                                   branchJoin, filterParam);
+        List<Predicate> predicates = buildPredicates(cb, promotionRoot,
+            branchJoin, filterParam);
         
         if (!predicates.isEmpty()) {
             query.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -142,11 +139,7 @@ public class PromotionService {
             ? Sort.Direction.ASC : Sort.Direction.DESC;
         
         Order order;
-        if ("promotionType.typeName".equals(filterParam.getSort())) {
-            order = sortDirection == Sort.Direction.ASC
-                ? cb.asc(promotionTypeJoin.get("typeName"))
-                : cb.desc(promotionTypeJoin.get("typeName"));
-        } else if ("branch.branchName".equals(filterParam.getSort())) {
+        if ("branch.branchName".equals(filterParam.getSort())) {
             order = sortDirection == Sort.Direction.ASC
                 ? cb.asc(branchJoin.get("branchName"))
                 : cb.desc(branchJoin.get("branchName"));
@@ -177,9 +170,8 @@ public class PromotionService {
      * Build predicates for filtering
      */
     private List<Predicate> buildPredicates(CriteriaBuilder cb, Root<Promotion> promotionRoot,
-                                          Join<Object, Object> promotionTypeJoin,
-                                          Join<Object, Object> branchJoin,
-                                          PromotionFilterParam filterParam) {
+                                            Join<Object, Object> branchJoin,
+                                            PromotionFilterParam filterParam) {
         List<Predicate> predicates = new ArrayList<>();
         
         // Basic filters
@@ -191,10 +183,6 @@ public class PromotionService {
         if (filterParam.getName() != null) {
             predicates.add(cb.like(cb.lower(promotionRoot.get("name")),
                 "%" + filterParam.getName().toLowerCase() + "%"));
-        }
-        
-        if (filterParam.getPromotionTypeId() != null) {
-            predicates.add(cb.equal(promotionTypeJoin.get("promotionTypeId"), filterParam.getPromotionTypeId()));
         }
         
         if (filterParam.getBranchId() != null) {
@@ -278,7 +266,7 @@ public class PromotionService {
      * Add date range predicates
      */
     private void addDateRangePredicates(CriteriaBuilder cb, Root<Promotion> promotionRoot,
-                                      List<Predicate> predicates, PromotionFilterParam filterParam) {
+                                        List<Predicate> predicates, PromotionFilterParam filterParam) {
         // Start date range
         if (filterParam.getStartAtFrom() != null) {
             predicates.add(cb.greaterThanOrEqualTo(promotionRoot.get("startAt"), filterParam.getStartAtFrom()));
@@ -316,7 +304,7 @@ public class PromotionService {
      * Add status predicates
      */
     private void addStatusPredicates(CriteriaBuilder cb, Root<Promotion> promotionRoot,
-                                   List<Predicate> predicates, PromotionFilterParam filterParam) {
+                                     List<Predicate> predicates, PromotionFilterParam filterParam) {
         LocalDateTime now = LocalDateTime.now();
         
         if (filterParam.getIsExpired() != null) {
@@ -389,13 +377,11 @@ public class PromotionService {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<Promotion> promotionRoot = countQuery.from(Promotion.class);
-        Join<Object, Object> promotionTypeJoin = promotionRoot.join("promotionType", JoinType.LEFT);
         Join<Object, Object> branchJoin = promotionRoot.join("branch", JoinType.LEFT);
         
         countQuery.select(cb.count(promotionRoot));
         
-        List<Predicate> predicates = buildPredicates(cb, promotionRoot, promotionTypeJoin,
-                                                   branchJoin, filterParam);
+        List<Predicate> predicates = buildPredicates(cb, promotionRoot, branchJoin, filterParam);
         if (!predicates.isEmpty()) {
             countQuery.where(cb.and(predicates.toArray(new Predicate[0])));
         }
