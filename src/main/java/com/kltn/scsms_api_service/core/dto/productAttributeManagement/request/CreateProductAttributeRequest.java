@@ -35,4 +35,8 @@ public class CreateProductAttributeRequest {
     @JsonProperty("data_type")
     @Builder.Default
     private String dataType = "STRING";
+    
+    @JsonProperty("is_active")
+    @Builder.Default
+    private Boolean isActive = true;
 }

@@ -39,7 +39,6 @@ public interface ProductAttributeMapper {
      * Update existing ProductAttribute entity from UpdateProductAttributeRequest
      */
     @Mapping(target = "attributeId", ignore = true)
-    @Mapping(target = "isActive", ignore = true)
     @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "dataType", source = "dataType", qualifiedByName = "stringToDataType")
     void updateEntityFromRequest(UpdateProductAttributeRequest updateRequest, @MappingTarget ProductAttribute productAttribute);

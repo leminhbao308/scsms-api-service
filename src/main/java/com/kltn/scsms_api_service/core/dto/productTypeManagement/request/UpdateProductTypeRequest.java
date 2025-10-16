@@ -29,4 +29,7 @@ public class UpdateProductTypeRequest {
     
     @JsonProperty("category_id")
     private UUID categoryId;
+    
+    @JsonProperty("is_active")
+    private Boolean isActive;
 }

@@ -40,7 +40,6 @@ public interface ProductTypeMapper {
      */
     @Mapping(target = "productTypeId", ignore = true)
     @Mapping(target = "category", ignore = true) // Will be handled by service
-    @Mapping(target = "isActive", ignore = true) // isActive is not updated via this method
     @Mapping(target = "isDeleted", ignore = true) // isDeleted is not updated via this method
     void updateEntityFromRequest(UpdateProductTypeRequest updateRequest, @MappingTarget ProductType productType);
     

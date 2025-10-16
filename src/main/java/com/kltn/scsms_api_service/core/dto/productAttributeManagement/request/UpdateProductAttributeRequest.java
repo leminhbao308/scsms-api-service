@@ -30,4 +30,7 @@ public class UpdateProductAttributeRequest {
     
     @JsonProperty("data_type")
     private String dataType;
+    
+    @JsonProperty("is_active")
+    private Boolean isActive;
 }

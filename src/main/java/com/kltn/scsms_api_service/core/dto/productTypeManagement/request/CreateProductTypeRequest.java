@@ -34,4 +34,8 @@ public class CreateProductTypeRequest {
     @NotNull(message = "Category ID is required")
     @JsonProperty("category_id")
     private UUID categoryId;
+    
+    @JsonProperty("is_active")
+    @Builder.Default
+    private Boolean isActive = true;
 }
