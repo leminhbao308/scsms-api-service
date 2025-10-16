@@ -7,12 +7,10 @@ import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.Creat
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.response.PurchaseHistoryResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Branch;
-import com.kltn.scsms_api_service.core.entity.ProductCostStats;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrder;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrderLine;
 import com.kltn.scsms_api_service.core.service.businessService.PurchasingBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
-import com.kltn.scsms_api_service.core.service.entityService.ProductCostStatsService;
 import com.kltn.scsms_api_service.core.service.entityService.PurchaseOrderEntityService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.exception.ClientSideException;
@@ -40,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +54,6 @@ public class PurchaseOrdersController {
     
     private final PurchasingBusinessService purchasingBS;
     private final PurchaseOrderEntityService poES;
-    private final ProductCostStatsService costStatsES;
     private final BranchService branchES;
     
     private final PurchaseOrderMapper poMapper;
@@ -105,10 +103,18 @@ public class PurchaseOrdersController {
         List<PurchaseOrderLine> pols = purchasingBS.getProductPOHistory(productId);
         List<PurchaseOrderLineInfoDto> polsDto = pols.stream().map(purchaseOrderLineMapper::toPurchaseOrderLineInfoDto).collect(Collectors.toList());
         
-        ProductCostStats stats = costStatsES.findByProduct(productId).orElse(null);
+        // Get peak unit cost
+        AtomicReference<BigDecimal> peakUnitCost = new AtomicReference<>(BigDecimal.ZERO);
+        polsDto.stream().filter(p -> p.getUnitCost() != null)
+            .forEach(p -> {
+                if (p.getUnitCost().compareTo(peakUnitCost.get()) > 0) {
+                    peakUnitCost.set(p.getUnitCost());
+                }
+            });
+        
         PurchaseHistoryResponse polsResponse = PurchaseHistoryResponse.builder()
             .lines(polsDto)
-            .peakUnitCost(stats != null ? stats.getPeakPurchasePrice() : BigDecimal.ZERO)
+            .peakUnitCost(peakUnitCost.get())
             .build();
         
         return ResponseBuilder.success("Purchase history retrieved", polsResponse);

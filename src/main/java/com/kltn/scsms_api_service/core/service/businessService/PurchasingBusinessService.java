@@ -2,7 +2,6 @@ package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePOLine;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePORequest;
-import com.kltn.scsms_api_service.core.entity.ProductCostStats;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrder;
 import com.kltn.scsms_api_service.core.entity.PurchaseOrderLine;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType;
@@ -14,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +24,6 @@ public class PurchasingBusinessService {
     private final PurchaseOrderEntityService purchaseOrderEntityService;
     private final PurchaseOrderLineEntityService polES;
     private final InventoryBusinessService inventoryBS;
-    private final ProductCostStatsService costStatsES;
     
     private final ProductService productES;
     private final SupplierService supplierES;
@@ -60,25 +57,9 @@ public class PurchasingBusinessService {
                 createdPO.getId(),
                 StockRefType.PURCHASE_ORDER
             );
-            
-            // Update peak purchase price
-            upsertPeakPrice(lineReq.getProductId(), lineReq.getUnitCost());
         }
         
         return createdPO;
-    }
-    
-    
-    private void upsertPeakPrice(UUID productId, BigDecimal unitCost) {
-        ProductCostStats stats = costStatsES.findByProduct(productId)
-            .orElseGet(() -> costStatsES.create(ProductCostStats.builder()
-                .product(productES.getRefByProductId(productId))
-                .peakPurchasePrice(unitCost)
-                .build()));
-        if (unitCost.compareTo(stats.getPeakPurchasePrice()) > 0) {
-            stats.setPeakPurchasePrice(unitCost);
-            costStatsES.update(stats);
-        }
     }
     
     public List<PurchaseOrderLine> getProductPOHistory(UUID productId) {
