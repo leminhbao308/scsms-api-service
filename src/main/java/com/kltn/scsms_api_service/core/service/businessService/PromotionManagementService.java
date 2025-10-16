@@ -7,10 +7,8 @@ import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePro
 import com.kltn.scsms_api_service.core.dto.promotionManagement.request.UpdatePromotionStatusRequest;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Promotion;
-import com.kltn.scsms_api_service.core.entity.PromotionType;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.PromotionService;
-import com.kltn.scsms_api_service.core.service.entityService.PromotionTypeService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.PromotionMapper;
@@ -28,7 +26,6 @@ public class PromotionManagementService {
     
     private final PromotionMapper promotionMapper;
     private final PromotionService promotionService;
-    private final PromotionTypeService promotionTypeService;
     private final BranchService branchService;
     
     /**
@@ -60,7 +57,7 @@ public class PromotionManagementService {
         log.info("Getting promotion by code: {}", promotionCode);
         
         Promotion promotion = promotionService.findByPromotionCode(promotionCode)
-            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
                 "Promotion with code " + promotionCode + " not found."));
         
         return promotionMapper.toPromotionInfoDto(promotion);
@@ -75,24 +72,15 @@ public class PromotionManagementService {
         
         // Validate promotion code uniqueness
         if (promotionService.existsByPromotionCode(createPromotionRequest.getPromotionCode())) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
                 "Promotion code " + createPromotionRequest.getPromotionCode() + " already exists.");
-        }
-        
-        // Validate promotion type exists
-        if (createPromotionRequest.getPromotionTypeId() != null) {
-            PromotionType promotionType = promotionTypeService.getById(createPromotionRequest.getPromotionTypeId());
-            if (promotionType == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Promotion type with ID " + createPromotionRequest.getPromotionTypeId() + " not found.");
-            }
         }
         
         // Validate branch exists if provided
         if (createPromotionRequest.getBranchId() != null) {
             Branch branch = branchService.findById(createPromotionRequest.getBranchId()).orElse(null);
             if (branch == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Branch with ID " + createPromotionRequest.getBranchId() + " not found.");
             }
         }
@@ -122,12 +110,12 @@ public class PromotionManagementService {
         Promotion existingPromotion = promotionService.getById(promotionId);
         
         // Validate promotion code uniqueness if being updated
-        if (updatePromotionRequest.getPromotionCode() != null && 
+        if (updatePromotionRequest.getPromotionCode() != null &&
             !updatePromotionRequest.getPromotionCode().equals(existingPromotion.getPromotionCode())) {
             
             if (promotionService.existsByPromotionCodeAndPromotionIdNot(
                 updatePromotionRequest.getPromotionCode(), promotionId)) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Promotion code " + updatePromotionRequest.getPromotionCode() + " already exists.");
             }
         }
@@ -135,21 +123,11 @@ public class PromotionManagementService {
         // Update promotion entity
         promotionMapper.updateEntityFromRequest(updatePromotionRequest, existingPromotion);
         
-        // Update promotion type if provided
-        if (updatePromotionRequest.getPromotionTypeId() != null) {
-            PromotionType promotionType = promotionTypeService.getById(updatePromotionRequest.getPromotionTypeId());
-            if (promotionType == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
-                    "Promotion type with ID " + updatePromotionRequest.getPromotionTypeId() + " not found.");
-            }
-            existingPromotion.setPromotionType(promotionType);
-        }
-        
         // Update branch if provided
         if (updatePromotionRequest.getBranchId() != null) {
             Branch branch = branchService.findById(updatePromotionRequest.getBranchId()).orElse(null);
             if (branch == null) {
-                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Branch with ID " + updatePromotionRequest.getBranchId() + " not found.");
             }
             existingPromotion.setBranch(branch);
@@ -178,7 +156,7 @@ public class PromotionManagementService {
         
         // Check if promotion is being used
         if (existingPromotion.getUsages() != null && !existingPromotion.getUsages().isEmpty()) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
                 "Cannot delete promotion that has been used. Used count: " + existingPromotion.getUsages().size());
         }
         
@@ -317,14 +295,6 @@ public class PromotionManagementService {
      * Set related entities for new promotion
      */
     private void setRelatedEntities(Promotion promotion, CreatePromotionRequest request) {
-        // Set promotion type if provided
-        if (request.getPromotionTypeId() != null) {
-            PromotionType promotionType = promotionTypeService.getById(request.getPromotionTypeId());
-            if (promotionType != null) {
-                promotion.setPromotionType(promotionType);
-            }
-        }
-        
         // Set branch if provided
         if (request.getBranchId() != null) {
             Branch branch = branchService.findById(request.getBranchId()).orElse(null);
@@ -341,14 +311,6 @@ public class PromotionManagementService {
      * Update related entities for existing promotion
      */
     private void updateRelatedEntities(Promotion promotion, UpdatePromotionRequest request) {
-        // Update promotion type if provided
-        if (request.getPromotionTypeId() != null) {
-            PromotionType promotionType = promotionTypeService.getById(request.getPromotionTypeId());
-            if (promotionType != null) {
-                promotion.setPromotionType(promotionType);
-            }
-        }
-        
         // Update branch if provided
         if (request.getBranchId() != null) {
             Branch branch = branchService.findById(request.getBranchId()).orElse(null);

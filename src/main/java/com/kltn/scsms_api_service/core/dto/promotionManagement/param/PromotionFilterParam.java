@@ -35,9 +35,6 @@ public class PromotionFilterParam extends BaseFilterParam<PromotionFilterParam> 
     @Size(max = 255, message = "Name must not exceed 255 characters")
     private String name;
     
-    @JsonProperty("promotion_type_id")
-    private UUID promotionTypeId;
-    
     @JsonProperty("branch_id")
     private UUID branchId;
     

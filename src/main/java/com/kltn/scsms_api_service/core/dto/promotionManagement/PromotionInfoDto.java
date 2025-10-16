@@ -3,7 +3,6 @@ package com.kltn.scsms_api_service.core.dto.promotionManagement;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchFlatDto;
-import com.kltn.scsms_api_service.core.dto.promotionTypeManagement.PromotionTypeInfoDto;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.entity.PromotionLine;
 import lombok.*;
@@ -34,9 +33,6 @@ public class PromotionInfoDto extends AuditDto {
     
     @JsonProperty("description")
     private String description;
-    
-    @JsonProperty("promotion_type")
-    private PromotionTypeInfoDto promotionType;
     
     @JsonProperty("start_at")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

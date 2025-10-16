@@ -6,7 +6,6 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +30,6 @@ public class CreatePromotionRequest {
     @Size(max = Integer.MAX_VALUE, message = "Description must not exceed maximum length")
     @JsonProperty("description")
     private String description;
-    
-    @JsonProperty("promotion_type_id")
-    private UUID promotionTypeId;
     
     @JsonProperty("start_at")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

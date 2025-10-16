@@ -15,7 +15,7 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "promotion_usage", schema = GeneralConstant.DB_SCHEMA_DEV)
+@Table(name = "promotion_usages", schema = GeneralConstant.DB_SCHEMA_DEV)
 public class PromotionUsage {
     
     @Id

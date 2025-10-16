@@ -35,10 +35,6 @@ public class Promotion extends AuditEntity {
     @Column(name = "description", length = Integer.MAX_VALUE)
     private String description;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "promotion_type_id")
-    private PromotionType promotionType;
-    
     @Column(name = "start_at")
     private LocalDateTime startAt; // bắt đầu
     
