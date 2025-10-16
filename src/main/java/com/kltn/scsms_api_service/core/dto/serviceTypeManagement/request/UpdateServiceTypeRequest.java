@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.serviceTypeManagement.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,6 @@ public class UpdateServiceTypeRequest {
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
     
-    private Integer defaultDuration; // in minutes
-    
+    @JsonProperty("is_active")
     private Boolean isActive;
 }

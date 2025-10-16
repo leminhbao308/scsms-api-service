@@ -5,10 +5,8 @@ import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreatePrice
 import com.kltn.scsms_api_service.core.entity.PriceBookItem;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.Service;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.entityService.ProductService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
-import com.kltn.scsms_api_service.core.service.entityService.ServicePackageService;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -20,7 +18,7 @@ import java.util.UUID;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class, ProductMapper.class, ServiceMapper.class, ServicePackageMapper.class}
+    uses = {AuditMapper.class, ProductMapper.class, ServiceMapper.class}
 )
 public abstract class PriceBookItemMapper {
     
@@ -30,16 +28,12 @@ public abstract class PriceBookItemMapper {
     @Autowired
     protected ServiceService serviceService;
     
-    @Autowired
-    protected ServicePackageService servicePackageService;
-    
     /**
      * Map CreatePriceBookItemRequest to PriceBookItem entity
-     * Handles product_id, service_id, or service_package_id based on which is provided
+     * Handles product_id or service_id based on which is provided
      */
     @Mapping(target = "product", source = "productId", qualifiedByName = "mapProductIdToProduct")
     @Mapping(target = "service", source = "serviceId", qualifiedByName = "mapServiceIdToService")
-    @Mapping(target = "servicePackage", source = "servicePackageId", qualifiedByName = "mapServicePackageIdToServicePackage")
     @Mapping(target = "priceBook", ignore = true)
     public abstract PriceBookItem toEntity(CreatePriceBookItemRequest createPriceBookItemRequest);
     
@@ -64,13 +58,6 @@ public abstract class PriceBookItemMapper {
         return serviceService.getRefById(serviceId);
     }
     
-    @Named("mapServicePackageIdToServicePackage")
-    protected ServicePackage mapServicePackageIdToServicePackage(UUID servicePackageId) {
-        if (servicePackageId == null) {
-            return null;
-        }
-        return servicePackageService.getRefById(servicePackageId);
-    }
     
     @Named("mapItemType")
     protected String mapItemType(PriceBookItem priceBookItem) {

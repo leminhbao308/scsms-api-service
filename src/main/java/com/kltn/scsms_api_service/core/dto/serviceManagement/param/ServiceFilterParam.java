@@ -29,7 +29,6 @@ public class ServiceFilterParam extends BaseFilterParam<ServiceFilterParam> {
     private BigDecimal maxPrice;
     
     // Boolean filters
-    private Boolean isPackage;
     private Boolean isFeatured;
     private Boolean isActive;
     

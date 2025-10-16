@@ -5,7 +5,6 @@ import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.entity.Service;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Getter
@@ -33,20 +32,11 @@ public class ServiceInfoDto {
     
     private String description;
     
-    @JsonProperty("standard_duration")
-    private Integer standardDuration;
     
     @JsonProperty("required_skill_level")
     private Service.SkillLevel requiredSkillLevel;
     
-    @JsonProperty("is_package")
-    private Boolean isPackage;
     
-    @JsonProperty("base_price")
-    private BigDecimal basePrice; // Base price for the service
-    
-    @JsonProperty("labor_cost")
-    private BigDecimal laborCost; // Tiền công lao động
     
     @JsonProperty("service_type_id")
     private UUID serviceTypeId;

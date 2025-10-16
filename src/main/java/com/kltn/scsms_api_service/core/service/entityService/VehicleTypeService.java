@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleTypeFilterParam;
-import com.kltn.scsms_api_service.core.entity.VehicleBrand;
 import com.kltn.scsms_api_service.core.entity.VehicleType;
 import com.kltn.scsms_api_service.core.repository.VehicleTypeRepository;
 import com.kltn.scsms_api_service.exception.ClientSideException;

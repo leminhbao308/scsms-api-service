@@ -38,5 +38,6 @@ public class Role extends AuditEntity {
     private Set<User> users = new HashSet<>();
 
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
+    @Builder.Default
     private Set<RolePermission> rolePermissions = new HashSet<>();
 }

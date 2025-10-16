@@ -25,9 +25,6 @@ public class PriceBookItemEntityService {
         return repo.findByPriceBookIdAndServiceServiceId(id, serviceId);
     }
     
-    public Optional<PriceBookItem> findByPriceBookIdAndServicePackageId(UUID id, UUID packageId) {
-        return repo.findByPriceBookIdAndServicePackagePackageId(id, packageId);
-    }
     
     public PriceBookItem create(PriceBookItem item) {
         return repo.save(item);
@@ -39,7 +36,6 @@ public class PriceBookItemEntityService {
         if (updates.getMarkupPercent() != null) item.setMarkupPercent(updates.getMarkupPercent());
         if (updates.getProduct() != null) item.setProduct(updates.getProduct());
         if (updates.getService() != null) item.setService(updates.getService());
-        if (updates.getServicePackage() != null) item.setServicePackage(updates.getServicePackage());
         return repo.save(item);
     }
     

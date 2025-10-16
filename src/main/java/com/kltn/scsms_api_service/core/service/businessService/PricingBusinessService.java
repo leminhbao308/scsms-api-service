@@ -125,42 +125,12 @@ public class PricingBusinessService {
         return switch (item.getPolicyType()) {
             case FIXED -> require(item.getFixedPrice());
             case MARKUP_ON_PEAK -> {
-                // For services, we might use basePrice + laborCost as the base for markup
-                // This would require getting the service entity and calculating its base cost
-                throw new UnsupportedOperationException("MARKUP_ON_PEAK not supported for services yet");
+                // For services, markup is not supported - only fixed pricing
+                throw new UnsupportedOperationException("MARKUP_ON_PEAK not supported for services - only FIXED pricing is allowed");
             }
         };
     }
     
-    /**
-     * Resolve unit price for a service package
-     *
-     * @param packageId   Service Package ID
-     * @param priceBookId Optional price book ID (if null, uses active price book)
-     * @return Unit price
-     */
-    public BigDecimal resolveServicePackagePrice(UUID packageId, UUID priceBookId) {
-        LocalDateTime today = LocalDateTime.now();
-        PriceBook book;
-        
-        if (priceBookId != null) {
-            book = priceBookEntityService.require(priceBookId);
-        } else {
-            book = resolveActivePriceBook(today)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No active PriceBook for date " + today));
-        }
-        
-        PriceBookItem item = priceBookItemES.findByPriceBookIdAndServicePackageId(book.getId(), packageId)
-            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for service package=" + packageId + " in book=" + book.getCode()));
-        
-        return switch (item.getPolicyType()) {
-            case FIXED -> require(item.getFixedPrice());
-            case MARKUP_ON_PEAK -> {
-                // For service packages, we might use calculated package price as the base for markup
-                throw new UnsupportedOperationException("MARKUP_ON_PEAK not supported for service packages yet");
-            }
-        };
-    }
     
     public BigDecimal calcLineTotal(UUID productId, long quantity) {
         BigDecimal unitPrice = resolveUnitPrice(productId);
@@ -172,8 +142,4 @@ public class PricingBusinessService {
         return fixedPrice;
     }
     
-    private BigDecimal pct(BigDecimal base, BigDecimal percent) {
-        if (base == null || percent == null) throw new IllegalStateException("Missing policy data");
-        return base.multiply(BigDecimal.ONE.add(percent));
-    }
 }

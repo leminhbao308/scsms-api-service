@@ -62,6 +62,7 @@ public class CreatePromotionLineRequest {
     
     @Min(value = 1, message = "Free quantity must be at least 1")
     @JsonProperty("free_quantity")
+    @Builder.Default
     private Integer freeQuantity = 1;
     
     @JsonProperty("start_at")
@@ -74,9 +75,11 @@ public class CreatePromotionLineRequest {
     
     @Min(value = 0, message = "Line priority must be at least 0")
     @JsonProperty("line_priority")
+    @Builder.Default
     private Integer linePriority = 100;
     
     @JsonProperty("is_active")
+    @Builder.Default
     private Boolean isActive = true;
     
     // === VALIDATION METHODS ===

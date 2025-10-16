@@ -21,7 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -118,21 +117,6 @@ public class ServiceManagementService {
     }
     
     
-    public List<ServiceInfoDto> getPackageServices() {
-        log.info("Getting package services");
-        List<Service> services = serviceService.findPackageServices();
-        return services.stream()
-                .map(serviceMapper::toServiceInfoDto)
-                .collect(Collectors.toList());
-    }
-    
-    public List<ServiceInfoDto> getNonPackageServices() {
-        log.info("Getting non-package services");
-        List<Service> services = serviceService.findNonPackageServices();
-        return services.stream()
-                .map(serviceMapper::toServiceInfoDto)
-                .collect(Collectors.toList());
-    }
     
     @Transactional
     public ServiceInfoDto createService(CreateServiceRequest createServiceRequest) {
@@ -163,25 +147,11 @@ public class ServiceManagementService {
         service.setServiceProcess(serviceProcess);
         
         // Set default values
-        if (service.getIsPackage() == null) {
-            service.setIsPackage(false);
-        }
         if (service.getIsFeatured() == null) {
             service.setIsFeatured(false);
         }
-        if (service.getLaborCost() == null) {
-            service.setLaborCost(BigDecimal.ZERO);
-        }
-        
-        // Update estimated duration from service process
-        service.updateEstimatedDuration();
-        
-        // Save service first
+        // Save service
         Service savedService = serviceService.save(service);
-        
-        // Update pricing
-        savedService.updatePricing();
-        savedService = serviceService.update(savedService);
         
         return serviceMapper.toServiceInfoDto(savedService);
     }
@@ -217,11 +187,8 @@ public class ServiceManagementService {
         // Update service
         Service updatedService = serviceMapper.updateEntity(existingService, updateServiceRequest);
         
-        // Update estimated duration from service process
-        updatedService.updateEstimatedDuration();
         
-        // Update pricing after changes
-        updatedService.updatePricing();
+        // Update service
         Service savedService = serviceService.update(updatedService);
         
         return serviceMapper.toServiceInfoDto(savedService);

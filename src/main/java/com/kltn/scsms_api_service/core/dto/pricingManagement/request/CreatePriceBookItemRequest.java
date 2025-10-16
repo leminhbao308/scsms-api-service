@@ -24,9 +24,6 @@ public class CreatePriceBookItemRequest {
     @JsonProperty("service_id")
     private UUID serviceId;
     
-    @JsonProperty("service_package_id")
-    private UUID servicePackageId;
-    
     @JsonProperty("policy_type")
     private PricingPolicyType policyType;
     

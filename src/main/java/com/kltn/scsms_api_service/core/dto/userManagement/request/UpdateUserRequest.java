@@ -52,6 +52,7 @@ public class UpdateUserRequest {
     private CustomerRank customerRank;
     
     @JsonProperty("accumulated_points")
+    @Builder.Default
     private Integer accumulatedPoints = 0;
     
     // Employee-specific fields

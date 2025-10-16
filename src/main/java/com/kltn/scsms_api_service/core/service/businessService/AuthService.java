@@ -10,7 +10,6 @@ import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
-import com.kltn.scsms_api_service.core.entity.Role;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
@@ -127,11 +126,11 @@ public class AuthService {
         }
         
         // Always assign CUSTOMER role for new registrations
-        Role customerRole = roleService.getRoleByRoleCode("CUSTOMER")
+        roleService.getRoleByRoleCode("CUSTOMER")
             .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, "Default role CUSTOMER does not exist."));
         
         // Encode password
-        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword());
+        passwordEncoder.encode(registerRequest.getPassword());
         
         // Create new user
         User newUser = userMapper.toEntity(registerRequest);

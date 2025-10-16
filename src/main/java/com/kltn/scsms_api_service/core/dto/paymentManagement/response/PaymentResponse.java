@@ -6,15 +6,15 @@ import com.kltn.scsms_api_service.core.dto.saleOrderManagement.SaleOrderInfoDto;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentMethod;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentStatus;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor

@@ -73,9 +73,6 @@ public class ServiceProcessTrackingInfoDto {
     
     // Calculated fields
     private BigDecimal efficiency;
-    private String statusDisplay;
-    private String durationDisplay;
-    private String progressDisplay;
     
     // Helper methods for display
     public String getStatusDisplay() {

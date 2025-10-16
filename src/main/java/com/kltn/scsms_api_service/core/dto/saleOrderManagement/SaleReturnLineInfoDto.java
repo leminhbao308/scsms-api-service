@@ -6,7 +6,6 @@ import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.io.Serializable;
 import java.util.UUID;
 
 @Getter

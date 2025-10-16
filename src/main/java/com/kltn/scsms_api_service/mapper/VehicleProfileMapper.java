@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.mapper;
 
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.VehicleProfileInfoDto;
-import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleModelRequest;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehicleProfileRequest;
 import com.kltn.scsms_api_service.core.entity.VehicleProfile;
 import org.mapstruct.Mapper;

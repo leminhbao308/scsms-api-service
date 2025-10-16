@@ -99,7 +99,7 @@ public class CategoryService {
         
         if (parentId != null) {
             // Get all categories under the parent to build proper hierarchy
-            Category parent = categoryRepository.findById(parentId)
+            categoryRepository.findById(parentId)
                 .orElseThrow(() -> new EntityNotFoundException("Parent category not found: " + parentId));
             categories = categoryRepository.findAll();
             return categoryMapper.buildHierarchyTree(categories).stream()
@@ -191,7 +191,7 @@ public class CategoryService {
     public List<CategoryInfoDto> getSubcategories(UUID categoryId, boolean includeInactive) {
         log.debug("Getting subcategories for category: {}, includeInactive: {}", categoryId, includeInactive);
         
-        Category parentCategory = categoryRepository.findById(categoryId)
+        categoryRepository.findById(categoryId)
             .orElseThrow(() -> new EntityNotFoundException("Parent category not found: " + categoryId));
         
         List<Category> subcategories = categoryRepository.findByParentCategoryCategoryId(categoryId);

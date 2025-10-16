@@ -1,16 +1,11 @@
 package com.kltn.scsms_api_service.core.utils;
 
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
-import com.kltn.scsms_api_service.core.enums.PermissionModule;
-import com.kltn.scsms_api_service.core.enums.SystemPermission;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @UtilityClass
 @Slf4j

@@ -95,14 +95,4 @@ public interface ServiceTypeRepository extends JpaRepository<ServiceType, UUID> 
      * Count inactive service types
      */
     long countByIsActiveFalseAndIsDeletedFalse();
-    
-    /**
-     * Find service types by default duration range
-     */
-    List<ServiceType> findByDefaultDurationBetweenAndIsDeletedFalse(Integer minDuration, Integer maxDuration);
-    
-    /**
-     * Find service types with no default duration
-     */
-    List<ServiceType> findByDefaultDurationIsNullAndIsDeletedFalse();
 }

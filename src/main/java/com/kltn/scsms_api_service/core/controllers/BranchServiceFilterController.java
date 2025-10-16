@@ -16,13 +16,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Controller để lọc các service và service package có thể sử dụng theo branch
+ * Controller để lọc các service có thể sử dụng theo branch
  */
 @RestController
 @RequestMapping("/branch-service-filter")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Branch Service Filter", description = "APIs để lọc service/service package theo branch")
+@Tag(name = "Branch Service Filter", description = "APIs để lọc service theo branch")
 public class BranchServiceFilterController {
     
     private final BranchServiceFilterService branchServiceFilterService;
@@ -43,36 +43,21 @@ public class BranchServiceFilterController {
         return ResponseBuilder.success("Filtered services by branch", result);
     }
     
-    /**
-     * Lọc các service package có thể sử dụng theo branch
-     */
-    @GetMapping("/branch/{branchId}/service-packages")
-    @Operation(summary = "Lọc service packages theo branch", 
-               description = "Lấy danh sách các service package có thể sử dụng ở branch dựa trên inventory")
-    public ResponseEntity<ApiResponse<BranchServiceFilterResult>> filterServicePackagesByBranch(
-            @Parameter(description = "ID của branch") @PathVariable UUID branchId,
-            @Parameter(description = "Yêu cầu đủ inventory (true) hay chỉ cần có một phần (false)") 
-            @RequestParam(defaultValue = "true") boolean requireFullInventory) {
-        
-        log.info("Filtering service packages by branch: {} with full inventory requirement: {}", branchId, requireFullInventory);
-        BranchServiceFilterResult result = branchServiceFilterService.filterServicePackagesByBranch(branchId, requireFullInventory);
-        return ResponseBuilder.success("Filtered service packages by branch", result);
-    }
     
     /**
-     * Lọc cả service và service package có thể sử dụng theo branch
+     * Lọc tất cả service có thể sử dụng theo branch
      */
     @GetMapping("/branch/{branchId}/all")
-    @Operation(summary = "Lọc tất cả services và packages theo branch", 
-               description = "Lấy danh sách tất cả service và service package có thể sử dụng ở branch dựa trên inventory")
+    @Operation(summary = "Lọc tất cả services theo branch", 
+               description = "Lấy danh sách tất cả service có thể sử dụng ở branch dựa trên inventory")
     public ResponseEntity<ApiResponse<BranchServiceFilterResult>> filterAllServicesByBranch(
             @Parameter(description = "ID của branch") @PathVariable UUID branchId,
             @Parameter(description = "Yêu cầu đủ inventory (true) hay chỉ cần có một phần (false)") 
             @RequestParam(defaultValue = "true") boolean requireFullInventory) {
         
-        log.info("Filtering all services and packages by branch: {} with full inventory requirement: {}", branchId, requireFullInventory);
+        log.info("Filtering all services by branch: {} with full inventory requirement: {}", branchId, requireFullInventory);
         BranchServiceFilterResult result = branchServiceFilterService.filterAllServicesByBranch(branchId, requireFullInventory);
-        return ResponseBuilder.success("Filtered all services and packages by branch", result);
+        return ResponseBuilder.success("Filtered all services by branch", result);
     }
     
     /**
@@ -97,25 +82,4 @@ public class BranchServiceFilterController {
         return ResponseBuilder.success("Filtered service IDs by branch", serviceIds);
     }
     
-    /**
-     * Lọc service package IDs có thể sử dụng theo branch (chỉ trả về danh sách ID)
-     */
-    @GetMapping("/branch/{branchId}/service-packages/ids")
-    @Operation(summary = "Lọc service package IDs theo branch", 
-               description = "Lấy danh sách ID của các service package có thể sử dụng ở branch")
-    public ResponseEntity<ApiResponse<List<UUID>>> filterServicePackageIdsByBranch(
-            @Parameter(description = "ID của branch") @PathVariable UUID branchId,
-            @Parameter(description = "Yêu cầu đủ inventory (true) hay chỉ cần có một phần (false)") 
-            @RequestParam(defaultValue = "true") boolean requireFullInventory) {
-        
-        log.info("Filtering service package IDs by branch: {} with full inventory requirement: {}", branchId, requireFullInventory);
-        BranchServiceFilterResult result = branchServiceFilterService.filterServicePackagesByBranch(branchId, requireFullInventory);
-        
-        // Extract only IDs from available service packages
-        List<UUID> packageIds = result.getAvailableServices().stream()
-            .map(packageInfo -> packageInfo.getId())
-            .toList();
-        
-        return ResponseBuilder.success("Filtered service package IDs by branch", packageIds);
-    }
 }

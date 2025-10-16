@@ -219,21 +219,7 @@ public class ApiConstant {
     public static final String PRICING_PREFIX = "/pricing";
     public static final String GET_SERVICE_PRICING_BY_PRICEBOOK_API = PRICING_PREFIX + "/services/{serviceId}";
     public static final String RECALCULATE_SERVICE_PRICING_API = PRICING_PREFIX + "/services/{serviceId}/recalculate";
-    public static final String GET_SERVICE_PACKAGE_PRICING_API = PRICING_PREFIX + "/service-packages/{packageId}";
-    public static final String RECALCULATE_SERVICE_PACKAGE_PRICING_API = PRICING_PREFIX + "/service-packages/{packageId}/recalculate";
     
-    // Service Package management module endpoints
-    public static final String SERVICE_PACKAGE_MANAGEMENT_PREFIX = "/service-packages";
-    public static final String GET_ALL_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/get-all";
-    public static final String GET_SERVICE_PACKAGE_BY_ID_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}";
-    public static final String GET_SERVICE_PACKAGES_BY_CATEGORY_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/category/{categoryId}";
-    public static final String GET_SERVICE_PACKAGES_BY_TYPE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/type/{servicePackageTypeId}";
-    public static final String GET_POPULAR_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/popular";
-    public static final String GET_RECOMMENDED_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/recommended";
-    public static final String SEARCH_SERVICE_PACKAGES_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/search";
-    public static final String CREATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/create";
-    public static final String UPDATE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/update";
-    public static final String DELETE_SERVICE_PACKAGE_API = SERVICE_PACKAGE_MANAGEMENT_PREFIX + "/{packageId}/delete";
     
     // Service Process management module endpoints
     public static final String SERVICE_PROCESS_MANAGEMENT_PREFIX = "/service-processes";
@@ -326,26 +312,6 @@ public class ApiConstant {
     public static final String VALIDATE_SERVICE_TYPE_CODE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/validate-code";
     public static final String GET_SERVICE_TYPE_STATISTICS_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/statistics";
     
-    // Service Package Type management module endpoints
-    public static final String SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX = "/service-package-types";
-    public static final String GET_ALL_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/get-all";
-    public static final String GET_SERVICE_PACKAGE_TYPE_BY_ID_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}";
-    public static final String GET_SERVICE_PACKAGE_TYPE_BY_CODE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/code/{code}";
-    public static final String GET_ACTIVE_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/active";
-    public static final String GET_DEFAULT_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/default";
-    public static final String GET_SERVICE_PACKAGE_TYPES_FOR_CUSTOMER_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/customer-type/{customerType}";
-    public static final String SEARCH_SERVICE_PACKAGE_TYPES_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/search";
-    public static final String CREATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/create";
-    public static final String UPDATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/update";
-    public static final String DELETE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/delete";
-    public static final String RESTORE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/restore";
-    public static final String UPDATE_SERVICE_PACKAGE_TYPE_STATUS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/status";
-    public static final String ACTIVATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/activate";
-    public static final String DEACTIVATE_SERVICE_PACKAGE_TYPE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/deactivate";
-    public static final String SET_SERVICE_PACKAGE_TYPE_AS_DEFAULT_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/set-default";
-    public static final String REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/{servicePackageTypeId}/remove-default";
-    public static final String VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/validate-code";
-    public static final String GET_SERVICE_PACKAGE_TYPE_STATISTICS_API = SERVICE_PACKAGE_TYPE_MANAGEMENT_PREFIX + "/statistics";
 
     // Service Bay management module endpoints
     public static final String SERVICE_BAY_MANAGEMENT_PREFIX = "/service-bays";
@@ -463,8 +429,57 @@ public class ApiConstant {
             apiPrefix + UPDATE_BRANCH_API,
             apiPrefix + UPDATE_BRANCH_STATUS_API,
             apiPrefix + DELETE_BRANCH_API,
-            apiPrefix + DELETE_SUPPLIER_API,
-            apiPrefix + DELETE_VEHICLE_PROFILE_API,
+            // Product Type management APIs
+            apiPrefix + GET_ALL_PRODUCT_TYPES_API,
+            apiPrefix + GET_PRODUCT_TYPE_BY_ID_API,
+            apiPrefix + GET_PRODUCT_TYPE_BY_CODE_API,
+            apiPrefix + GET_PRODUCT_TYPES_BY_CATEGORY_API,
+            apiPrefix + GET_ACTIVE_PRODUCT_TYPES_API,
+            apiPrefix + CREATE_PRODUCT_TYPE_API,
+            apiPrefix + UPDATE_PRODUCT_TYPE_API,
+            apiPrefix + UPDATE_PRODUCT_TYPE_STATUS_API,
+            apiPrefix + DELETE_PRODUCT_TYPE_API,
+            apiPrefix + VALIDATE_PRODUCT_TYPE_CODE_API,
+            apiPrefix + GET_PRODUCT_TYPE_STATISTICS_API,
+            // Media management APIs
+            apiPrefix + GET_ALL_MEDIA_API,
+            apiPrefix + GET_MEDIA_BY_ID_API,
+            apiPrefix + GET_MEDIA_BY_ENTITY_API,
+            apiPrefix + GET_MAIN_MEDIA_BY_ENTITY_API,
+            apiPrefix + GET_MEDIA_BY_TYPE_API,
+            apiPrefix + CREATE_MEDIA_API,
+            apiPrefix + UPDATE_MEDIA_API,
+            apiPrefix + UPDATE_MEDIA_MAIN_STATUS_API,
+            apiPrefix + DELETE_MEDIA_API,
+            apiPrefix + BULK_UPDATE_MEDIA_ORDER_API,
+            apiPrefix + VALIDATE_MEDIA_URL_API,
+            apiPrefix + GET_MEDIA_STATISTICS_API,
+            // Product Attribute management APIs
+            apiPrefix + GET_ALL_PRODUCT_ATTRIBUTES_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_BY_ID_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_BY_CODE_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTES_BY_DATA_TYPE_API,
+            apiPrefix + GET_REQUIRED_PRODUCT_ATTRIBUTES_API,
+            apiPrefix + GET_ACTIVE_PRODUCT_ATTRIBUTES_API,
+            apiPrefix + CREATE_PRODUCT_ATTRIBUTE_API,
+            apiPrefix + UPDATE_PRODUCT_ATTRIBUTE_API,
+            apiPrefix + UPDATE_PRODUCT_ATTRIBUTE_STATUS_API,
+            apiPrefix + DELETE_PRODUCT_ATTRIBUTE_API,
+            apiPrefix + VALIDATE_PRODUCT_ATTRIBUTE_CODE_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_STATISTICS_API,
+            // Product Attribute Value management APIs
+            apiPrefix + ADD_PRODUCT_ATTRIBUTE_VALUE_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_VALUE_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_VALUES_API,
+            apiPrefix + GET_PRODUCTS_BY_ATTRIBUTE_API,
+            apiPrefix + UPDATE_PRODUCT_ATTRIBUTE_VALUE_API,
+            apiPrefix + DELETE_PRODUCT_ATTRIBUTE_VALUE_API,
+            apiPrefix + BULK_UPDATE_PRODUCT_ATTRIBUTE_VALUES_API,
+            apiPrefix + BULK_UPDATE_PRODUCT_ATTRIBUTE_VALUES_BY_PRODUCT_API,
+            apiPrefix + SEARCH_PRODUCTS_BY_ATTRIBUTE_VALUE_API,
+            apiPrefix + SEARCH_PRODUCTS_BY_ATTRIBUTE_VALUE_RANGE_API,
+            apiPrefix + GET_PRODUCT_ATTRIBUTE_VALUE_COUNT_API,
+            apiPrefix + GET_PRODUCT_COUNT_BY_ATTRIBUTE_API,
             // Product management APIs
             apiPrefix + GET_ALL_PRODUCTS_API,
             apiPrefix + GET_PRODUCT_BY_ID_API,
@@ -487,17 +502,14 @@ public class ApiConstant {
             apiPrefix + CREATE_SERVICE_API,
             apiPrefix + UPDATE_SERVICE_API,
             apiPrefix + DELETE_SERVICE_API,
-            // Service Package management APIs
-            apiPrefix + GET_ALL_SERVICE_PACKAGES_API,
-            apiPrefix + GET_SERVICE_PACKAGE_BY_ID_API,
-            apiPrefix + GET_SERVICE_PACKAGES_BY_CATEGORY_API,
-            apiPrefix + GET_SERVICE_PACKAGES_BY_TYPE_API,
-            apiPrefix + GET_POPULAR_SERVICE_PACKAGES_API,
-            apiPrefix + GET_RECOMMENDED_SERVICE_PACKAGES_API,
-            apiPrefix + SEARCH_SERVICE_PACKAGES_API,
-            apiPrefix + CREATE_SERVICE_PACKAGE_API,
-            apiPrefix + UPDATE_SERVICE_PACKAGE_API,
-            apiPrefix + DELETE_SERVICE_PACKAGE_API,
+            // Service Pricing management APIs
+            apiPrefix + GET_SERVICE_PRICING_API,
+            apiPrefix + GET_SERVICE_PRICING_INFO_API,
+            apiPrefix + RECALCULATE_SERVICE_BASE_PRICE_API,
+            apiPrefix + UPDATE_SERVICE_LABOR_COST_API,
+            // Pricing Management APIs
+            apiPrefix + GET_SERVICE_PRICING_BY_PRICEBOOK_API,
+            apiPrefix + RECALCULATE_SERVICE_PRICING_API,
             // Service Process management APIs
             apiPrefix + GET_ALL_SERVICE_PROCESSES_API,
             apiPrefix + GET_SERVICE_PROCESS_BY_ID_API,
@@ -573,25 +585,6 @@ public class ApiConstant {
             apiPrefix + DEACTIVATE_SERVICE_TYPE_API,
             apiPrefix + VALIDATE_SERVICE_TYPE_CODE_API,
             apiPrefix + GET_SERVICE_TYPE_STATISTICS_API,
-            // Service Package Type management APIs
-            apiPrefix + GET_ALL_SERVICE_PACKAGE_TYPES_API,
-            apiPrefix + GET_SERVICE_PACKAGE_TYPE_BY_ID_API,
-            apiPrefix + GET_SERVICE_PACKAGE_TYPE_BY_CODE_API,
-            apiPrefix + GET_ACTIVE_SERVICE_PACKAGE_TYPES_API,
-            apiPrefix + GET_DEFAULT_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + GET_SERVICE_PACKAGE_TYPES_FOR_CUSTOMER_TYPE_API,
-            apiPrefix + SEARCH_SERVICE_PACKAGE_TYPES_API,
-            apiPrefix + CREATE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + UPDATE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + DELETE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + RESTORE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + UPDATE_SERVICE_PACKAGE_TYPE_STATUS_API,
-            apiPrefix + ACTIVATE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + DEACTIVATE_SERVICE_PACKAGE_TYPE_API,
-            apiPrefix + SET_SERVICE_PACKAGE_TYPE_AS_DEFAULT_API,
-            apiPrefix + REMOVE_SERVICE_PACKAGE_TYPE_DEFAULT_STATUS_API,
-            apiPrefix + VALIDATE_SERVICE_PACKAGE_TYPE_CODE_API,
-            apiPrefix + GET_SERVICE_PACKAGE_TYPE_STATISTICS_API,
             // Service Bay management APIs
             apiPrefix + GET_ALL_SERVICE_BAYS_API,
             apiPrefix + GET_ALL_SERVICE_BAYS_DROPDOWN_API,
@@ -610,7 +603,26 @@ public class ApiConstant {
             apiPrefix + GET_SERVICE_BAY_AVAILABILITY_API,
             apiPrefix + GET_SERVICE_BAY_BOOKINGS_API,
             apiPrefix + GET_SERVICE_BAY_STATISTICS_API,
-            apiPrefix + VALIDATE_SERVICE_BAY_NAME_API
+            apiPrefix + VALIDATE_SERVICE_BAY_NAME_API,
+            // Service Process Tracking management APIs
+            apiPrefix + GET_ALL_SERVICE_PROCESS_TRACKINGS_API,
+            apiPrefix + GET_SERVICE_PROCESS_TRACKING_BY_ID_API,
+            apiPrefix + CREATE_SERVICE_PROCESS_TRACKING_API,
+            apiPrefix + UPDATE_SERVICE_PROCESS_TRACKING_API,
+            apiPrefix + DELETE_SERVICE_PROCESS_TRACKING_API,
+            apiPrefix + GET_SERVICE_PROCESS_TRACKINGS_BY_BOOKING_API,
+            apiPrefix + GET_SERVICE_PROCESS_TRACKINGS_BY_TECHNICIAN_API,
+            apiPrefix + GET_SERVICE_PROCESS_TRACKINGS_BY_BAY_API,
+            apiPrefix + GET_IN_PROGRESS_SERVICE_PROCESS_TRACKINGS_API,
+            apiPrefix + START_SERVICE_PROCESS_TRACKING_STEP_API,
+            apiPrefix + UPDATE_SERVICE_PROCESS_TRACKING_PROGRESS_API,
+            apiPrefix + COMPLETE_SERVICE_PROCESS_TRACKING_STEP_API,
+            apiPrefix + CANCEL_SERVICE_PROCESS_TRACKING_STEP_API,
+            apiPrefix + ADD_SERVICE_PROCESS_TRACKING_NOTE_API,
+            apiPrefix + ADD_SERVICE_PROCESS_TRACKING_EVIDENCE_API,
+            apiPrefix + GET_SERVICE_PROCESS_TRACKING_STATISTICS_API,
+            apiPrefix + GET_TECHNICIAN_EFFICIENCY_API,
+            apiPrefix + GET_TECHNICIAN_WORK_TIME_API
         );
     }
 }

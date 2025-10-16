@@ -49,12 +49,15 @@ public class CreatePromotionRequest {
     
     @Min(value = 0, message = "Priority must be at least 0")
     @JsonProperty("priority")
+    @Builder.Default
     private Integer priority = 100;
     
     @JsonProperty("is_stackable")
+    @Builder.Default
     private Boolean isStackable = false;
     
     @JsonProperty("coupon_redeem_once")
+    @Builder.Default
     private Boolean couponRedeemOnce = false;
     
     @JsonProperty("branch_id")

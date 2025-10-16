@@ -3,11 +3,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingItemRequest;
 import com.kltn.scsms_api_service.core.entity.BookingItem;
 import com.kltn.scsms_api_service.core.entity.PriceBook;
-import com.kltn.scsms_api_service.core.entity.Service;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.entityService.PriceBookEntityService;
-import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
-import com.kltn.scsms_api_service.core.service.entityService.ServicePackageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -30,8 +26,6 @@ public class BookingPricingService {
 
     private final PricingBusinessService pricingBusinessService;
     private final PriceBookEntityService priceBookEntityService;
-    private final ServiceService serviceService;
-    private final ServicePackageService servicePackageService;
 
     /**
      * Tính tổng giá cho booking từ bảng giá
@@ -90,27 +84,12 @@ public class BookingPricingService {
                 // Lấy giá service từ bảng giá
                 unitPrice = getServicePriceFromPriceBook(itemRequest.getItemId(), priceBookId);
                 
-                // Fallback: nếu không có trong bảng giá, lấy từ Service entity
+                // Fallback: nếu không có trong bảng giá, throw exception
                 if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
-                    Service service = serviceService.getById(itemRequest.getItemId());
-                    if (service.getBasePrice() != null && service.getLaborCost() != null) {
-                        unitPrice = service.getBasePrice().add(service.getLaborCost());
-                        log.warn("Using service basePrice + laborCost for service {}: {}", itemRequest.getItemId(), unitPrice);
-                    }
+                    log.error("No price found in price book for service: {}", itemRequest.getItemId());
+                    throw new RuntimeException("No price found for service: " + itemRequest.getItemName());
                 }
                 
-            } else if (itemRequest.getItemType() == BookingItem.ItemType.SERVICE_PACKAGE) {
-                // Lấy giá service package từ bảng giá
-                unitPrice = getServicePackagePriceFromPriceBook(itemRequest.getItemId(), priceBookId);
-                
-                // Fallback: nếu không có trong bảng giá, lấy từ ServicePackage entity
-                if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
-                    ServicePackage servicePackage = servicePackageService.getById(itemRequest.getItemId());
-                    if (servicePackage.getPackagePrice() != null) {
-                        unitPrice = servicePackage.getPackagePrice();
-                        log.warn("Using service package packagePrice for package {}: {}", itemRequest.getItemId(), unitPrice);
-                    }
-                }
             }
         } catch (Exception e) {
             log.error("Error calculating price for item {}: {}", itemRequest.getItemId(), e.getMessage());
@@ -149,22 +128,6 @@ public class BookingPricingService {
         }
     }
 
-    /**
-     * Lấy giá service package từ bảng giá
-     */
-    private BigDecimal getServicePackagePriceFromPriceBook(UUID packageId, UUID priceBookId) {
-        try {
-            if (priceBookId != null) {
-                return pricingBusinessService.resolveServicePackagePrice(packageId, priceBookId);
-            } else {
-                // Sử dụng active price book
-                return pricingBusinessService.resolveServicePackagePrice(packageId, null);
-            }
-        } catch (Exception e) {
-            log.warn("Could not get service package price from price book for package {}: {}", packageId, e.getMessage());
-            return null;
-        }
-    }
 
     /**
      * Tính giá cho booking item đã tồn tại (cho update)

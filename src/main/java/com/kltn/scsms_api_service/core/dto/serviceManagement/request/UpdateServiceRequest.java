@@ -6,7 +6,6 @@ import com.kltn.scsms_api_service.core.entity.Service;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Getter
@@ -31,23 +30,10 @@ public class UpdateServiceRequest {
     @JsonProperty("description")
     private String description;
     
-    @Min(value = 1, message = "Standard duration must be at least 1 minute")
-    @JsonProperty("standard_duration")
-    private Integer standardDuration;
-    
     @JsonProperty("required_skill_level")
     private Service.SkillLevel requiredSkillLevel;
     
-    @JsonProperty("is_package")
-    private Boolean isPackage;
     
-    @DecimalMin(value = "0.0", message = "Base price must be non-negative")
-    @JsonProperty("base_price")
-    private BigDecimal basePrice; // Base price for the service
-    
-    @DecimalMin(value = "0.0", message = "Labor cost must be non-negative")
-    @JsonProperty("labor_cost")
-    private BigDecimal laborCost; // Tiền công lao động
     
     @JsonProperty("service_type_id")
     private UUID serviceTypeId;

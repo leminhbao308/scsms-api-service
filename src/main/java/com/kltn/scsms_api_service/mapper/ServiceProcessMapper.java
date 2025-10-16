@@ -28,7 +28,6 @@ public interface ServiceProcessMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "processSteps", ignore = true) // Will be handled separately
     @Mapping(target = "services", ignore = true)
-    @Mapping(target = "servicePackages", ignore = true)
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "isDefault", constant = "false")
     @Mapping(target = "isDeleted", constant = "false")

@@ -2,7 +2,6 @@ package com.kltn.scsms_api_service.configs.property;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import lombok.Data;
@@ -32,7 +31,7 @@ public class AwsS3Properties {
         return AmazonS3ClientBuilder
             .standard()
             .withCredentials(new AWSStaticCredentialsProvider(credentials))
-            .withRegion(Regions.fromName(region))
+            .withRegion(region)
             .build();
     }
     

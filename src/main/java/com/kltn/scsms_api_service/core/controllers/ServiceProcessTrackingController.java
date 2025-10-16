@@ -1,10 +1,8 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.abstracts.BaseResponseData;
-import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
-import com.kltn.scsms_api_service.constants.PermissionConstant;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.ServiceProcessTrackingFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.ServiceProcessTrackingInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.request.*;
@@ -13,8 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j; 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;

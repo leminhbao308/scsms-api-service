@@ -1,6 +1,5 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.SalesReturn;
 import com.kltn.scsms_api_service.core.repository.SalesReturnRepository;
 import lombok.RequiredArgsConstructor;

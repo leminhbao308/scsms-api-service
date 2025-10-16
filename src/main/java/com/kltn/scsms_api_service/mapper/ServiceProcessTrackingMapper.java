@@ -37,9 +37,6 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "createdAt", source = "createdDate")
     @Mapping(target = "modifiedAt", source = "modifiedDate")
     @Mapping(target = "efficiency", expression = "java(entity.getEfficiency())")
-    @Mapping(target = "statusDisplay", expression = "java(entity.getStatus().toString())")
-    @Mapping(target = "durationDisplay", expression = "java(entity.getActualDuration() != null ? entity.getActualDuration() + \" phút\" : (entity.getEstimatedDuration() != null ? entity.getEstimatedDuration() + \" phút (ước tính)\" : \"Chưa xác định\"))")
-    @Mapping(target = "progressDisplay", expression = "java(entity.getProgressPercent() != null ? entity.getProgressPercent() + \"%\" : \"0%\")")
     ServiceProcessTrackingInfoDto toServiceProcessTrackingInfoDto(ServiceProcessTracking entity);
 
     /**

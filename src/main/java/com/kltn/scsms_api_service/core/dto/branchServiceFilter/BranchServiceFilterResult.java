@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Kết quả lọc service/service package theo branch
+ * Kết quả lọc service theo branch
  */
 @Data
 @Builder
@@ -22,27 +22,27 @@ public class BranchServiceFilterResult {
     private UUID warehouseId;
     
     /**
-     * Danh sách service/package có thể sử dụng
+     * Danh sách service có thể sử dụng
      */
     private List<ServiceAvailabilityInfo> availableServices;
     
     /**
-     * Danh sách service/package không thể sử dụng
+     * Danh sách service không thể sử dụng
      */
     private List<ServiceAvailabilityInfo> unavailableServices;
     
     /**
-     * Tổng số service/package được kiểm tra
+     * Tổng số service được kiểm tra
      */
     private int totalServicesChecked;
     
     /**
-     * Số service/package có thể sử dụng
+     * Số service có thể sử dụng
      */
     private int availableServicesCount;
     
     /**
-     * Tỷ lệ service/package có thể sử dụng (%)
+     * Tỷ lệ service có thể sử dụng (%)
      */
     public double getAvailabilityPercentage() {
         if (totalServicesChecked == 0) return 100.0;
@@ -50,14 +50,14 @@ public class BranchServiceFilterResult {
     }
     
     /**
-     * Có service/package nào khả dụng không
+     * Có service nào khả dụng không
      */
     public boolean hasAvailableServices() {
         return availableServices != null && !availableServices.isEmpty();
     }
     
     /**
-     * Có service/package nào không khả dụng không
+     * Có service nào không khả dụng không
      */
     public boolean hasUnavailableServices() {
         return unavailableServices != null && !unavailableServices.isEmpty();

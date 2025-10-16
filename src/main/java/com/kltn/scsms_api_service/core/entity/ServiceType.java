@@ -41,33 +41,26 @@ public class ServiceType extends AuditEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
-    @Column(name = "default_duration")
-    private Integer defaultDuration; // in minutes
-    
-    @Column(name = "is_active", nullable = false)
-    @Builder.Default
-    private Boolean isActive = true;
-    
     // Business methods
     /**
      * Check if service type is available for use
      */
     public boolean isAvailable() {
-        return isActive && !getIsDeleted();
+        return getIsActive() && !getIsDeleted();
     }
     
     /**
      * Activate service type
      */
     public void activate() {
-        this.isActive = true;
+        setIsActive(true);
     }
     
     /**
      * Deactivate service type
      */
     public void deactivate() {
-        this.isActive = false;
+        setIsActive(false);
     }
     
     /**

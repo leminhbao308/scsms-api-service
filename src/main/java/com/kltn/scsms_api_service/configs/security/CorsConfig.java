@@ -3,6 +3,7 @@ package com.kltn.scsms_api_service.configs.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -19,7 +20,7 @@ public class CorsConfig implements WebMvcConfigurer {
     private String allowedOriginPatterns;
     
     @Override
-    public void addCorsMappings(CorsRegistry registry) {
+    public void addCorsMappings(@NonNull CorsRegistry registry) {
         registry.addMapping("/**")
             .allowedOriginPatterns(allowedOriginPatterns.split(","))
             .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")

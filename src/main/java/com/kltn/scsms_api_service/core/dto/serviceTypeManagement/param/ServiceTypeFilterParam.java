@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class ServiceTypeFilterParam extends BaseFilterParam {
+public class ServiceTypeFilterParam extends BaseFilterParam<ServiceTypeFilterParam> {
     
     private Boolean isActive;
     private String keyword;
@@ -25,7 +25,7 @@ public class ServiceTypeFilterParam extends BaseFilterParam {
         }
         
         // Use parent class standardization first
-        filterParam = (ServiceTypeFilterParam) filterParam.standardizeFilterRequest(filterParam);
+        filterParam = filterParam.standardizeFilterRequest(filterParam);
         
         // Set default values specific to ServiceType
         if (filterParam.getSize() <= 0) {

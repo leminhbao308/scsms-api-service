@@ -145,12 +145,6 @@ public class ServiceProcessService {
         return serviceProcessRepository.findProcessesUsedByServices();
     }
     
-    /**
-     * Tìm service process được sử dụng bởi service package
-     */
-    public List<ServiceProcess> findProcessesUsedByServicePackages() {
-        return serviceProcessRepository.findProcessesUsedByServicePackages();
-    }
     
     /**
      * Lưu service process
@@ -204,13 +198,12 @@ public class ServiceProcessService {
     }
     
     /**
-     * Kiểm tra service process có thể xóa không (không được sử dụng bởi service hoặc service package)
+     * Kiểm tra service process có thể xóa không (không được sử dụng bởi service)
      */
     public boolean canDelete(ServiceProcess serviceProcess) {
         List<ServiceProcess> usedByServices = findProcessesUsedByServices();
-        List<ServiceProcess> usedByServicePackages = findProcessesUsedByServicePackages();
         
-        return !usedByServices.contains(serviceProcess) && !usedByServicePackages.contains(serviceProcess);
+        return !usedByServices.contains(serviceProcess);
     }
     
     /**

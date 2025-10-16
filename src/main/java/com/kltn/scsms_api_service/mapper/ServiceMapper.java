@@ -8,7 +8,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})
 public interface ServiceMapper {
 
     @Mapping(target = "categoryId", source = "category.categoryId")
@@ -16,6 +16,8 @@ public interface ServiceMapper {
     @Mapping(target = "serviceProcessId", source = "serviceProcess.id")
     @Mapping(target = "serviceProcessName", source = "serviceProcess.name")
     @Mapping(target = "serviceProcessCode", source = "serviceProcess.code")
+    @Mapping(target = "serviceTypeName", ignore = true) // Will be set in service layer
+    @Mapping(target = "branchName", ignore = true) // Will be set in service layer
     @Mapping(target = "estimatedDuration", source = "estimatedDuration")
     @Mapping(target = "audit.createdDate", source = "createdDate")
     @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
@@ -44,20 +46,8 @@ public interface ServiceMapper {
         if (updateRequest.getDescription() != null) {
             existingService.setDescription(updateRequest.getDescription());
         }
-        if (updateRequest.getStandardDuration() != null) {
-            existingService.setStandardDuration(updateRequest.getStandardDuration());
-        }
         if (updateRequest.getRequiredSkillLevel() != null) {
             existingService.setRequiredSkillLevel(updateRequest.getRequiredSkillLevel());
-        }
-        if (updateRequest.getIsPackage() != null) {
-            existingService.setIsPackage(updateRequest.getIsPackage());
-        }
-        if (updateRequest.getBasePrice() != null) {
-            existingService.setBasePrice(updateRequest.getBasePrice());
-        }
-        if (updateRequest.getLaborCost() != null) {
-            existingService.setLaborCost(updateRequest.getLaborCost());
         }
         if (updateRequest.getServiceTypeId() != null) {
             existingService.setServiceTypeId(updateRequest.getServiceTypeId());

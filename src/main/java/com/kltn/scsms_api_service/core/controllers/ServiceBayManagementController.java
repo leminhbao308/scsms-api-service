@@ -1,10 +1,8 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.annotations.RequirePermission;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.constants.ApiConstant;
-import com.kltn.scsms_api_service.constants.PermissionConstant;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayStatisticsDto;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;

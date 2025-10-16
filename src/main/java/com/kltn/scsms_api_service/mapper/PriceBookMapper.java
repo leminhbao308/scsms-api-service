@@ -7,16 +7,13 @@ import com.kltn.scsms_api_service.core.entity.PriceBook;
 import com.kltn.scsms_api_service.core.entity.PriceBookItem;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.Service;
-import com.kltn.scsms_api_service.core.entity.ServicePackage;
 import com.kltn.scsms_api_service.core.service.entityService.ProductService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
-import com.kltn.scsms_api_service.core.service.entityService.ServicePackageService;
 import org.mapstruct.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Mapper(
@@ -32,9 +29,6 @@ public abstract class PriceBookMapper {
     @Autowired
     protected ServiceService serviceService;
     
-    @Autowired
-    protected ServicePackageService servicePackageService;
-    
     /**
      * Map CreatePriceBookRequest to PriceBook entity (basic fields only)
      */
@@ -43,7 +37,7 @@ public abstract class PriceBookMapper {
     
     /**
      * Map CreatePriceBookRequest to PriceBook entity WITH items
-     * This method manually handles the items mapping to properly link Product/Service/ServicePackage
+     * This method manually handles the items mapping to properly link Product/Service
      */
     public PriceBook toEntityWithItems(CreatePriceBookRequest request) {
         // Map basic fields
@@ -65,7 +59,7 @@ public abstract class PriceBookMapper {
     
     /**
      * Map individual CreatePriceBookItemRequest to PriceBookItem
-     * Determines which entity (Product/Service/ServicePackage) to load based on provided ID
+     * Determines which entity (Product/Service) to load based on provided ID
      */
     private PriceBookItem mapRequestToItem(CreatePriceBookItemRequest itemReq, PriceBook priceBook) {
         PriceBookItem item = PriceBookItem.builder()
@@ -82,12 +76,9 @@ public abstract class PriceBookMapper {
         } else if (itemReq.getServiceId() != null) {
             Service service = serviceService.getRefById(itemReq.getServiceId());
             item.setService(service);
-        } else if (itemReq.getServicePackageId() != null) {
-            ServicePackage servicePackage = servicePackageService.getRefById(itemReq.getServicePackageId());
-            item.setServicePackage(servicePackage);
         } else {
             throw new IllegalArgumentException(
-                "PriceBookItem must have one of: product_id, service_id, or service_package_id"
+                "PriceBookItem must have one of: product_id or service_id"
             );
         }
         

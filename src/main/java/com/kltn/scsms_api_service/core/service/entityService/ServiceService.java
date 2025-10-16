@@ -10,7 +10,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,20 +75,7 @@ public class ServiceService {
         return serviceRepository.findByDurationRange(minDuration, maxDuration);
     }
     
-    public List<Service> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
-        log.info("Finding services by price range: {} - {}", minPrice, maxPrice);
-        return serviceRepository.findByPriceRange(minPrice, maxPrice);
-    }
     
-    public List<Service> findPackageServices() {
-        log.info("Finding package services");
-        return serviceRepository.findByIsPackageTrueAndIsActiveTrue();
-    }
-    
-    public List<Service> findNonPackageServices() {
-        log.info("Finding non-package services");
-        return serviceRepository.findByIsPackageFalseAndIsActiveTrue();
-    }
     
     
     public List<Service> findFeaturedServices() {
@@ -129,10 +115,6 @@ public class ServiceService {
         return serviceRepository.getAverageDurationByServiceType(serviceTypeId);
     }
     
-    public BigDecimal getAveragePriceByServiceType(UUID serviceTypeId) {
-        log.info("Getting average price by service type ID: {}", serviceTypeId);
-        return serviceRepository.getAveragePriceByServiceType(serviceTypeId);
-    }
     
     @Transactional
     public Service save(Service service) {

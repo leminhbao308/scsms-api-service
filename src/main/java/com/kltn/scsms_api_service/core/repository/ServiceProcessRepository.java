@@ -102,13 +102,6 @@ public interface ServiceProcessRepository extends JpaRepository<ServiceProcess, 
            "EXISTS (SELECT 1 FROM Service s WHERE s.serviceProcess = sp AND s.isDeleted = false)")
     List<ServiceProcess> findProcessesUsedByServices();
     
-    /**
-     * Tìm service process được sử dụng bởi service package
-     */
-    @Query("SELECT sp FROM ServiceProcess sp WHERE " +
-           "sp.isDeleted = false AND " +
-           "EXISTS (SELECT 1 FROM ServicePackage spkg WHERE spkg.serviceProcess = sp AND spkg.isDeleted = false)")
-    List<ServiceProcess> findProcessesUsedByServicePackages();
     
     /**
      * Tìm tất cả service process với processSteps được load

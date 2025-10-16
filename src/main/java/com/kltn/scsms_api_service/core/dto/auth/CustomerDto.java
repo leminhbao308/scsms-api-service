@@ -58,11 +58,14 @@ public class CustomerDto {
     private CustomerRank customerRank;
     
     @JsonProperty("accumulated_points")
+    @Builder.Default
     private Integer accumulatedPoints = 0;
     
     @JsonProperty("total_orders")
+    @Builder.Default
     private Integer totalOrders = 0;
     
     @JsonProperty("total_spent")
+    @Builder.Default
     private Double totalSpent = 0.0;
 }

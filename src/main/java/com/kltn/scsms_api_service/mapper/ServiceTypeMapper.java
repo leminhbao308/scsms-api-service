@@ -16,6 +16,13 @@ public interface ServiceTypeMapper {
      * Map ServiceType entity to ServiceTypeInfoDto
      */
     @Mapping(target = "displayName", expression = "java(entity.getDisplayName())")
+    @Mapping(target = "createdDate", source = "createdDate")
+    @Mapping(target = "modifiedDate", source = "modifiedDate")
+    @Mapping(target = "createdBy", source = "createdBy")
+    @Mapping(target = "modifiedBy", source = "modifiedBy")
+    @Mapping(target = "isActive", source = "isActive")
+    @Mapping(target = "isDeleted", source = "isDeleted")
+    @Mapping(target = "version", source = "version")
     ServiceTypeInfoDto toServiceTypeInfoDto(ServiceType entity);
     
     /**

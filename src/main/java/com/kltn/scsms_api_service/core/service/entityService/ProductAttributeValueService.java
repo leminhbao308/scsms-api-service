@@ -1,7 +1,5 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.entity.Product;
-import com.kltn.scsms_api_service.core.entity.ProductAttribute;
 import com.kltn.scsms_api_service.core.entity.ProductAttributeValue;
 import com.kltn.scsms_api_service.core.entity.compositId.ProductAttributeValueId;
 import com.kltn.scsms_api_service.core.repository.ProductAttributeValueRepository;
@@ -28,35 +26,38 @@ public class ProductAttributeValueService {
     private final ProductAttributeRepository productAttributeRepository;
 
     @Transactional
-    public ProductAttributeValue createProductAttributeValue(UUID productId, UUID attributeId, String valueText, java.math.BigDecimal valueNumber) {
+    public ProductAttributeValue createProductAttributeValue(UUID productId, UUID attributeId, String valueText,
+            java.math.BigDecimal valueNumber) {
         log.info("Creating product attribute value for product: {} and attribute: {}", productId, attributeId);
-        
+
         // Validate product exists
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product not found with ID: " + productId));
-        
+        productRepository.findById(productId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Product not found with ID: " + productId));
+
         // Validate attribute exists
-        ProductAttribute attribute = productAttributeRepository.findById(attributeId)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product attribute not found with ID: " + attributeId));
-        
+        productAttributeRepository.findById(attributeId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Product attribute not found with ID: " + attributeId));
+
         // Check if combination already exists
         ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
         if (productAttributeValueRepository.existsById(id)) {
-            throw new ServerSideException(ErrorCode.INVALID_INPUT, "Product attribute value already exists for product: " + productId + " and attribute: " + attributeId);
+            throw new ServerSideException(ErrorCode.INVALID_INPUT,
+                    "Product attribute value already exists for product: " + productId + " and attribute: "
+                            + attributeId);
         }
-        
+
         // Create new attribute value
         ProductAttributeValue attributeValue = ProductAttributeValue.builder()
                 .productId(productId)
                 .attributeId(attributeId)
-                .product(product)
-                .productAttribute(attribute)
                 .valueText(valueText)
                 .valueNumber(valueNumber)
                 .isActive(true)
                 .isDeleted(false)
                 .build();
-        
+
         return productAttributeValueRepository.save(attributeValue);
     }
 
@@ -80,16 +81,19 @@ public class ProductAttributeValueService {
     }
 
     @Transactional
-    public ProductAttributeValue updateProductAttributeValue(UUID productId, UUID attributeId, String valueText, java.math.BigDecimal valueNumber) {
+    public ProductAttributeValue updateProductAttributeValue(UUID productId, UUID attributeId, String valueText,
+            java.math.BigDecimal valueNumber) {
         log.info("Updating product attribute value for product: {} and attribute: {}", productId, attributeId);
-        
+
         ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
         ProductAttributeValue attributeValue = productAttributeValueRepository.findById(id)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product attribute value not found for product: " + productId + " and attribute: " + attributeId));
-        
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Product attribute value not found for product: " + productId + " and attribute: "
+                                + attributeId));
+
         attributeValue.setValueText(valueText);
         attributeValue.setValueNumber(valueNumber);
-        
+
         return productAttributeValueRepository.save(attributeValue);
     }
 
@@ -108,27 +112,30 @@ public class ProductAttributeValueService {
     @Transactional
     public void deleteProductAttributeValue(UUID productId, UUID attributeId) {
         log.info("Deleting product attribute value for product: {} and attribute: {}", productId, attributeId);
-        
+
         ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
         ProductAttributeValue attributeValue = productAttributeValueRepository.findById(id)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product attribute value not found for product: " + productId + " and attribute: " + attributeId));
-        
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Product attribute value not found for product: " + productId + " and attribute: "
+                                + attributeId));
+
         attributeValue.setIsDeleted(true);
         attributeValue.setIsActive(false);
         productAttributeValueRepository.save(attributeValue);
     }
 
     @Transactional
-    public List<ProductAttributeValue> bulkUpdateProductAttributeValues(List<UUID> productIds, UUID attributeId, String valueText, java.math.BigDecimal valueNumber) {
+    public List<ProductAttributeValue> bulkUpdateProductAttributeValues(List<UUID> productIds, UUID attributeId,
+            String valueText, java.math.BigDecimal valueNumber) {
         log.info("Bulk updating attribute values for {} products and attribute: {}", productIds.size(), attributeId);
-        
+
         List<ProductAttributeValue> updatedValues = new java.util.ArrayList<>();
-        
+
         for (UUID productId : productIds) {
             try {
                 ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
                 Optional<ProductAttributeValue> existingValue = productAttributeValueRepository.findById(id);
-                
+
                 if (existingValue.isPresent()) {
                     // Update existing value
                     ProductAttributeValue attributeValue = existingValue.get();
@@ -137,27 +144,33 @@ public class ProductAttributeValueService {
                     updatedValues.add(productAttributeValueRepository.save(attributeValue));
                 } else {
                     // Create new value
-                    ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, valueText, valueNumber);
+                    ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, valueText,
+                            valueNumber);
                     updatedValues.add(newValue);
                 }
             } catch (Exception e) {
-                log.warn("Failed to update attribute value for product: {} and attribute: {}", productId, attributeId, e);
+                log.warn("Failed to update attribute value for product: {} and attribute: {}", productId, attributeId,
+                        e);
             }
         }
-        
+
         return updatedValues;
     }
 
     @Transactional(readOnly = true)
     public List<ProductAttributeValue> searchProductsByAttributeValue(UUID attributeId, String value) {
         log.info("Searching products by attribute value for attribute: {} and value: {}", attributeId, value);
-        return productAttributeValueRepository.findByAttributeIdAndValueTextContainingIgnoreCaseAndIsDeletedFalse(attributeId, value);
+        return productAttributeValueRepository
+                .findByAttributeIdAndValueTextContainingIgnoreCaseAndIsDeletedFalse(attributeId, value);
     }
 
     @Transactional(readOnly = true)
-    public List<ProductAttributeValue> searchProductsByAttributeValueRange(UUID attributeId, java.math.BigDecimal minValue, java.math.BigDecimal maxValue) {
-        log.info("Searching products by attribute value range for attribute: {} between {} and {}", attributeId, minValue, maxValue);
-        return productAttributeValueRepository.findByAttributeIdAndValueNumberBetweenAndIsDeletedFalse(attributeId, minValue, maxValue);
+    public List<ProductAttributeValue> searchProductsByAttributeValueRange(UUID attributeId,
+            java.math.BigDecimal minValue, java.math.BigDecimal maxValue) {
+        log.info("Searching products by attribute value range for attribute: {} between {} and {}", attributeId,
+                minValue, maxValue);
+        return productAttributeValueRepository.findByAttributeIdAndValueNumberBetweenAndIsDeletedFalse(attributeId,
+                minValue, maxValue);
     }
 
     @Transactional(readOnly = true)
@@ -171,34 +184,40 @@ public class ProductAttributeValueService {
     }
 
     @Transactional
-    public List<ProductAttributeValue> bulkUpdateProductAttributeValuesByProduct(UUID productId, List<com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest.ProductAttributeValueUpdateRequest> attributeValueRequests) {
+    public List<ProductAttributeValue> bulkUpdateProductAttributeValuesByProduct(UUID productId,
+            List<com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest.ProductAttributeValueUpdateRequest> attributeValueRequests) {
         log.info("Bulk updating {} attribute values for product: {}", attributeValueRequests.size(), productId);
-        
+
         // Validate product exists
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product not found with ID: " + productId));
-        
+        productRepository.findById(productId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Product not found with ID: " + productId));
+
         List<ProductAttributeValue> updatedValues = new java.util.ArrayList<>();
-        
+
         for (com.kltn.scsms_api_service.core.dto.productManagement.request.BulkUpdateProductAttributeValuesRequest.ProductAttributeValueUpdateRequest request : attributeValueRequests) {
             try {
                 UUID attributeId = request.getAttributeId();
                 String operation = request.getOperation();
-                
+
                 // Validate attribute exists
-                ProductAttribute attribute = productAttributeRepository.findById(attributeId)
-                        .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Product attribute not found with ID: " + attributeId));
-                
+                productAttributeRepository.findById(attributeId)
+                        .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND,
+                                "Product attribute not found with ID: " + attributeId));
+
                 ProductAttributeValueId id = new ProductAttributeValueId(productId, attributeId);
                 Optional<ProductAttributeValue> existingValue = productAttributeValueRepository.findById(id);
-                
+
                 if ("CREATE".equalsIgnoreCase(operation)) {
                     if (existingValue.isPresent()) {
-                        log.warn("Attribute value already exists for product: {} and attribute: {}, skipping CREATE operation", productId, attributeId);
+                        log.warn(
+                                "Attribute value already exists for product: {} and attribute: {}, skipping CREATE operation",
+                                productId, attributeId);
                         continue;
                     }
                     // Create new value
-                    ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, request.getValueText(), request.getValueNumber());
+                    ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId,
+                            request.getValueText(), request.getValueNumber());
                     updatedValues.add(newValue);
                 } else if ("UPDATE".equalsIgnoreCase(operation)) {
                     if (existingValue.isPresent()) {
@@ -208,7 +227,9 @@ public class ProductAttributeValueService {
                         attributeValue.setValueNumber(request.getValueNumber());
                         updatedValues.add(productAttributeValueRepository.save(attributeValue));
                     } else {
-                        log.warn("Attribute value not found for product: {} and attribute: {}, skipping UPDATE operation", productId, attributeId);
+                        log.warn(
+                                "Attribute value not found for product: {} and attribute: {}, skipping UPDATE operation",
+                                productId, attributeId);
                     }
                 } else if ("DELETE".equalsIgnoreCase(operation)) {
                     if (existingValue.isPresent()) {
@@ -219,7 +240,9 @@ public class ProductAttributeValueService {
                         productAttributeValueRepository.save(attributeValue);
                         log.info("Deleted attribute value for product: {} and attribute: {}", productId, attributeId);
                     } else {
-                        log.warn("Attribute value not found for product: {} and attribute: {}, skipping DELETE operation", productId, attributeId);
+                        log.warn(
+                                "Attribute value not found for product: {} and attribute: {}, skipping DELETE operation",
+                                productId, attributeId);
                     }
                 } else {
                     // Default behavior: UPDATE if exists, CREATE if not
@@ -231,15 +254,17 @@ public class ProductAttributeValueService {
                         updatedValues.add(productAttributeValueRepository.save(attributeValue));
                     } else {
                         // Create new value
-                        ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId, request.getValueText(), request.getValueNumber());
+                        ProductAttributeValue newValue = createProductAttributeValue(productId, attributeId,
+                                request.getValueText(), request.getValueNumber());
                         updatedValues.add(newValue);
                     }
                 }
             } catch (Exception e) {
-                log.warn("Failed to update attribute value for product: {} and attribute: {}", productId, request.getAttributeId(), e);
+                log.warn("Failed to update attribute value for product: {} and attribute: {}", productId,
+                        request.getAttributeId(), e);
             }
         }
-        
+
         return updatedValues;
     }
 }

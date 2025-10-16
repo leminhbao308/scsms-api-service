@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.branchServiceFilter;
 
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
-import com.kltn.scsms_api_service.core.dto.servicePackageManagement.ServicePackageInfoDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +20,7 @@ public class ServiceAvailabilityInfo {
     
     private UUID id;
     private String name;
-    private String type; // "SERVICE" hoặc "SERVICE_PACKAGE"
+    private String type; // "SERVICE"
     
     /**
      * Có thể sử dụng không
@@ -58,10 +57,6 @@ public class ServiceAvailabilityInfo {
      */
     private ServiceInfoDto serviceInfo;
     
-    /**
-     * Thông tin chi tiết service package (nếu là service package)
-     */
-    private ServicePackageInfoDto servicePackageInfo;
     
     /**
      * Tỷ lệ sản phẩm có sẵn (%)

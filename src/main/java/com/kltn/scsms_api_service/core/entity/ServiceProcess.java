@@ -55,10 +55,6 @@ public class ServiceProcess extends AuditEntity {
     @Builder.Default
     private List<Service> services = new ArrayList<>();
     
-    // Quan hệ với ServicePackage (nhiều service package có thể sử dụng cùng 1 process)
-    @OneToMany(mappedBy = "serviceProcess", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<ServicePackage> servicePackages = new ArrayList<>();
     
     /**
      * Tính tổng thời gian dự kiến từ các bước
