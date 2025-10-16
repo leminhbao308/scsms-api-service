@@ -8,7 +8,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class, ProductMapper.class, WarehouseMapper.class}
+    uses = {AuditMapper.class, ProductMapper.class}
 )
 public interface InventoryLevelMapper {
     

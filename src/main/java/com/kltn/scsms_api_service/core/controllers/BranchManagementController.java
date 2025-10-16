@@ -100,7 +100,7 @@ public class BranchManagementController {
         
         log.info("Creating new branch: {}", createBranchRequest.getBranchName());
         
-        BranchInfoDto createdBranch = branchManagementService.createBranchWithWarehouse(createBranchRequest);
+        BranchInfoDto createdBranch = branchManagementService.createBranch(createBranchRequest);
         
         return ResponseBuilder.created("Branch created successfully", createdBranch);
     }

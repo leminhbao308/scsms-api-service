@@ -45,7 +45,13 @@ public class SalesBusinessService {
                 line.setUnitPrice(pricingBS.resolveUnitPrice(line.getProduct().getProductId()));
                 solES.update(line);
             }
-            inventoryBS.reserveStock(so.getWarehouse().getId(), line.getProduct().getProductId(), line.getQuantity(), so.getId(), StockRefType.SALE_ORDER);
+            inventoryBS.reserveStock(
+                so.getBranch().getBranchId(),
+                line.getProduct().getProductId(),
+                line.getQuantity(),
+                so.getId(),
+                StockRefType.SALE_ORDER
+            );
         }
         so.setStatus(SalesStatus.CONFIRMED);
         return salesOrderEntityService.update(so);
@@ -56,7 +62,13 @@ public class SalesBusinessService {
     public SalesOrder fulfill(UUID soId) {
         SalesOrder so = salesOrderEntityService.require(soId);
         for (SalesOrderLine line : solES.byOrder(so.getId())) {
-            inventoryBS.fulfillStockFIFO(so.getWarehouse().getId(), line.getProduct().getProductId(), line.getQuantity(), so.getId(), StockRefType.SALE_ORDER);
+            inventoryBS.fulfillStockFIFO(
+                so.getBranch().getBranchId(),
+                line.getProduct().getProductId(),
+                line.getQuantity(),
+                so.getId(),
+                StockRefType.SALE_ORDER
+            );
         }
         so.setStatus(SalesStatus.FULFILLED);
         return salesOrderEntityService.update(so);
@@ -69,7 +81,7 @@ public class SalesBusinessService {
         so.setStatus(SalesStatus.RETURNED);
         salesOrderEntityService.update(so);
         
-        SalesReturn sr = srES.create(SalesReturn.builder().salesOrder(so).warehouse(so.getWarehouse()).build());
+        SalesReturn sr = srES.create(SalesReturn.builder().salesOrder(so).branch(so.getBranch()).build());
         productQtyMap.forEach((productId, qty) -> {
             srlES.create(SalesReturnLine.builder()
                 .salesReturn(sr)
@@ -77,7 +89,14 @@ public class SalesBusinessService {
                 .quantity(qty)
                 .build());
             BigDecimal unitCost = unitCostOptional != null ? unitCostOptional.get(productId) : null;
-            inventoryBS.returnToStock(so.getWarehouse().getId(), productId, qty, unitCost, sr.getId(), StockRefType.SALE_RETURN);
+            inventoryBS.returnToStock(
+                so.getBranch().getBranchId(),
+                productId,
+                qty,
+                unitCost,
+                sr.getId(),
+                StockRefType.SALE_RETURN
+            );
         });
         return sr;
     }

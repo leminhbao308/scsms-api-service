@@ -95,7 +95,7 @@ public class PricingBusinessService {
             .orElse(null);
 //            .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "No price for product=" + productId + " in book=" + book.getCode()));
         if (item == null)
-            return BigDecimal.ZERO;
+            return BigDecimal.ONE;
         
         return switch (item.getPolicyType()) {
             case FIXED -> require(item.getFixedPrice());

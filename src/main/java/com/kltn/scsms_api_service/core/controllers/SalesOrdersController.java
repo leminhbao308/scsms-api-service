@@ -51,7 +51,6 @@ public class SalesOrdersController {
     
     private final ProductService productES;
     private final BranchService branchES;
-    private final WarehouseEntityService warehouseES;
     private final UserService userES;
     
     private final SaleOrderMapper soMapper;
@@ -66,7 +65,6 @@ public class SalesOrdersController {
         
         SalesOrder so = SalesOrder.builder()
             .branch(branchES.getRefById(req.getBranchId()))
-            .warehouse(warehouseES.getRefByWarehouseId(req.getWarehouseId()))
             .customer(customer)
             .status(SalesStatus.DRAFT)
             .build();
@@ -104,7 +102,6 @@ public class SalesOrdersController {
             
             SalesOrder so = SalesOrder.builder()
                 .branch(branchES.getRefById(req.getBranchId()))
-                .warehouse(warehouseES.getRefByWarehouseId(req.getWarehouseId()))
                 .customer(customer)
                 .status(SalesStatus.DRAFT)
                 .build();
@@ -270,9 +267,6 @@ public class SalesOrdersController {
         @JsonProperty("branch_id")
         private UUID branchId;
         
-        @JsonProperty("warehouse_id")
-        private UUID warehouseId;
-        
         @JsonProperty("customer_id")
         private UUID customerId; // optional
         
@@ -300,9 +294,6 @@ public class SalesOrdersController {
         
         @JsonProperty("branch_id")
         private UUID branchId;
-        
-        @JsonProperty("warehouse_id")
-        private UUID warehouseId;
         
         @JsonProperty("customer_id")
         private UUID customerId; // optional

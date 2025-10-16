@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface InventoryLotRepository extends JpaRepository<InventoryLot, UUID> {
-    List<InventoryLot> findByWarehouseIdAndProductProductIdOrderByReceivedAtAsc(UUID warehouseId, UUID productId); // FIFO
+    List<InventoryLot> findByBranch_BranchIdAndProduct_ProductIdOrderByReceivedAtAsc(UUID branchId, UUID productId); // FIFO
     
-    List<InventoryLot> findAllByWarehouse_Id(UUID warehouseId);
+    List<InventoryLot> findAllByBranch_BranchId(UUID branchBranchId);
 }

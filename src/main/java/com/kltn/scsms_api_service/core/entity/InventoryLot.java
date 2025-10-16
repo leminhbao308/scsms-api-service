@@ -18,7 +18,7 @@ import java.util.UUID;
     schema = GeneralConstant.DB_SCHEMA_DEV,
     indexes = {
         @Index(name = "idx_lot_product", columnList = "product_id"),
-        @Index(name = "idx_lot_wh", columnList = "warehouse_id")
+        @Index(name = "idx_lot_branch", columnList = "branch_id"),
     })
 @SuperBuilder
 @NoArgsConstructor
@@ -30,8 +30,8 @@ public class InventoryLot extends AuditEntity {
     
     
     @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_lot_wh"))
-    private Warehouse warehouse;
+    @JoinColumn(name = "branch_id", nullable = false, foreignKey = @ForeignKey(name = "fk_lot_branch"))
+    private Branch branch;
     
     
     @ManyToOne(optional = false)

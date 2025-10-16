@@ -30,11 +30,6 @@ public class PurchaseOrder extends AuditEntity {
     private Branch branch;
     
     
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_po_wh"))
-    private Warehouse warehouse;
-    
-    
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PurchaseOrderLine> lines = new ArrayList<>();

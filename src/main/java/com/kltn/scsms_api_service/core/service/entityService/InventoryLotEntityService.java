@@ -17,14 +17,14 @@ public class InventoryLotEntityService {
     private final InventoryLotRepository repo;
     
     /**
-     * Get all inventory lots in a warehouse for a specific product, ordered by received date (FIFO).
+     * Get all inventory lots in a branch for a specific product, ordered by received date (FIFO).
      *
-     * @param warehouseId ID of the warehouse
+     * @param branchId ID of the branch
      * @param productId   ID of the product
      * @return List of InventoryLot objects ordered by received date
      */
-    public List<InventoryLot> fifoLots(UUID warehouseId, UUID productId) {
-        return repo.findByWarehouseIdAndProductProductIdOrderByReceivedAtAsc(warehouseId, productId);
+    public List<InventoryLot> fifoLots(UUID branchId, UUID productId) {
+        return repo.findByBranch_BranchIdAndProduct_ProductIdOrderByReceivedAtAsc(branchId, productId);
     }
     
     public InventoryLot create(InventoryLot lot) {
@@ -35,8 +35,8 @@ public class InventoryLotEntityService {
         return repo.save(lot);
     }
     
-    public List<InventoryLot> findByWarehouse(UUID warehouseId) {
-        return repo.findAllByWarehouse_Id(warehouseId);
+    public List<InventoryLot> findByBranch(UUID branchId) {
+        return repo.findAllByBranch_BranchId(branchId);
     }
     
     public List<InventoryLot> getAll() {

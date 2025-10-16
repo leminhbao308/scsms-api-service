@@ -35,11 +35,6 @@ public class SalesOrder extends AuditEntity {
     private Branch branch;
     
     
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false, foreignKey = @ForeignKey(name = "fk_so_wh"))
-    private Warehouse warehouse;
-    
-    
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 40, nullable = false)
     private SalesStatus status;

@@ -13,8 +13,7 @@ import org.mapstruct.ReportingPolicy;
         AuditMapper.class,
         SaleOrderLineMapper.class,
         UserMapper.class,
-        BranchMapper.class,
-        WarehouseMapper.class}
+        BranchMapper.class}
 )
 public interface SaleOrderMapper {
     
