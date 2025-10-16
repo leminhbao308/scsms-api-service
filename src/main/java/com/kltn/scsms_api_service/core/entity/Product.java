@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -53,9 +52,6 @@ public class Product extends AuditEntity {
     @Column(name = "barcode", length = 100)
     private String barcode;
     
-    @Column(name = "peak_price")
-    @Builder.Default
-    private BigDecimal peakPrice = BigDecimal.ZERO;
     
     // Business Relations
     @Column(name = "supplier_id")
