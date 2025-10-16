@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.entity;
 
+import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "promotion_usages", schema = GeneralConstant.DB_SCHEMA_DEV)
-public class PromotionUsage {
+public class PromotionUsage extends AuditEntity {
     
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -48,7 +49,4 @@ public class PromotionUsage {
     @Column(name = "used_at", nullable = false)
     @Builder.Default
     private LocalDateTime usedAt = LocalDateTime.now();
-    
-    @Column(name = "created_by", length = 150)
-    private String createdBy;
 }

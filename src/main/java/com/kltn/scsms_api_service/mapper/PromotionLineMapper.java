@@ -33,4 +33,6 @@ public interface PromotionLineMapper {
     @Mapping(source = "branch", target = "branch")
     @Mapping(source = "freeProduct", target = "freeProduct")
     PromotionInfoDto.PromotionLineDto toPromotionLineDto(PromotionLine promotionLine);
+    
+    CreatePromotionLineRequest toCreateRequest(PromotionLine promotionLine);
 }
