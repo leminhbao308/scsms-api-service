@@ -48,24 +48,10 @@ public class ServiceBay extends AuditEntity {
     private String bayCode;
     
     /**
-     * Loại bay
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "bay_type", nullable = false)
-    private BayType bayType;
-    
-    /**
      * Mô tả bay
      */
     @Column(name = "description", length = 1000)
     private String description;
-    
-    /**
-     * Số lượng xe có thể phục vụ cùng lúc
-     */
-    @Column(name = "capacity")
-    @Builder.Default
-    private Integer capacity = 1;
     
     /**
      * Trạng thái bay
@@ -118,26 +104,6 @@ public class ServiceBay extends AuditEntity {
         return status == BayStatus.CLOSED;
     }
     
-    /**
-     * Kiểm tra bay có phải bệ rửa xe không
-     */
-    public boolean isWashBay() {
-        return bayType == BayType.WASH_BAY;
-    }
-    
-    /**
-     * Kiểm tra bay có phải bệ sửa chữa không
-     */
-    public boolean isRepairBay() {
-        return bayType == BayType.REPAIR_BAY;
-    }
-    
-    /**
-     * Kiểm tra bay có phải bệ nâng xe không
-     */
-    public boolean isLiftBay() {
-        return bayType == BayType.LIFT_BAY;
-    }
     
     /**
      * Đặt bay vào trạng thái bảo trì
@@ -163,19 +129,6 @@ public class ServiceBay extends AuditEntity {
         this.notes = null;
     }
     
-    /**
-     * Enum cho loại bay
-     */
-    public enum BayType {
-        WASH_BAY,       // Bệ rửa xe
-        REPAIR_BAY,     // Bệ sửa chữa
-        LIFT_BAY,       // Bệ nâng xe
-        INSPECTION_BAY, // Bệ kiểm tra
-        PAINT_BAY,      // Bệ sơn xe
-        DETAILING_BAY,  // Bệ chăm sóc chi tiết
-        TIRE_BAY,       // Bệ thay lốp
-        GENERAL_BAY     // Bệ tổng hợp
-    }
     
     /**
      * Enum cho trạng thái bay

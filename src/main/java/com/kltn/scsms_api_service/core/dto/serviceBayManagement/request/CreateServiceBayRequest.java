@@ -35,18 +35,9 @@ public class CreateServiceBayRequest {
     @JsonProperty("bay_code")
     private String bayCode;
     
-    @NotNull(message = "Bay type is required")
-    @JsonProperty("bay_type")
-    private ServiceBay.BayType bayType;
-    
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     @JsonProperty("description")
     private String description;
-    
-    @Builder.Default
-    @Positive(message = "Capacity must be positive")
-    @JsonProperty("capacity")
-    private Integer capacity = 1;
     
     @Builder.Default
     @JsonProperty("display_order")

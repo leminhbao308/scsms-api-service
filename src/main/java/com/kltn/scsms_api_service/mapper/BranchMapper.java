@@ -55,14 +55,8 @@ public interface BranchMapper {
         if (updateRequest.getEmail() != null) {
             existingBranch.setEmail(updateRequest.getEmail());
         }
-        if (updateRequest.getServiceCapacity() != null) {
-            existingBranch.setServiceCapacity(updateRequest.getServiceCapacity());
-        }
-        if (updateRequest.getAreaSqm() != null) {
-            existingBranch.setAreaSqm(updateRequest.getAreaSqm());
-        }
-        if (updateRequest.getParkingSpaces() != null) {
-            existingBranch.setParkingSpaces(updateRequest.getParkingSpaces());
+        if (updateRequest.getServiceSlots() != null) {
+            existingBranch.setServiceSlots(updateRequest.getServiceSlots());
         }
         if (updateRequest.getEstablishedDate() != null) {
             existingBranch.setEstablishedDate(updateRequest.getEstablishedDate());

@@ -54,10 +54,9 @@ public class ServiceBayManagementController {
     @SwaggerOperation(summary = "Get service bays dropdown")
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<List<ServiceBayInfoDto>>> getServiceBaysDropdown(
-            @Parameter(description = "Branch ID") @RequestParam(required = false) UUID branchId,
-            @Parameter(description = "Bay type") @RequestParam(required = false) ServiceBay.BayType bayType) {
-        log.info("Getting service bays dropdown for branch: {}, type: {}", branchId, bayType);
-        List<ServiceBayInfoDto> bays = serviceBayManagementService.getServiceBaysDropdown(branchId, bayType);
+            @Parameter(description = "Branch ID") @RequestParam(required = false) UUID branchId) {
+        log.info("Getting service bays dropdown for branch: {}", branchId);
+        List<ServiceBayInfoDto> bays = serviceBayManagementService.getServiceBaysDropdown(branchId);
         return ResponseBuilder.success(bays);
     }
 
@@ -83,16 +82,6 @@ public class ServiceBayManagementController {
         return ResponseBuilder.success(bays);
     }
 
-    @GetMapping("/type/{bayType}")
-    @Operation(summary = "Get service bays by type", description = "Get all service bays of a specific type")
-    @SwaggerOperation(summary = "Get service bays by type")
-    // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
-    public ResponseEntity<ApiResponse<List<ServiceBayInfoDto>>> getServiceBaysByType(
-            @Parameter(description = "Bay type") @PathVariable ServiceBay.BayType bayType) {
-        log.info("Getting service bays by type: {}", bayType);
-        List<ServiceBayInfoDto> bays = serviceBayManagementService.getServiceBaysByType(bayType);
-        return ResponseBuilder.success(bays);
-    }
 
     @GetMapping("/active")
     @Operation(summary = "Get active service bays", description = "Get all active service bays")
@@ -112,11 +101,9 @@ public class ServiceBayManagementController {
     public ResponseEntity<ApiResponse<List<ServiceBayInfoDto>>> getAvailableServiceBays(
             @Parameter(description = "Branch ID") @RequestParam UUID branchId,
             @Parameter(description = "Start time") @RequestParam String startTime,
-            @Parameter(description = "End time") @RequestParam String endTime,
-            @Parameter(description = "Bay type") @RequestParam(required = false) ServiceBay.BayType bayType) {
+            @Parameter(description = "End time") @RequestParam String endTime) {
         log.info("Getting available service bays for branch: {} from {} to {}", branchId, startTime, endTime);
-        List<ServiceBayInfoDto> bays = serviceBayManagementService.getAvailableServiceBays(branchId, startTime, endTime,
-                bayType);
+        List<ServiceBayInfoDto> bays = serviceBayManagementService.getAvailableServiceBays(branchId, startTime, endTime);
         return ResponseBuilder.success(bays);
     }
 

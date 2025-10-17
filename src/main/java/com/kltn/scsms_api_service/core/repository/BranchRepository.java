@@ -37,8 +37,8 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT b FROM Branch b WHERE b.manager.userId = :managerId")
     List<Branch> findByManagerId(@Param("managerId") UUID managerId);
     
-    @Query("SELECT b FROM Branch b WHERE b.serviceCapacity >= :minCapacity")
-    List<Branch> findByMinServiceCapacity(@Param("minCapacity") Integer minCapacity);
+    @Query("SELECT b FROM Branch b WHERE b.serviceSlots >= :minSlots")
+    List<Branch> findByMinServiceSlots(@Param("minSlots") Integer minSlots);
     
     
     @Query("SELECT b FROM Branch b WHERE b.establishedDate >= :fromDate AND b.establishedDate <= :toDate")
@@ -61,8 +61,8 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT COUNT(b) FROM Branch b WHERE b.center.centerId = :centerId AND b.isActive = true")
     Long countActiveBranchesByCenter(@Param("centerId") UUID centerId);
     
-    @Query("SELECT SUM(b.serviceCapacity) FROM Branch b WHERE b.isActive = true")
-    Long sumTotalServiceCapacity();
+    @Query("SELECT SUM(b.serviceSlots) FROM Branch b WHERE b.isActive = true")
+    Long sumTotalServiceSlots();
     
     
     @Query("SELECT b FROM Branch b WHERE b.center.centerId = :centerId ORDER BY b.branchName")

@@ -38,14 +38,13 @@ public class BranchFlatDto {
     @JsonProperty("email")
     private String email;
     
-    @JsonProperty("service_capacity")
-    private Integer serviceCapacity;
-    
-    @JsonProperty("area_sqm")
-    private Double areaSqm;
-    
-    @JsonProperty("parking_spaces")
-    private Integer parkingSpaces;
+    /**
+     * Số lượng khu vực dịch vụ cố định cho mỗi chi nhánh
+     * UI chỉ hiển thị, không cho phép thay đổi
+     */
+    @JsonProperty("service_slots")
+    @Builder.Default
+    private Integer serviceSlots = 8;
     
     @JsonProperty("established_date")
     private LocalDate establishedDate;

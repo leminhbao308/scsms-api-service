@@ -22,7 +22,6 @@ public interface BookingMapper {
     @Mapping(target = "branchCode", source = "branch.branchCode")
     @Mapping(target = "bayId", source = "serviceBay.bayId")
     @Mapping(target = "bayName", source = "serviceBay.bayName")
-    @Mapping(target = "bayType", source = "serviceBay.bayType")
     @Mapping(target = "isActive", expression = "java(entity.isActive())")
     @Mapping(target = "isCancelled", expression = "java(entity.isCancelled())")
     @Mapping(target = "isCompleted", expression = "java(entity.isCompleted())")

@@ -43,18 +43,13 @@ public class Branch extends AuditEntity {
     private String email;
     
     
-    @Column(name = "service_capacity")
+    /**
+     * Số lượng khu vực dịch vụ cố định cho mỗi chi nhánh
+     * UI chỉ hiển thị, không cho phép thay đổi
+     */
+    @Column(name = "service_slots")
     @Builder.Default
-    private Integer serviceCapacity = 10;
-    
-    
-    
-    @Column(name = "area_sqm")
-    private Double areaSqm;
-    
-    @Column(name = "parking_spaces")
-    @Builder.Default
-    private Integer parkingSpaces = 0;
+    private Integer serviceSlots = 8;
     
     @Column(name = "established_date")
     private LocalDate establishedDate;
