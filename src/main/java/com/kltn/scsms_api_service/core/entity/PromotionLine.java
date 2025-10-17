@@ -6,6 +6,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -86,9 +87,68 @@ public class PromotionLine {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
     
+    // Cần thêm method validate:
+    public boolean isApplicableToItem(UUID itemId, int quantity, BigDecimal itemAmount) {
+        if (!isActive) return false;
+        
+        // Check time override
+        if (startAt != null && LocalDateTime.now().isBefore(startAt)) return false;
+        if (endAt != null && LocalDateTime.now().isAfter(endAt)) return false;
+        
+        // Check target
+        if (lineType != LineType.ALL) {
+            if (targetId != null && !targetId.equals(itemId)) return false;
+        }
+        
+        // Check min quantity
+        if (minQuantity != null && quantity < minQuantity) return false;
+        
+        return true;
+    }
+    
+    // PromotionLine cần method:
+    public BigDecimal calculateDiscount(BigDecimal originalAmount, int quantity) {
+        BigDecimal discount = BigDecimal.ZERO;
+    
+        switch (discountType) {
+            case PERCENT:
+                discount = originalAmount.multiply(discountValue)
+                    .divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
+                if (maxDiscountAmount != null && discount.compareTo(maxDiscountAmount) > 0) {
+                    discount = maxDiscountAmount;
+                }
+                break;
+            case AMOUNT:
+                discount = discountValue.min(originalAmount);
+                break;
+            case FIXED_PRICE:
+                discount = originalAmount.subtract(discountValue).max(BigDecimal.ZERO);
+                break;
+            case BUY_X_GET_Y:
+                if (buyQty != null && getQty != null && buyQty > 0 && getQty > 0) {
+                    int eligibleSets = quantity / (buyQty + getQty);
+                    int freeItems = eligibleSets * getQty;
+                    if (freeItems > 0) {
+                        // Assume discountValue is the price per item
+                        discount = discountValue.multiply(BigDecimal.valueOf(freeItems));
+                    }
+                }
+                break;
+            case FREE_PRODUCT:
+                if (freeProduct != null && freeQuantity != null && freeQuantity > 0) {
+                    // Assume discountValue is the price per free product
+                    discount = discountValue.multiply(BigDecimal.valueOf(freeQuantity));
+                }
+                break;
+            default:
+        }
+    
+        return discount.max(BigDecimal.ZERO);
+    }
+    
     // === ENUMS ===
     public enum LineType {
-        PRODUCT, CATEGORY, SERVICE, PACKAGE, ORDER, CUSTOMER_GROUP, ALL
+        PRODUCT, CATEGORY, SERVICE, ALL
     }
     
     public enum DiscountType {

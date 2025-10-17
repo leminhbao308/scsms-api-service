@@ -18,7 +18,12 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "promotions", schema = GeneralConstant.DB_SCHEMA_DEV)
+@Table(name = "promotions", schema = GeneralConstant.DB_SCHEMA_DEV,
+    indexes = {
+        @Index(name = "idx_promotion_code", columnList = "promotion_code"),
+        @Index(name = "idx_dates", columnList = "start_at,end_at"),
+        @Index(name = "idx_branch", columnList = "branch_id")
+    })
 public class Promotion extends AuditEntity {
     
     @Id
@@ -80,6 +85,7 @@ public class Promotion extends AuditEntity {
     }
     
     // === BUSINESS METHODS ===
+    
     /**
      * Kiểm tra khuyến mãi có thể áp dụng
      */
@@ -89,6 +95,9 @@ public class Promotion extends AuditEntity {
         
         // Kiểm tra số lần sử dụng
         if (isUsageLimitExceeded()) return false;
+        
+        // Kiểm tra số lần sử dụng của khách hàng
+        if (isCustomerUsageLimitExceeded(customerId)) return false;
         
         return true;
     }
@@ -106,6 +115,18 @@ public class Promotion extends AuditEntity {
      */
     public boolean isUsageLimitExceeded() {
         return usageLimit != null && usages.size() >= usageLimit;
+    }
+    
+    /**
+     * Kiểm tra khách hàng đã vượt quá giới hạn sử dụng
+     */
+    public boolean isCustomerUsageLimitExceeded(UUID customerId) {
+        if (perCustomerLimit == null) return false;
+        long customerUsageCount = usages.stream()
+            .filter(u -> u.getCustomer() != null &&
+                u.getCustomer().getUserId().equals(customerId))
+            .count();
+        return customerUsageCount >= perCustomerLimit;
     }
     
     /**
