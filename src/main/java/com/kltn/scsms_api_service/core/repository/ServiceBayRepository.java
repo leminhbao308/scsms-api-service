@@ -25,16 +25,6 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
     List<ServiceBay> findByBranch_BranchIdAndStatusOrderByDisplayOrderAscBayNameAsc(
         UUID branchId, ServiceBay.BayStatus status);
     
-    /**
-     * Tìm bay theo loại bay
-     */
-    List<ServiceBay> findByBayTypeOrderByDisplayOrderAscBayNameAsc(ServiceBay.BayType bayType);
-    
-    /**
-     * Tìm bay theo chi nhánh và loại bay
-     */
-    List<ServiceBay> findByBranch_BranchIdAndBayTypeOrderByDisplayOrderAscBayNameAsc(
-        UUID branchId, ServiceBay.BayType bayType);
     
     
     /**
@@ -84,24 +74,6 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
         @Param("startTime") LocalDateTime startTime,
         @Param("endTime") LocalDateTime endTime);
     
-    /**
-     * Tìm bay có thể sử dụng theo loại bay trong khoảng thời gian
-     */
-    @Query("SELECT DISTINCT b FROM ServiceBay b " +
-           "WHERE b.branch.branchId = :branchId " +
-           "AND b.bayType = :bayType " +
-           "AND b.status = 'ACTIVE' " +
-           "AND b.bayId NOT IN (" +
-           "    SELECT bk.serviceBay.bayId FROM Booking bk " +
-           "    WHERE bk.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +
-           "    AND ((bk.scheduledStartAt < :endTime AND bk.scheduledEndAt > :startTime))" +
-           ") " +
-           "ORDER BY b.displayOrder ASC, b.bayName ASC")
-    List<ServiceBay> findAvailableBaysByTypeInTimeRange(
-        @Param("branchId") UUID branchId,
-        @Param("bayType") ServiceBay.BayType bayType,
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime);
     
     /**
      * Kiểm tra bay có khả dụng trong khoảng thời gian không
@@ -125,10 +97,6 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
      */
     long countByBranch_BranchIdAndStatus(UUID branchId, ServiceBay.BayStatus status);
     
-    /**
-     * Đếm số bay theo chi nhánh và loại bay
-     */
-    long countByBranch_BranchIdAndBayType(UUID branchId, ServiceBay.BayType bayType);
     
     /**
      * Tìm bay theo từ khóa
@@ -154,10 +122,9 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
     /**
      * Lấy thống kê bay theo chi nhánh
      */
-    @Query("SELECT b.bayType, COUNT(b) FROM ServiceBay b " +
-           "WHERE b.branch.branchId = :branchId " +
-           "GROUP BY b.bayType")
-    List<Object[]> getBayStatisticsByBranch(@Param("branchId") UUID branchId);
+    @Query("SELECT COUNT(b) FROM ServiceBay b " +
+           "WHERE b.branch.branchId = :branchId")
+    long getBayCountByBranch(@Param("branchId") UUID branchId);
     
     /**
      * Lấy thống kê bay theo trạng thái

@@ -53,9 +53,7 @@ public class ServiceBayManagementService {
         List<ServiceBay> bays;
         
         if (filterParam.getBranchId() != null) {
-            if (filterParam.getBayType() != null) {
-                bays = serviceBayService.getByBranchAndBayType(filterParam.getBranchId(), filterParam.getBayType());
-            } else if (filterParam.getStatus() != null) {
+            if (filterParam.getStatus() != null) {
                 bays = serviceBayService.getByBranch(filterParam.getBranchId())
                         .stream()
                         .filter(bay -> bay.getStatus() == filterParam.getStatus())
@@ -63,8 +61,6 @@ public class ServiceBayManagementService {
             } else {
                 bays = serviceBayService.getByBranch(filterParam.getBranchId());
             }
-        } else if (filterParam.getBayType() != null) {
-            bays = serviceBayService.getByBayType(filterParam.getBayType());
         } else {
             // If no filters, get all service bays
             bays = serviceBayService.findAll();
@@ -110,18 +106,14 @@ public class ServiceBayManagementService {
     /**
      * Lấy service bays cho dropdown
      */
-    public List<ServiceBayInfoDto> getServiceBaysDropdown(UUID branchId, ServiceBay.BayType bayType) {
-        log.info("Getting service bays dropdown for branch: {}, type: {}", branchId, bayType);
+    public List<ServiceBayInfoDto> getServiceBaysDropdown(UUID branchId) {
+        log.info("Getting service bays dropdown for branch: {}", branchId);
         
         List<ServiceBay> bays;
-        if (branchId != null && bayType != null) {
-            bays = serviceBayService.getByBranchAndBayType(branchId, bayType);
-        } else if (branchId != null) {
+        if (branchId != null) {
             bays = serviceBayService.getActiveByBranch(branchId);
-        } else if (bayType != null) {
-            bays = serviceBayService.getByBayType(bayType);
         } else {
-            bays = serviceBayService.getByBranch(branchId);
+            bays = serviceBayService.findAll();
         }
         
         return serviceBayMapper.toServiceBayInfoDtoList(bays);
@@ -145,14 +137,6 @@ public class ServiceBayManagementService {
         return serviceBayMapper.toServiceBayInfoDtoList(bays);
     }
     
-    /**
-     * Lấy service bays theo loại
-     */
-    public List<ServiceBayInfoDto> getServiceBaysByType(ServiceBay.BayType bayType) {
-        log.info("Getting service bays by type: {}", bayType);
-        List<ServiceBay> bays = serviceBayService.getByBayType(bayType);
-        return serviceBayMapper.toServiceBayInfoDtoList(bays);
-    }
     
     /**
      * Lấy service bays hoạt động
@@ -166,18 +150,13 @@ public class ServiceBayManagementService {
     /**
      * Lấy service bays khả dụng trong khoảng thời gian
      */
-    public List<ServiceBayInfoDto> getAvailableServiceBays(UUID branchId, String startTime, String endTime, ServiceBay.BayType bayType) {
+    public List<ServiceBayInfoDto> getAvailableServiceBays(UUID branchId, String startTime, String endTime) {
         log.info("Getting available service bays for branch: {} from {} to {}", branchId, startTime, endTime);
         
         LocalDateTime start = LocalDateTime.parse(startTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         LocalDateTime end = LocalDateTime.parse(endTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         
-        List<ServiceBay> bays;
-        if (bayType != null) {
-            bays = serviceBayService.getAvailableBaysByTypeInTimeRange(branchId, bayType, start, end);
-        } else {
-            bays = serviceBayService.getAvailableBaysInTimeRange(branchId, start, end);
-        }
+        List<ServiceBay> bays = serviceBayService.getAvailableBaysInTimeRange(branchId, start, end);
         
         return serviceBayMapper.toServiceBayInfoDtoList(bays);
     }
@@ -228,8 +207,29 @@ public class ServiceBayManagementService {
         // Get existing bay
         ServiceBay existingBay = serviceBayService.getById(bayId);
         
-        // Update bay
+        // Update basic fields
         serviceBayMapper.updateEntity(existingBay, request);
+        
+        // Handle status update if provided
+        if (request.getStatus() != null) {
+            log.info("Updating service bay status from {} to {}", existingBay.getStatus(), request.getStatus());
+            
+            switch (request.getStatus()) {
+                case ACTIVE:
+                    existingBay.activateBay();
+                    break;
+                case MAINTENANCE:
+                    existingBay.setMaintenance("Status updated via UI");
+                    break;
+                case CLOSED:
+                    existingBay.closeBay("Status updated via UI");
+                    break;
+                case INACTIVE:
+                    existingBay.setIsActive(false);
+                    break;
+            }
+        }
+        
         ServiceBay savedBay = serviceBayService.update(existingBay);
         
         return serviceBayMapper.toServiceBayInfoDto(savedBay);
@@ -360,7 +360,6 @@ public class ServiceBayManagementService {
                 .bayId(bay.getBayId())
                 .bayName(bay.getBayName())
                 .bayCode(bay.getBayCode())
-                .bayType(bay.getBayType().name())
                 .status(bay.getStatus().name())
                 .totalBookings(totalBookings)
                 .completedBookings(completedBookings)

@@ -19,7 +19,6 @@ import java.util.UUID;
 public class ServiceBayFilterParam extends BaseFilterParam<ServiceBayFilterParam> {
     
     private UUID branchId;
-    private ServiceBay.BayType bayType;
     private ServiceBay.BayStatus status;
     private String keyword;
     private Boolean isActive;

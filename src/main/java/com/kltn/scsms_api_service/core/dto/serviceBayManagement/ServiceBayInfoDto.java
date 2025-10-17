@@ -37,14 +37,8 @@ public class ServiceBayInfoDto {
     @JsonProperty("bay_code")
     private String bayCode;
     
-    @JsonProperty("bay_type")
-    private ServiceBay.BayType bayType;
-    
     @JsonProperty("description")
     private String description;
-    
-    @JsonProperty("capacity")
-    private Integer capacity;
     
     @JsonProperty("status")
     private ServiceBay.BayStatus status;
@@ -77,14 +71,6 @@ public class ServiceBayInfoDto {
     @JsonProperty("is_closed")
     private Boolean isClosed;
     
-    @JsonProperty("is_wash_bay")
-    private Boolean isWashBay;
-    
-    @JsonProperty("is_repair_bay")
-    private Boolean isRepairBay;
-    
-    @JsonProperty("is_lift_bay")
-    private Boolean isLiftBay;
     
     @JsonProperty("total_bookings")
     private Long totalBookings;

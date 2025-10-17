@@ -41,18 +41,13 @@ public class BranchInfoDto extends AuditDto {
     private String email;
     
     
-    @JsonProperty("service_capacity")
+    /**
+     * Số lượng khu vực dịch vụ cố định cho mỗi chi nhánh
+     * UI chỉ hiển thị, không cho phép thay đổi
+     */
+    @JsonProperty("service_slots")
     @Builder.Default
-    private Integer serviceCapacity = 10;
-    
-    
-    
-    @JsonProperty("area_sqm")
-    private Double areaSqm;
-    
-    @JsonProperty("parking_spaces")
-    @Builder.Default
-    private Integer parkingSpaces = 0;
+    private Integer serviceSlots = 8;
     
     @JsonProperty("established_date")
     private LocalDate establishedDate;

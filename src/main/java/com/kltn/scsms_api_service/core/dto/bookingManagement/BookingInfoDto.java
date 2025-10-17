@@ -44,7 +44,6 @@ public class BookingInfoDto {
     private String branchCode;
     private UUID bayId;
     private String bayName;
-    private String bayType;
     
     // Scheduling information
     private LocalDateTime preferredStartAt;

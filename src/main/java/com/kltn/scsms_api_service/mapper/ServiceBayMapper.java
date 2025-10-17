@@ -22,9 +22,6 @@ public interface ServiceBayMapper {
     @Mapping(target = "isAvailable", expression = "java(entity.isActive())")
     @Mapping(target = "isMaintenance", expression = "java(entity.isMaintenance())")
     @Mapping(target = "isClosed", expression = "java(entity.isClosed())")
-    @Mapping(target = "isWashBay", expression = "java(entity.isWashBay())")
-    @Mapping(target = "isRepairBay", expression = "java(entity.isRepairBay())")
-    @Mapping(target = "isLiftBay", expression = "java(entity.isLiftBay())")
     @Mapping(target = "totalBookings", expression = "java(entity.getBookings() != null ? (long) entity.getBookings().size() : 0L)")
     @Mapping(target = "activeBookings", expression = "java(entity.getBookings() != null ? entity.getBookings().stream().filter(booking -> booking.isActive()).count() : 0L)")
     ServiceBayInfoDto toServiceBayInfoDto(ServiceBay entity);

@@ -8,9 +8,11 @@ import com.kltn.scsms_api_service.core.dto.branchManagement.request.UpdateBranch
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Center;
 import com.kltn.scsms_api_service.core.entity.User;
+import com.kltn.scsms_api_service.core.entity.ServiceBay;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.CenterService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.BranchMapper;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +34,7 @@ public class BranchManagementService {
     private final BranchService branchService;
     private final CenterService centerService;
     private final UserService userService;
+    private final ServiceBayService serviceBayService;
     
     public Page<BranchInfoDto> getAllBranches(BranchFilterParam branchFilterParam) {
         
@@ -39,6 +43,7 @@ public class BranchManagementService {
         return branchPage.map(branchMapper::toBranchInfoDtoWithRelations);
     }
     
+    @Transactional
     public BranchInfoDto createBranch(CreateBranchRequest createBranchRequest) {
         // Validate branch name not already in use
         if (branchService.existsByBranchName(createBranchRequest.getBranchName())) {
@@ -77,7 +82,10 @@ public class BranchManagementService {
         
         Branch createdBranch = branchService.saveBranch(newBranch);
         
-        log.info("Created new branch with name: {} for center: {}",
+        // Tự động tạo 8 ServiceBay mặc định cho branch mới
+        createDefaultServiceBays(createdBranch);
+        
+        log.info("Created new branch with name: {} for center: {} and 8 default service bays",
             createdBranch.getBranchName(), center.getCenterName());
         
         return branchMapper.toBranchInfoDtoWithRelations(createdBranch);
@@ -178,5 +186,38 @@ public class BranchManagementService {
     // Alternative method name for testing
     public BranchInfoDto updateBranchActiveStatus(UUID branchId, UpdateBranchStatusRequest updateBranchStatusRequest) {
         return updateBranchStatus(branchId, updateBranchStatusRequest);
+    }
+    
+    /**
+     * Tự động tạo 8 ServiceBay mặc định cho branch mới
+     * Mỗi branch sẽ có 8 khu vực dịch vụ cố định
+     */
+    private void createDefaultServiceBays(Branch branch) {
+        log.info("Creating 8 default service bays for branch: {}", branch.getBranchName());
+        
+        for (int i = 1; i <= 8; i++) {
+            ServiceBay serviceBay = ServiceBay.builder()
+                .branch(branch)
+                .bayName("Khu vực " + i)
+                .bayCode("BAY-" + String.format("%03d", i))
+                .description("Khu vực dịch vụ mặc định " + i + " của " + branch.getBranchName())
+                .status(ServiceBay.BayStatus.ACTIVE)
+                .displayOrder(i)
+                .notes("Tự động tạo khi khởi tạo branch")
+                .build();
+            
+            try {
+                serviceBayService.save(serviceBay);
+                log.debug("Created service bay: {} for branch: {}", 
+                    serviceBay.getBayName(), branch.getBranchName());
+            } catch (Exception e) {
+                log.error("Failed to create service bay {} for branch {}: {}", 
+                    i, branch.getBranchName(), e.getMessage());
+                throw new ClientSideException(ErrorCode.SYSTEM_ERROR,
+                    "Failed to create default service bays for branch: " + e.getMessage());
+            }
+        }
+        
+        log.info("Successfully created 8 default service bays for branch: {}", branch.getBranchName());
     }
 }

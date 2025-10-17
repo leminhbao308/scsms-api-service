@@ -98,20 +98,6 @@ public class ServiceBayService {
                 branchId, ServiceBay.BayStatus.ACTIVE);
     }
     
-    /**
-     * Lấy bay theo loại
-     */
-    public List<ServiceBay> getByBayType(ServiceBay.BayType bayType) {
-        return serviceBayRepository.findByBayTypeOrderByDisplayOrderAscBayNameAsc(bayType);
-    }
-    
-    /**
-     * Lấy bay theo chi nhánh và loại
-     */
-    public List<ServiceBay> getByBranchAndBayType(UUID branchId, ServiceBay.BayType bayType) {
-        return serviceBayRepository.findByBranch_BranchIdAndBayTypeOrderByDisplayOrderAscBayNameAsc(
-                branchId, bayType);
-    }
     
     /**
      * Tìm bay khả dụng trong khoảng thời gian
@@ -120,13 +106,6 @@ public class ServiceBayService {
         return serviceBayRepository.findAvailableBaysInTimeRange(branchId, startTime, endTime);
     }
     
-    /**
-     * Tìm bay khả dụng theo loại trong khoảng thời gian
-     */
-    public List<ServiceBay> getAvailableBaysByTypeInTimeRange(UUID branchId, ServiceBay.BayType bayType, 
-                                                             LocalDateTime startTime, LocalDateTime endTime) {
-        return serviceBayRepository.findAvailableBaysByTypeInTimeRange(branchId, bayType, startTime, endTime);
-    }
     
     /**
      * Kiểm tra bay có khả dụng trong khoảng thời gian không
@@ -205,12 +184,6 @@ public class ServiceBayService {
         return serviceBayRepository.countByBranch_BranchIdAndStatus(branchId, status);
     }
     
-    /**
-     * Đếm số bay theo chi nhánh và loại bay
-     */
-    public long countByBranchAndBayType(UUID branchId, ServiceBay.BayType bayType) {
-        return serviceBayRepository.countByBranch_BranchIdAndBayType(branchId, bayType);
-    }
     
     /**
      * Xóa mềm bay
