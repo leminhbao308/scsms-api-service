@@ -3,8 +3,6 @@ package com.kltn.scsms_api_service.core.dto.serviceBayManagement.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,4 +37,7 @@ public class UpdateServiceBayRequest {
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     @JsonProperty("notes")
     private String notes;
+    
+    @JsonProperty("status")
+    private ServiceBay.BayStatus status;
 }

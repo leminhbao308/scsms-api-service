@@ -207,8 +207,29 @@ public class ServiceBayManagementService {
         // Get existing bay
         ServiceBay existingBay = serviceBayService.getById(bayId);
         
-        // Update bay
+        // Update basic fields
         serviceBayMapper.updateEntity(existingBay, request);
+        
+        // Handle status update if provided
+        if (request.getStatus() != null) {
+            log.info("Updating service bay status from {} to {}", existingBay.getStatus(), request.getStatus());
+            
+            switch (request.getStatus()) {
+                case ACTIVE:
+                    existingBay.activateBay();
+                    break;
+                case MAINTENANCE:
+                    existingBay.setMaintenance("Status updated via UI");
+                    break;
+                case CLOSED:
+                    existingBay.closeBay("Status updated via UI");
+                    break;
+                case INACTIVE:
+                    existingBay.setIsActive(false);
+                    break;
+            }
+        }
+        
         ServiceBay savedBay = serviceBayService.update(existingBay);
         
         return serviceBayMapper.toServiceBayInfoDto(savedBay);
