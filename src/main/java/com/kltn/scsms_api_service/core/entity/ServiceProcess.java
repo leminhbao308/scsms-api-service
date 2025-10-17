@@ -33,8 +33,7 @@ public class ServiceProcess extends AuditEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
-    @Column(name = "estimated_duration")
-    private Integer estimatedDuration; // Tổng thời gian dự kiến (phút)
+    // Loại bỏ estimated_duration - thời gian được quản lý ở Service level
     
     @Column(name = "is_default", nullable = false)
     @Builder.Default
@@ -56,26 +55,7 @@ public class ServiceProcess extends AuditEntity {
     private List<Service> services = new ArrayList<>();
     
     
-    /**
-     * Tính tổng thời gian dự kiến từ các bước
-     */
-    public Integer calculateEstimatedDuration() {
-        if (processSteps == null || processSteps.isEmpty()) {
-            return estimatedDuration;
-        }
-        
-        return processSteps.stream()
-                .filter(step -> step.getEstimatedTime() != null)
-                .mapToInt(ServiceProcessStep::getEstimatedTime)
-                .sum();
-    }
-    
-    /**
-     * Cập nhật thời gian dự kiến
-     */
-    public void updateEstimatedDuration() {
-        this.estimatedDuration = calculateEstimatedDuration();
-    }
+    // Loại bỏ các method tính toán thời gian - thời gian được quản lý ở Service level
     
     /**
      * Lấy số lượng bước trong quy trình

@@ -110,16 +110,7 @@ public class ServiceProcessStepService {
         log.debug("Finding service process steps by name containing: {}", name);
         return serviceProcessStepRepository.findByNameContainingIgnoreCaseOrderByStepOrderAsc(name, pageable);
     }
-    
-    /**
-     * Tìm steps theo estimated time range
-     */
-    public List<ServiceProcessStep> findByEstimatedTimeBetween(Integer minTime, Integer maxTime) {
-        log.debug("Finding service process steps by estimated time between: {} and {}", minTime, maxTime);
-        return serviceProcessStepRepository.findByEstimatedTimeBetweenOrderByStepOrderAsc(minTime, maxTime);
-    }
-    
-    
+       
     /**
      * Tìm steps theo process với pagination
      */

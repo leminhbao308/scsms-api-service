@@ -50,6 +50,9 @@ public interface ServiceMapper {
         if (updateRequest.getDescription() != null) {
             existingService.setDescription(updateRequest.getDescription());
         }
+        if (updateRequest.getEstimatedDuration() != null) {
+            existingService.setEstimatedDuration(updateRequest.getEstimatedDuration());
+        }
         if (updateRequest.getRequiredSkillLevel() != null) {
             existingService.setRequiredSkillLevel(updateRequest.getRequiredSkillLevel());
         }

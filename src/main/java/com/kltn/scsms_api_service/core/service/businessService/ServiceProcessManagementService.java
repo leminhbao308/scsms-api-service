@@ -50,7 +50,6 @@ public class ServiceProcessManagementService {
                         .code("DEFAULT_PROCESS")
                         .name("Quy trình chăm sóc xe mặc định")
                         .description("Quy trình chăm sóc xe mặc định được tạo tự động")
-                        .estimatedDuration(60) // 60 phút
                         .isDefault(true)
                         .isActive(true)
                         .build();
@@ -86,11 +85,6 @@ public class ServiceProcessManagementService {
             } else {
                 serviceProcesses = serviceProcessService.findProcessesWithoutSteps(pageable);
             }
-        } else if (filterParam.getMinEstimatedDuration() != null && filterParam.getMaxEstimatedDuration() != null) {
-            serviceProcesses = serviceProcessService.findByEstimatedDurationBetween(
-                    filterParam.getMinEstimatedDuration(), 
-                    filterParam.getMaxEstimatedDuration(), 
-                    pageable);
         } else {
             // Lấy tất cả với phân trang và processSteps
             serviceProcesses = serviceProcessService.findAllWithProcessSteps(pageable);
@@ -138,32 +132,32 @@ public class ServiceProcessManagementService {
         
         ServiceProcess serviceProcess = serviceProcessService.findByIdOrThrow(processId);
         ServiceProcessInfoDto dto = serviceProcessMapper.toServiceProcessInfoDto(serviceProcess);
-        
-        // Set processId và processName cho từng step
-        if (dto.getProcessSteps() != null) {
-            dto.getProcessSteps().forEach(step -> {
-                // Set processId và processName từ serviceProcess
-                step.setProcessId(serviceProcess.getId());
-                step.setProcessName(serviceProcess.getName());
-                
-                // Set audit fields từ ServiceProcessStep entity
-                ServiceProcessStep stepEntity = serviceProcess.getProcessSteps().stream()
-                        .filter(sps -> sps.getId().equals(step.getId()))
-                        .findFirst()
-                        .orElse(null);
-                
-                if (stepEntity != null && step.getAudit() != null) {
-                    step.getAudit().setCreatedDate(stepEntity.getCreatedDate());
-                    step.getAudit().setModifiedDate(stepEntity.getModifiedDate());
-                    step.getAudit().setCreatedBy(stepEntity.getCreatedBy());
-                    step.getAudit().setModifiedBy(stepEntity.getModifiedBy());
-                    step.getAudit().setIsActive(stepEntity.getIsActive());
-                    step.getAudit().setIsDeleted(stepEntity.getIsDeleted());
-                }
-            });
-        }
-        
-        return dto;
+                    
+                    // Set processId và processName cho từng step
+                    if (dto.getProcessSteps() != null) {
+                        dto.getProcessSteps().forEach(step -> {
+                            // Set processId và processName từ serviceProcess
+                            step.setProcessId(serviceProcess.getId());
+                            step.setProcessName(serviceProcess.getName());
+                            
+                            // Set audit fields từ ServiceProcessStep entity
+                            ServiceProcessStep stepEntity = serviceProcess.getProcessSteps().stream()
+                                    .filter(sps -> sps.getId().equals(step.getId()))
+                                    .findFirst()
+                                    .orElse(null);
+                            
+                            if (stepEntity != null && step.getAudit() != null) {
+                                step.getAudit().setCreatedDate(stepEntity.getCreatedDate());
+                                step.getAudit().setModifiedDate(stepEntity.getModifiedDate());
+                                step.getAudit().setCreatedBy(stepEntity.getCreatedBy());
+                                step.getAudit().setModifiedBy(stepEntity.getModifiedBy());
+                                step.getAudit().setIsActive(stepEntity.getIsActive());
+                                step.getAudit().setIsDeleted(stepEntity.getIsDeleted());
+                            }
+                        });
+                    }
+                    
+                    return dto;
     }
     
     /**
@@ -330,18 +324,23 @@ public class ServiceProcessManagementService {
     }
     
     /**
-     * Xóa step
+     * Xóa step vĩnh viễn (hard delete)
      */
     @Transactional
     public BaseResponseData<?> deleteServiceProcessStep(UUID stepId) {
-        log.info("Deleting service process step: {}", stepId);
+        log.info("Hard deleting service process step: {}", stepId);
         
-        serviceProcessStepService.findByIdOrThrow(stepId);
+        // Kiểm tra step có tồn tại không
+        ServiceProcessStep step = serviceProcessStepService.findByIdOrThrow(stepId);
+        log.info("Found step to delete: {} (ID: {})", step.getName(), stepId);
+        
+        // Thực hiện hard delete
         serviceProcessStepService.deleteById(stepId);
+        log.info("Successfully hard deleted step: {} (ID: {})", step.getName(), stepId);
         
         return BaseResponseData.builder()
                 .success(true)
-                .message("Service process step deleted successfully")
+                .message("Service process step permanently deleted")
                 .build();
     }
     

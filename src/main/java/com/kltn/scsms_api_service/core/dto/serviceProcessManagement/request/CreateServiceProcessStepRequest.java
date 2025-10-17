@@ -26,9 +26,7 @@ public class CreateServiceProcessStepRequest {
     @JsonProperty("description")
     private String description;
     
-    @Min(value = 1, message = "Estimated time must be at least 1 minute")
-    @JsonProperty("estimated_time")
-    private Integer estimatedTime;
+    // Loại bỏ estimated_time - thời gian được quản lý ở Service level
     
     @JsonProperty("is_required")
     private Boolean isRequired;

@@ -70,15 +70,7 @@ public interface ServiceProcessRepository extends JpaRepository<ServiceProcess, 
            "NOT EXISTS (SELECT 1 FROM ServiceProcessStep sps WHERE sps.serviceProcess = sp AND sps.isDeleted = false)")
     Page<ServiceProcess> findProcessesWithoutSteps(Pageable pageable);
     
-    /**
-     * Tìm service process theo thời gian dự kiến
-     */
-    @Query("SELECT sp FROM ServiceProcess sp WHERE " +
-           "sp.estimatedDuration BETWEEN :minDuration AND :maxDuration AND " +
-           "sp.isDeleted = false")
-    Page<ServiceProcess> findByEstimatedDurationBetween(@Param("minDuration") Integer minDuration, 
-                                                        @Param("maxDuration") Integer maxDuration, 
-                                                        Pageable pageable);
+    // Loại bỏ method tìm theo estimatedDuration - thời gian được quản lý ở Service level
     
     /**
      * Kiểm tra code đã tồn tại chưa (trừ id hiện tại)
@@ -123,4 +115,12 @@ public interface ServiceProcessRepository extends JpaRepository<ServiceProcess, 
                    "ORDER BY sp.name ASC",
            countQuery = "SELECT COUNT(DISTINCT sp) FROM ServiceProcess sp WHERE sp.isDeleted = false")
     Page<ServiceProcess> findAllWithProcessSteps(Pageable pageable);
+    
+    /**
+     * Tìm service process theo ID với processSteps được load
+     */
+    @Query("SELECT DISTINCT sp FROM ServiceProcess sp " +
+           "LEFT JOIN FETCH sp.processSteps sps " +
+           "WHERE sp.id = :id AND sp.isDeleted = false")
+    Optional<ServiceProcess> findByIdWithProcessSteps(@Param("id") UUID id);
 }

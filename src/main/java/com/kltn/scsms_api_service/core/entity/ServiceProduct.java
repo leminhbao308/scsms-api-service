@@ -75,18 +75,6 @@ public class ServiceProduct extends AuditEntity {
     
     // Business methods
     
-    /**
-     * Tính tổng chi phí sản phẩm cho dịch vụ
-     */
-    public BigDecimal calculateProductCost() {
-        if (product == null || quantity == null) {
-            return BigDecimal.ZERO;
-        }
-        
-        // Giả sử Product có trường price, nếu không có thì trả về 0
-        // Bạn có thể cần điều chỉnh logic này tùy theo cấu trúc Product entity
-        return quantity; // Tạm thời trả về quantity, cần cập nhật khi có thông tin về price
-    }
     
     /**
      * Kiểm tra xem có đủ số lượng sản phẩm không

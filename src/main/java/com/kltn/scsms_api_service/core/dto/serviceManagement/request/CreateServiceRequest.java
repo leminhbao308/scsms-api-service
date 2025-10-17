@@ -35,6 +35,9 @@ public class CreateServiceRequest {
     @JsonProperty("description")
     private String description;
     
+    @Min(value = 1, message = "Estimated duration must be at least 1 minute")
+    @JsonProperty("estimated_duration")
+    private Integer estimatedDuration;
     
     @JsonProperty("required_skill_level")
     private Service.SkillLevel requiredSkillLevel;

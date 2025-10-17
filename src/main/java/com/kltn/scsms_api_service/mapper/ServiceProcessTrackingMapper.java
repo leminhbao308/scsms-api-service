@@ -24,7 +24,6 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "serviceStepName", source = "serviceStep.name")
     @Mapping(target = "serviceStepDescription", source = "serviceStep.description")
     @Mapping(target = "serviceStepOrder", source = "serviceStep.stepOrder")
-    @Mapping(target = "estimatedTime", source = "serviceStep.estimatedTime")
     @Mapping(target = "isRequired", source = "serviceStep.isRequired")
     @Mapping(target = "technicianId", source = "technician.userId")
     @Mapping(target = "technicianName", source = "technician.fullName")
@@ -37,7 +36,7 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "createdAt", source = "createdDate")
     @Mapping(target = "modifiedAt", source = "modifiedDate")
     @Mapping(target = "efficiency", expression = "java(entity.getEfficiency())")
-    ServiceProcessTrackingInfoDto toServiceProcessTrackingInfoDto(ServiceProcessTracking entity);
+    ServiceProcessTrackingInfoDto toServiceProcessTrackingInfoDto(ServiceProcessTracking entity);   
 
     /**
      * Convert CreateServiceProcessTrackingRequest to ServiceProcessTracking entity

@@ -23,9 +23,5 @@ public class ServiceProcessFilterParam extends BaseFilterParam<ServiceProcessFil
     @JsonProperty("has_steps")
     private Boolean hasSteps;
     
-    @JsonProperty("min_estimated_duration")
-    private Integer minEstimatedDuration;
-    
-    @JsonProperty("max_estimated_duration")
-    private Integer maxEstimatedDuration;
+    // Loại bỏ min/max estimated duration - thời gian được quản lý ở Service level
 }

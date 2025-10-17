@@ -46,9 +46,7 @@ public interface ServiceProcessStepMapper {
         if (updateRequest.getDescription() != null) {
             existingServiceProcessStep.setDescription(updateRequest.getDescription());
         }
-        if (updateRequest.getEstimatedTime() != null) {
-            existingServiceProcessStep.setEstimatedTime(updateRequest.getEstimatedTime());
-        }
+        // Loại bỏ estimated_time - thời gian được quản lý ở Service level
         if (updateRequest.getIsRequired() != null) {
             existingServiceProcessStep.setIsRequired(updateRequest.getIsRequired());
         }

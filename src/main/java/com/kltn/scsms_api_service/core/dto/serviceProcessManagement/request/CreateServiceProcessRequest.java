@@ -29,9 +29,7 @@ public class CreateServiceProcessRequest {
     @JsonProperty("description")
     private String description;
     
-    @Min(value = 0, message = "Estimated duration must be at least 0 minutes")
-    @JsonProperty("estimated_duration")
-    private Integer estimatedDuration;
+    // Loại bỏ estimated_duration - thời gian được quản lý ở Service level
     
     @JsonProperty("is_default")
     private Boolean isDefault;

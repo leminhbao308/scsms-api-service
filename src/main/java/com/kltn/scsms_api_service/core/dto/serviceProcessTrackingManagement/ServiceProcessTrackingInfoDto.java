@@ -33,7 +33,6 @@ public class ServiceProcessTrackingInfoDto {
     private String serviceStepName;
     private String serviceStepDescription;
     private Integer serviceStepOrder;
-    private Integer estimatedTime;
     private Boolean isRequired;
     
     // Technician information

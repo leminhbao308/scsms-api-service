@@ -28,8 +28,7 @@ public class ServiceProcessStepInfoDto {
     private String name;
     private String description;
     
-    @JsonProperty("estimated_time")
-    private Integer estimatedTime;
+    // Loại bỏ estimated_time - thời gian được quản lý ở Service level
     
     @JsonProperty("is_required")
     private Boolean isRequired;

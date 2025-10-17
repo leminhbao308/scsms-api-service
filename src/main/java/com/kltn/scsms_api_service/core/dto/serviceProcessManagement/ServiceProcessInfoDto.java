@@ -20,8 +20,7 @@ public class ServiceProcessInfoDto {
     private String name;
     private String description;
     
-    @JsonProperty("estimated_duration")
-    private Integer estimatedDuration;
+    // Loại bỏ estimated_duration - thời gian được quản lý ở Service level
     
     @JsonProperty("is_default")
     private Boolean isDefault;

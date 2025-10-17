@@ -66,7 +66,7 @@ public class ServiceProcessTrackingManagementService {
                 .serviceStep(serviceStep)
                 .technician(technician)
                 .bay(bay)
-                .estimatedDuration(request.getEstimatedDuration() != null ? request.getEstimatedDuration() : serviceStep.getEstimatedTime())
+                .estimatedDuration(request.getEstimatedDuration() != null ? request.getEstimatedDuration() : 30) // Default 30 minutes
                 .status(request.getStatus() != null ? request.getStatus() : ServiceProcessTracking.TrackingStatus.PENDING)
                 .progressPercent(request.getProgressPercent() != null ? request.getProgressPercent() : BigDecimal.ZERO)
                 .notes(request.getNotes())

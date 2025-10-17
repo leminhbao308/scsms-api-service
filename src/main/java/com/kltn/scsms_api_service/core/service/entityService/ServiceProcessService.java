@@ -39,6 +39,21 @@ public class ServiceProcessService {
     }
     
     /**
+     * Tìm service process theo ID với processSteps được load
+     */
+    public Optional<ServiceProcess> findByIdWithProcessSteps(UUID id) {
+        return serviceProcessRepository.findByIdWithProcessSteps(id);
+    }
+    
+    /**
+     * Tìm service process theo ID với processSteps được load và throw exception nếu không tìm thấy
+     */
+    public ServiceProcess findByIdWithProcessStepsOrThrow(UUID id) {
+        return findByIdWithProcessSteps(id)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.SERVICE_PROCESS_NOT_FOUND));
+    }
+    
+    /**
      * Tìm service process theo code
      */
     public Optional<ServiceProcess> findByCode(String code) {
@@ -131,12 +146,7 @@ public class ServiceProcessService {
         return serviceProcessRepository.findProcessesWithoutSteps(pageable);
     }
     
-    /**
-     * Tìm service process theo thời gian dự kiến
-     */
-    public Page<ServiceProcess> findByEstimatedDurationBetween(Integer minDuration, Integer maxDuration, Pageable pageable) {
-        return serviceProcessRepository.findByEstimatedDurationBetween(minDuration, maxDuration, pageable);
-    }
+    // Loại bỏ method tìm theo estimatedDuration - thời gian được quản lý ở Service level
     
     /**
      * Tìm service process được sử dụng bởi service

@@ -11,7 +11,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(
     componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE,
-    uses = {AuditMapper.class}
+    uses = {AuditMapper.class, ServiceProcessStepMapper.class}
 )
 public interface ServiceProcessMapper {
     
@@ -47,9 +47,7 @@ public interface ServiceProcessMapper {
         if (updateRequest.getDescription() != null) {
             existingServiceProcess.setDescription(updateRequest.getDescription());
         }
-        if (updateRequest.getEstimatedDuration() != null) {
-            existingServiceProcess.setEstimatedDuration(updateRequest.getEstimatedDuration());
-        }
+        // Loại bỏ estimated_duration - thời gian được quản lý ở Service level
         if (updateRequest.getIsDefault() != null) {
             existingServiceProcess.setIsDefault(updateRequest.getIsDefault());
         }

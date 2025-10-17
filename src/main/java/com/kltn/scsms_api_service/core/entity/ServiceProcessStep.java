@@ -36,8 +36,7 @@ public class ServiceProcessStep extends AuditEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
-    @Column(name = "estimated_time")
-    private Integer estimatedTime; // Thời gian dự kiến cho bước này (phút)
+    // Loại bỏ estimated_time - thời gian được quản lý ở Service level
     
     @Column(name = "is_required", nullable = false)
     @Builder.Default
