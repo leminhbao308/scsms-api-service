@@ -152,4 +152,11 @@ public class UserManagementService {
         
         userService.deleteUser(existingUser);
     }
+    
+    public UserInfoDto getUserById(UUID userId) {
+        User user = userService.findById(userId).orElseThrow(() ->
+            new ClientSideException(ErrorCode.NOT_FOUND, "User with ID " + userId + " not found."));
+        
+        return userMapper.toUserInfoDto(user);
+    }
 }

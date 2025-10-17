@@ -125,4 +125,9 @@ public class VehicleProfileService {
         vehicleProfileRepository.save(existingProfile);
         log.info("Soft deleted vehicle profile with ID: {}", profileId);
     }
+    
+    public Page<VehicleProfile> getAllVehicleProfilesByOwnerIdWithFilters(UUID ownerId, VehicleProfileFilterParam vehicleProfileFilterParam) {
+        vehicleProfileFilterParam.setOwnerId(ownerId);
+        return getAllVehicleProfilesWithFilters(vehicleProfileFilterParam);
+    }
 }

@@ -46,6 +46,19 @@ public class UserManagementController {
         return ResponseBuilder.paginated("Users fetched successfully", users);
     }
     
+    @GetMapping(ApiConstant.GET_USER_BY_ID_API)
+    @SwaggerOperation(
+        summary = "Get user by ID",
+        description = "Retrieve user details by their ID.")
+    @RequirePermission(permissions = PermissionConstant.USER_READ)
+    public ResponseEntity<ApiResponse<UserInfoDto>> getUserById(@PathVariable("userId") UUID userId) {
+        log.info("Fetching user with ID: {}", userId);
+        
+        UserInfoDto user = userManagementService.getUserById(userId);
+        
+        return ResponseBuilder.success("User fetched successfully", user);
+    }
+    
     @PostMapping(ApiConstant.CREATE_USER_API)
     @SwaggerOperation(
         summary = "Create a new user",

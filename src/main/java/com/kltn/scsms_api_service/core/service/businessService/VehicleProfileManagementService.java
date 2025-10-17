@@ -96,6 +96,7 @@ public class VehicleProfileManagementService {
         existingProfile.setLicensePlate(request.getLicensePlate());
         existingProfile.setDescription(request.getDescription());
         existingProfile.setDistanceTraveled(request.getDistanceTraveled());
+        existingProfile.setIsActive(request.getIsActive());
         
         // Save updated model
         VehicleProfile updatedModel = vehicleProfileService.saveVehicleProfile(existingProfile);
@@ -125,5 +126,11 @@ public class VehicleProfileManagementService {
         if (modelRef == null) {
             throw new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle model not found with ID: " + modelId);
         }
+    }
+    
+    public Page<VehicleProfileInfoDto> getAllVehicleProfilesByOwnerId(UUID ownerId, VehicleProfileFilterParam vehicleProfileFilterParam) {
+        Page<VehicleProfile> vehicleProfilePage = vehicleProfileService.getAllVehicleProfilesByOwnerIdWithFilters(ownerId, vehicleProfileFilterParam);
+        
+        return vehicleProfilePage.map(vehicleProfileMapper::toVehicleProfileInfoDto);
     }
 }
