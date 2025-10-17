@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.dto.token;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,6 +13,9 @@ import java.util.Set;
 public class LoginUserInfo {
 
     private String sub;
+    
+    @JsonProperty("full_name")
+    private String fullName;
 
     private String email;
 

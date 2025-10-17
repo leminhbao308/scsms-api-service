@@ -51,38 +51,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         boolean isProtected =
             PROTECTED_PATH_PATTERNS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
         
-        // Skip authentication for non-protected paths
-        if (!isProtected || isBypassPath(path)) {
+        // Skip bypass paths (actuator, swagger, login, etc.)
+        if (isBypassPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }
         
-        try {
-            String token = jwtTokenProvider.extractJwtFromRequest(request);
-            
-            if (StringUtils.hasText(token)) {
+        // Extract token từ request
+        String token = jwtTokenProvider.extractJwtFromRequest(request);
+        
+        // Nếu có token, validate và set authentication (bất kể protected hay không)
+        if (StringUtils.hasText(token)) {
+            try {
                 // Validate token format and signature
                 if (jwtTokenProvider.isTokenExpired(token) || !jwtTokenProvider.validateToken(token, request)) {
-                    log.error(
-                        "AuthFilter - Token validation failed for request: {}", request.getRequestURI());
-                    writeErrorResponse(response, "Unauthorized - Invalid token");
+                    log.error("AuthFilter - Token validation failed for request: {}", request.getRequestURI());
+                    
+                    // CHỈ reject nếu là protected path
+                    if (isProtected) {
+                        writeErrorResponse(response, "Unauthorized - Invalid token");
+                        return;
+                    }
+                    // Nếu không phải protected path, bỏ qua lỗi và tiếp tục
+                    log.warn("AuthFilter - Invalid token for non-protected path, continuing without authentication");
+                    filterChain.doFilter(request, response);
                     return;
                 }
                 
                 // Check if token is access token (not refresh token)
                 if (jwtTokenProvider.isRefreshToken(token)) {
-                    log.error(
-                        "AuthFilter - Refresh token used for authentication: {}", request.getRequestURI());
-                    writeErrorResponse(response, "Unauthorizes - Invalid token type");
+                    log.error("AuthFilter - Refresh token used for authentication: {}", request.getRequestURI());
+                    
+                    if (isProtected) {
+                        writeErrorResponse(response, "Unauthorized - Invalid token type");
+                        return;
+                    }
+                    log.warn("AuthFilter - Refresh token for non-protected path, continuing without authentication");
+                    filterChain.doFilter(request, response);
                     return;
                 }
                 
                 // Check if token exists in database and is not revoked
                 if (!jwtTokenProvider.isTokenValid(token)) {
-                    log.error(
-                        "AuthFilter - Token is revoked or not found in database: {}",
-                        request.getRequestURI());
-                    writeErrorResponse(response, "Unauthorized - Token is revoked or expired");
+                    log.error("AuthFilter - Token is revoked or not found in database: {}", request.getRequestURI());
+                    
+                    if (isProtected) {
+                        writeErrorResponse(response, "Unauthorized - Token is revoked or expired");
+                        return;
+                    }
+                    log.warn("AuthFilter - Revoked token for non-protected path, continuing without authentication");
+                    filterChain.doFilter(request, response);
                     return;
                 }
                 
@@ -99,24 +117,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     
-                    log.info("AuthFilter - Authenticated user: {} for path: {}", loginUserInfo.getSub(), request.getRequestURI());
+                    log.info("AuthFilter - Authenticated user: {} (email: {}) for path: {}",
+                        loginUserInfo.getSub(), loginUserInfo.getEmail(), request.getRequestURI());
                 } else {
                     log.error("AuthFilter - Invalid token structure: {}", request.getRequestURI());
-                    writeErrorResponse(response, "Unauthorized - Invalid token structure");
+                    
+                    if (isProtected) {
+                        writeErrorResponse(response, "Unauthorized - Invalid token structure");
+                        return;
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("AuthFilter - Authentication error for path {}: {}", request.getRequestURI(), ex.getMessage());
+                
+                if (isProtected) {
+                    writeErrorResponse(response, "Unauthorized - Authentication failed");
                     return;
                 }
-            } else {
+                // Nếu không phải protected path, log error nhưng vẫn tiếp tục
+                log.warn("AuthFilter - Authentication failed for non-protected path, continuing without authentication");
+            }
+        } else {
+            // Không có token
+            if (isProtected) {
                 log.error("AuthFilter - Missing JWT Token for protected path: {}", request.getRequestURI());
                 writeErrorResponse(response, "Unauthorized - Missing JWT Token");
                 return;
             }
-        } catch (Exception ex) {
-            log.error(
-                "AuthFilter - Authentication error for path {}: {}",
-                request.getRequestURI(),
-                ex.getMessage());
-            writeErrorResponse(response, "Unauthorized - Authentication failed");
-            return;
+            // Nếu không phải protected path và không có token, tiếp tục bình thường
+            log.debug("AuthFilter - No token provided for non-protected path: {}", request.getRequestURI());
         }
         
         filterChain.doFilter(request, response);

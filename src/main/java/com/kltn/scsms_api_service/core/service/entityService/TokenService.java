@@ -109,6 +109,7 @@ public class TokenService {
     public Map<TokenType, String> generateAndSaveTokens(User user) {
         Map<String, Object> accessTokenClaims = new HashMap<>();
         accessTokenClaims.put("sub", user.getUserId().toString());
+        accessTokenClaims.put("full_name", user.getFullName());
         accessTokenClaims.put("email", user.getEmail());
         accessTokenClaims.put("phone", user.getPhoneNumber());
         accessTokenClaims.put("role", user.getRole().getRoleCode());
