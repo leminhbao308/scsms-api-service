@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayStatisticsDto;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.TechnicianInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.BayAvailabilityRequest;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.CreateServiceBayRequest;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.ServiceBayFilterParam;
@@ -10,9 +11,11 @@ import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
 import com.kltn.scsms_api_service.core.entity.Booking;
+import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
+import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ServiceBayMapper;
@@ -41,6 +44,7 @@ public class ServiceBayManagementService {
     private final ServiceBayService serviceBayService;
     private final BranchService branchService;
     private final BookingService bookingService;
+    private final UserService userService;
     private final ServiceBayMapper serviceBayMapper;
     private final BookingMapper bookingMapper;
     
@@ -230,9 +234,43 @@ public class ServiceBayManagementService {
             }
         }
         
+        // Handle technician updates if provided
+        if (request.getTechnicianIds() != null) {
+            log.info("Updating technicians for service bay: {}", bayId);
+            updateServiceBayTechnicians(existingBay, request.getTechnicianIds(), request.getDefaultTechnicianStatus());
+        }
+        
         ServiceBay savedBay = serviceBayService.update(existingBay);
         
         return serviceBayMapper.toServiceBayInfoDto(savedBay);
+    }
+    
+    /**
+     * Cập nhật danh sách kỹ thuật viên cho service bay
+     */
+    private void updateServiceBayTechnicians(ServiceBay serviceBay, List<UUID> technicianIds, 
+                                           com.kltn.scsms_api_service.core.enums.TechnicianStatus defaultStatus) {
+        log.info("Updating technicians for bay: {}, new technician count: {}", 
+                serviceBay.getBayName(), technicianIds.size());
+        
+        // Clear existing technicians
+        serviceBay.getTechnicians().clear();
+        
+        // Add new technicians
+        for (UUID technicianId : technicianIds) {
+            User technician = userService.findById(technicianId)
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
+                        "Technician not found with ID: " + technicianId));
+            
+            // Validate that user is EMPLOYEE type
+            if (technician.getUserType() != com.kltn.scsms_api_service.core.entity.enumAttribute.UserType.EMPLOYEE) {
+                log.warn("User {} is not EMPLOYEE type, skipping assignment", technician.getFullName());
+                continue;
+            }
+            
+            serviceBay.addTechnician(technician);
+            log.info("Added technician {} to service bay {}", technician.getFullName(), serviceBay.getBayName());
+        }
     }
     
     /**
@@ -381,5 +419,41 @@ public class ServiceBayManagementService {
         } else {
             return !serviceBayService.existsByBranchAndBayName(branchId, bayName);
         }
+    }
+    
+    
+    /**
+     * Lấy danh sách tất cả users (kỹ thuật viên)
+     */
+    public List<TechnicianInfoDto> getAllTechnicians() {
+        log.info("Getting all technicians (EMPLOYEE users only)");
+        
+        // Create a filter param to get only EMPLOYEE users
+        com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam filterParam = 
+            new com.kltn.scsms_api_service.core.dto.userManagement.param.UserFilterParam();
+        filterParam.setPage(0);
+        filterParam.setSize(1000); // Large size to get all users
+        filterParam.setUserType("EMPLOYEE"); // Only get EMPLOYEE users
+        
+        Page<User> userPage = userService.getAllUsersWithFilters(filterParam);
+        List<User> users = userPage.getContent();
+        
+        return users.stream()
+                .map(this::mapToTechnicianInfoDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Map User entity to TechnicianInfoDto
+     */
+    private TechnicianInfoDto mapToTechnicianInfoDto(User technician) {
+        return TechnicianInfoDto.builder()
+                .technicianId(technician.getUserId())
+                .technicianName(technician.getFullName())
+                .technicianCode(technician.getEmail())
+                .technicianPhone(technician.getPhoneNumber())
+                .technicianEmail(technician.getEmail())
+                .isActive(technician.getIsActive())
+                .build();
     }
 }

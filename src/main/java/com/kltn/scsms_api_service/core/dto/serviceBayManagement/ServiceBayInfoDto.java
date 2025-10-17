@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -77,4 +78,14 @@ public class ServiceBayInfoDto {
     
     @JsonProperty("active_bookings")
     private Long activeBookings;
+    
+    // Technician fields
+    @JsonProperty("technicians")
+    private List<TechnicianInfoDto> technicians;
+    
+    @JsonProperty("technician_count")
+    private Integer technicianCount;
+    
+    @JsonProperty("has_technicians")
+    private Boolean hasTechnicians;
 }

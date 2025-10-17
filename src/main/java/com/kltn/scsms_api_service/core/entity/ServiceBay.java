@@ -81,6 +81,20 @@ public class ServiceBay extends AuditEntity {
     @Builder.Default
     private List<Booking> bookings = new ArrayList<>();
     
+    /**
+     * Danh sách kỹ thuật viên được gán cho bay này
+     * Một bay có thể có nhiều kỹ thuật viên
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "service_bay_technicians",
+        schema = GeneralConstant.DB_SCHEMA_DEV,
+        joinColumns = @JoinColumn(name = "bay_id"),
+        inverseJoinColumns = @JoinColumn(name = "technician_id")
+    )
+    @Builder.Default
+    private List<User> technicians = new ArrayList<>();
+    
     // Business methods
     
     /**
@@ -127,6 +141,47 @@ public class ServiceBay extends AuditEntity {
     public void activateBay() {
         this.status = BayStatus.ACTIVE;
         this.notes = null;
+    }
+    
+    // Technician management methods
+    
+    /**
+     * Thêm kỹ thuật viên vào bay
+     */
+    public void addTechnician(User technician) {
+        if (technician != null && !this.technicians.contains(technician)) {
+            this.technicians.add(technician);
+        }
+    }
+    
+    /**
+     * Xóa kỹ thuật viên khỏi bay
+     */
+    public void removeTechnician(User technician) {
+        if (technician != null) {
+            this.technicians.remove(technician);
+        }
+    }
+    
+    /**
+     * Kiểm tra kỹ thuật viên có trong bay không
+     */
+    public boolean hasTechnician(User technician) {
+        return technician != null && this.technicians.contains(technician);
+    }
+    
+    /**
+     * Lấy số lượng kỹ thuật viên
+     */
+    public int getTechnicianCount() {
+        return this.technicians != null ? this.technicians.size() : 0;
+    }
+    
+    /**
+     * Kiểm tra bay có kỹ thuật viên không
+     */
+    public boolean hasTechnicians() {
+        return getTechnicianCount() > 0;
     }
     
     

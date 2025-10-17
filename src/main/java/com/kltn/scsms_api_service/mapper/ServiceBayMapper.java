@@ -1,9 +1,11 @@
 package com.kltn.scsms_api_service.mapper;
 
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayInfoDto;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.TechnicianInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.CreateServiceBayRequest;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.UpdateServiceBayRequest;
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
+import com.kltn.scsms_api_service.core.entity.User;
 import org.mapstruct.*;
 
 import java.util.List;
@@ -24,6 +26,9 @@ public interface ServiceBayMapper {
     @Mapping(target = "isClosed", expression = "java(entity.isClosed())")
     @Mapping(target = "totalBookings", expression = "java(entity.getBookings() != null ? (long) entity.getBookings().size() : 0L)")
     @Mapping(target = "activeBookings", expression = "java(entity.getBookings() != null ? entity.getBookings().stream().filter(booking -> booking.isActive()).count() : 0L)")
+    @Mapping(target = "technicians", expression = "java(mapTechnicians(entity.getTechnicians()))")
+    @Mapping(target = "technicianCount", expression = "java(entity.getTechnicianCount())")
+    @Mapping(target = "hasTechnicians", expression = "java(entity.hasTechnicians())")
     ServiceBayInfoDto toServiceBayInfoDto(ServiceBay entity);
     
     /**
@@ -49,6 +54,7 @@ public interface ServiceBayMapper {
     @Mapping(target = "branch", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "bookings", ignore = true)
+    @Mapping(target = "technicians", ignore = true) // Ignore technicians - handled separately
     @Mapping(target = "createdDate", ignore = true)
     @Mapping(target = "modifiedDate", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
@@ -62,4 +68,35 @@ public interface ServiceBayMapper {
      * Chuyển đổi danh sách ServiceBay sang danh sách ServiceBayInfoDto
      */
     List<ServiceBayInfoDto> toServiceBayInfoDtoList(List<ServiceBay> entities);
+    
+    /**
+     * Map danh sách User (technicians) sang danh sách TechnicianInfoDto
+     */
+    default List<TechnicianInfoDto> mapTechnicians(List<User> technicians) {
+        if (technicians == null || technicians.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        
+        return technicians.stream()
+                .map(this::mapToTechnicianInfoDto)
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * Map User entity sang TechnicianInfoDto
+     */
+    default TechnicianInfoDto mapToTechnicianInfoDto(User technician) {
+        if (technician == null) {
+            return null;
+        }
+        
+        return TechnicianInfoDto.builder()
+                .technicianId(technician.getUserId())
+                .technicianName(technician.getFullName())
+                .technicianCode(technician.getEmail()) // Sử dụng email làm code
+                .technicianPhone(technician.getPhoneNumber())
+                .technicianEmail(technician.getEmail())
+                .isActive(technician.getIsActive())
+                .build();
+    }
 }

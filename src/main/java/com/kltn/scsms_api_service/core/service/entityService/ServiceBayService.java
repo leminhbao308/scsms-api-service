@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
+import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.repository.ServiceBayRepository;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
@@ -272,5 +273,12 @@ public class ServiceBayService {
                         "Bay code '" + serviceBay.getBayCode() + "' already exists");
             }
         }
+    }
+    
+    /**
+     * Tìm service bays theo kỹ thuật viên
+     */
+    public List<ServiceBay> findByTechnician(User technician) {
+        return serviceBayRepository.findByTechniciansContaining(technician);
     }
 }

@@ -2,12 +2,16 @@ package com.kltn.scsms_api_service.core.dto.serviceBayManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
+import com.kltn.scsms_api_service.core.enums.TechnicianStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Request DTO để cập nhật service bay
@@ -40,4 +44,16 @@ public class UpdateServiceBayRequest {
     
     @JsonProperty("status")
     private ServiceBay.BayStatus status;
+    
+    // Technician management fields
+    @JsonProperty("technician_ids")
+    private List<UUID> technicianIds;
+    
+    @JsonProperty("default_technician_status")
+    @Builder.Default
+    private TechnicianStatus defaultTechnicianStatus = TechnicianStatus.ACTIVE;
+    
+    @JsonProperty("technician_notes")
+    @Size(max = 500, message = "Technician notes must not exceed 500 characters")
+    private String technicianNotes;
 }

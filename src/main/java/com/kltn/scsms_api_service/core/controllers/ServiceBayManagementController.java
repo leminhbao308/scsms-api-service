@@ -5,6 +5,7 @@ import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.ServiceBayStatisticsDto;
+import com.kltn.scsms_api_service.core.dto.serviceBayManagement.TechnicianInfoDto;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.BayAvailabilityRequest;
 import com.kltn.scsms_api_service.core.dto.serviceBayManagement.request.CreateServiceBayRequest;
@@ -235,5 +236,18 @@ public class ServiceBayManagementController {
         log.info("Validating bay name: {} for branch: {}", bayName, branchId);
         Boolean isValid = serviceBayManagementService.validateBayName(branchId, bayName, bayId);
         return ResponseBuilder.success(isValid);
+    }
+    
+    /**
+     * Lấy danh sách tất cả users (kỹ thuật viên) để chọn gán vào service bay
+     */
+    @GetMapping("/available-technicians")
+    @Operation(summary = "Get available technicians", description = "Get list of all users that can be assigned to service bays")
+    @SwaggerOperation(summary = "Get available technicians")
+    // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
+    public ResponseEntity<ApiResponse<List<TechnicianInfoDto>>> getAvailableTechnicians() {
+        log.info("Getting all available technicians");
+        List<TechnicianInfoDto> technicians = serviceBayManagementService.getAllTechnicians();
+        return ResponseBuilder.success(technicians);
     }
 }
