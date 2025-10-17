@@ -4,7 +4,7 @@ import com.kltn.scsms_api_service.core.dto.branchServiceFilter.BranchServiceFilt
 import com.kltn.scsms_api_service.core.dto.branchServiceFilter.ServiceAvailabilityInfo;
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.InventoryLevel;
-import com.kltn.scsms_api_service.core.entity.ServiceProcessStepProduct;
+import com.kltn.scsms_api_service.core.entity.ServiceProduct;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
@@ -27,7 +27,7 @@ public class BranchServiceFilterService {
     
     private final BranchService branchService;
     private final InventoryLevelEntityService inventoryLevelEntityService;
-    private final ServiceProcessStepProductService serviceProcessStepProductService;
+    private final ServiceProductService serviceProductService;
     private final ServiceService serviceEntityService;
     private final ServiceMapper serviceMapper;
     
@@ -119,30 +119,29 @@ public class BranchServiceFilterService {
                                                              Branch branch, boolean requireFullInventory) {
         try {
             // Get all products required for this service
-            List<ServiceProcessStepProduct> requiredProducts = serviceProcessStepProductService
-                .findByProcessIdWithProduct(service.getServiceProcess().getId());
+            List<ServiceProduct> requiredProducts = serviceProductService.findByServiceIdWithProduct(service.getServiceId());
             
             int totalProducts = requiredProducts.size();
             int availableProducts = 0;
             List<String> missingProducts = new ArrayList<>();
             List<String> insufficientProducts = new ArrayList<>();
             
-            for (ServiceProcessStepProduct stepProduct : requiredProducts) {
-                UUID productId = stepProduct.getProduct().getProductId();
+            for (ServiceProduct serviceProduct : requiredProducts) {
+                UUID productId = serviceProduct.getProduct().getProductId();
                 
                 // Check inventory level
                 var inventoryLevelOpt = inventoryLevelEntityService.find(branch.getBranchId(), productId);
                 
                 if (inventoryLevelOpt.isEmpty()) {
-                    missingProducts.add(stepProduct.getProduct().getProductName());
+                    missingProducts.add(serviceProduct.getProduct().getProductName());
                 } else {
                     InventoryLevel inventoryLevel = inventoryLevelOpt.get();
-                    if (inventoryLevel.getAvailable() >= stepProduct.getQuantity().longValue()) {
+                    if (inventoryLevel.getAvailable() >= serviceProduct.getQuantity().longValue()) {
                         availableProducts++;
                     } else {
                         insufficientProducts.add(String.format("%s (Required: %s, Available: %d)",
-                            stepProduct.getProduct().getProductName(),
-                            stepProduct.getQuantity(),
+                            serviceProduct.getProduct().getProductName(),
+                            serviceProduct.getQuantity(),
                             inventoryLevel.getAvailable()));
                     }
                 }

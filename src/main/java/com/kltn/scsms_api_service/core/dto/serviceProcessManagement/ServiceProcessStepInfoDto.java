@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import lombok.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -41,11 +40,6 @@ public class ServiceProcessStepInfoDto {
     @JsonProperty("is_last_step")
     private Boolean isLastStep;
     
-    @JsonProperty("total_product_count")
-    private Integer totalProductCount;
-    
-    @JsonProperty("step_products")
-    private List<ServiceProcessStepProductInfoDto> stepProducts;
     
     @Builder.Default
     private AuditDto audit = AuditDto.builder().build();

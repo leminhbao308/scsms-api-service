@@ -19,8 +19,6 @@ public interface ServiceProcessStepMapper {
     @Mapping(target = "processName", source = "serviceProcess.name")
     @Mapping(target = "isFirstStep", expression = "java(serviceProcessStep.isFirstStep())")
     @Mapping(target = "isLastStep", expression = "java(serviceProcessStep.isLastStep())")
-    @Mapping(target = "totalProductCount", expression = "java(serviceProcessStep.getTotalProductCount())")
-    @Mapping(target = "stepProducts", source = "stepProducts")
     @Mapping(target = "audit.createdDate", source = "createdDate")
     @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
     @Mapping(target = "audit.createdBy", source = "createdBy")
@@ -31,7 +29,6 @@ public interface ServiceProcessStepMapper {
     
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "serviceProcess", ignore = true) // Will be set in service
-    @Mapping(target = "stepProducts", ignore = true) // Will be handled separately
     @Mapping(target = "isDeleted", constant = "false")
     ServiceProcessStep toEntity(CreateServiceProcessStepRequest createServiceProcessStepRequest);
     

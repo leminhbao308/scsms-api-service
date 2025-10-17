@@ -1,11 +1,10 @@
 package com.kltn.scsms_api_service.core.controllers;
 
-import com.kltn.scsms_api_service.abstracts.BaseResponse;
+import com.kltn.scsms_api_service.abstracts.BaseResponseData;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.ServiceProcessInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.ServiceProcessStepInfoDto;
-import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.ServiceProcessStepProductInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.param.ServiceProcessFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.*;
 import com.kltn.scsms_api_service.core.service.businessService.ServiceProcessManagementService;
@@ -137,22 +136,22 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
     @PostMapping("/{processId}/delete")
     @SwaggerOperation(summary = "Xóa quy trình chăm sóc xe", description = "Xóa một quy trình chăm sóc xe (chỉ khi không được sử dụng)")
     @Operation(summary = "Xóa quy trình chăm sóc xe")
-    public ResponseEntity<BaseResponse> deleteServiceProcess(
+    public ResponseEntity<BaseResponseData<?>> deleteServiceProcess(
             @Parameter(description = "ID của quy trình") @PathVariable UUID processId) {
 
         log.info("Deleting service process: {}", processId);
-        BaseResponse result = serviceProcessManagementService.deleteServiceProcess(processId);
+        BaseResponseData<?> result = serviceProcessManagementService.deleteServiceProcess(processId);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{processId}/set-default")
     @SwaggerOperation(summary = "Đặt quy trình làm mặc định", description = "Đặt một quy trình chăm sóc xe làm mặc định")
     @Operation(summary = "Đặt quy trình làm mặc định")
-    public ResponseEntity<ServiceProcessInfoDto> setDefaultServiceProcess(
+    public ResponseEntity<BaseResponseData<?>> setDefaultServiceProcess(
             @Parameter(description = "ID của quy trình") @PathVariable UUID processId) {
 
         log.info("Setting default service process: {}", processId);
-        ServiceProcessInfoDto result = serviceProcessManagementService.setDefaultServiceProcess(processId);
+        BaseResponseData<?> result = serviceProcessManagementService.setDefaultServiceProcess(processId);
         return ResponseEntity.ok(result);
     }
 
@@ -207,97 +206,15 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
     @PostMapping("/steps/{stepId}/delete")
     @SwaggerOperation(summary = "Xóa bước", description = "Xóa một bước khỏi quy trình chăm sóc xe")
     @Operation(summary = "Xóa bước")
-    public ResponseEntity<BaseResponse> deleteServiceProcessStep(
+    public ResponseEntity<BaseResponseData<?>> deleteServiceProcessStep(
             @Parameter(description = "ID của bước") @PathVariable UUID stepId) {
 
         log.info("Deleting service process step: {}", stepId);
-        BaseResponse result = serviceProcessManagementService.deleteServiceProcessStep(stepId);
+        BaseResponseData<?> result = serviceProcessManagementService.deleteServiceProcessStep(stepId);
         return ResponseEntity.ok(result);
     }
 
 
     // ========== SERVICE PROCESS STEP PRODUCT MANAGEMENT ==========
 
-    @GetMapping("/steps/{stepId}/products")
-    @SwaggerOperation(summary = "Lấy danh sách sản phẩm của bước", description = "Lấy danh sách tất cả sản phẩm của một bước trong quy trình")
-    @Operation(summary = "Lấy danh sách sản phẩm của bước")
-    public ResponseEntity<List<ServiceProcessStepProductInfoDto>> getServiceProcessStepProducts(
-            @Parameter(description = "ID của bước") @PathVariable UUID stepId) {
-
-        log.info("Getting products for service process step: {}", stepId);
-        List<ServiceProcessStepProductInfoDto> result = serviceProcessManagementService
-                .getServiceProcessStepProducts(stepId);
-        return ResponseEntity.ok(result);
-    }
-
-    @GetMapping("/step-products/{productId}")
-    @SwaggerOperation(summary = "Lấy thông tin sản phẩm theo ID", description = "Lấy thông tin chi tiết của một sản phẩm trong bước")
-    @Operation(summary = "Lấy thông tin sản phẩm theo ID")
-    public ResponseEntity<ServiceProcessStepProductInfoDto> getServiceProcessStepProductById(
-            @Parameter(description = "ID của sản phẩm") @PathVariable UUID productId) {
-
-        log.info("Getting service process step product by ID: {}", productId);
-        ServiceProcessStepProductInfoDto result = serviceProcessManagementService
-                .getServiceProcessStepProductById(productId);
-        return ResponseEntity.ok(result);
-    }
-
-    @GetMapping("/{processId}/products")
-    @SwaggerOperation(summary = "Lấy danh sách tất cả sản phẩm của service process", description = "Lấy danh sách tất cả sản phẩm trong toàn bộ quy trình dịch vụ")
-    @Operation(summary = "Lấy danh sách tất cả sản phẩm của service process")
-    public ResponseEntity<List<ServiceProcessStepProductInfoDto>> getServiceProcessProducts(
-            @Parameter(description = "ID của service process") @PathVariable UUID processId) {
-
-        log.info("Getting all products for service process: {}", processId);
-        List<ServiceProcessStepProductInfoDto> result = serviceProcessManagementService
-                .getServiceProcessProducts(processId);
-        return ResponseEntity.ok(result);
-    }
-
-    @GetMapping("/{processId}/product-ids")
-    @SwaggerOperation(summary = "Lấy danh sách ID của tất cả sản phẩm trong service process", description = "Lấy danh sách ID của tất cả sản phẩm trong toàn bộ quy trình dịch vụ (chỉ trả về ID)")
-    @Operation(summary = "Lấy danh sách ID của tất cả sản phẩm trong service process")
-    public ResponseEntity<List<UUID>> getServiceProcessProductIds(
-            @Parameter(description = "ID của service process") @PathVariable UUID processId) {
-
-        log.info("Getting product IDs for service process: {}", processId);
-        List<UUID> result = serviceProcessManagementService.getServiceProcessProductIds(processId);
-        return ResponseEntity.ok(result);
-    }
-
-    @PostMapping("/steps/{stepId}/products")
-    @SwaggerOperation(summary = "Thêm sản phẩm vào bước", description = "Thêm một sản phẩm mới vào bước trong quy trình")
-    @Operation(summary = "Thêm sản phẩm vào bước")
-    public ResponseEntity<ServiceProcessStepProductInfoDto> addProductToStep(
-            @Parameter(description = "ID của bước") @PathVariable UUID stepId,
-            @Parameter(description = "Thông tin sản phẩm mới") @Valid @RequestBody CreateServiceProcessStepProductRequest request) {
-
-        log.info("Adding product to step: {}", stepId);
-        ServiceProcessStepProductInfoDto result = serviceProcessManagementService.addProductToStep(stepId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(result);
-    }
-
-    @PostMapping("/step-products/{productId}/update")
-    @SwaggerOperation(summary = "Cập nhật sản phẩm trong bước", description = "Cập nhật thông tin của một sản phẩm trong bước")
-    @Operation(summary = "Cập nhật sản phẩm trong bước")
-    public ResponseEntity<ServiceProcessStepProductInfoDto> updateServiceProcessStepProduct(
-            @Parameter(description = "ID của sản phẩm") @PathVariable UUID productId,
-            @Parameter(description = "Thông tin cập nhật") @Valid @RequestBody UpdateServiceProcessStepProductRequest request) {
-
-        log.info("Updating service process step product: {}", productId);
-        ServiceProcessStepProductInfoDto result = serviceProcessManagementService
-                .updateServiceProcessStepProduct(productId, request);
-        return ResponseEntity.ok(result);
-    }
-
-    @PostMapping("/step-products/{productId}/delete")
-    @SwaggerOperation(summary = "Xóa sản phẩm khỏi bước", description = "Xóa một sản phẩm khỏi bước trong quy trình")
-    @Operation(summary = "Xóa sản phẩm khỏi bước")
-    public ResponseEntity<BaseResponse> deleteServiceProcessStepProduct(
-            @Parameter(description = "ID của sản phẩm") @PathVariable UUID productId) {
-
-        log.info("Deleting service process step product: {}", productId);
-        BaseResponse result = serviceProcessManagementService.deleteServiceProcessStepProduct(productId);
-        return ResponseEntity.ok(result);
-    }
 }

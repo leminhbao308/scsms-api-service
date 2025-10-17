@@ -80,17 +80,6 @@ public interface ServiceProcessStepRepository extends JpaRepository<ServiceProce
      */
     List<ServiceProcessStep> findByEstimatedTimeBetweenOrderByStepOrderAsc(Integer minTime, Integer maxTime);
     
-    /**
-     * Tìm steps có sản phẩm
-     */
-    @Query("SELECT DISTINCT s FROM ServiceProcessStep s JOIN s.stepProducts sp WHERE sp.quantity > 0")
-    List<ServiceProcessStep> findStepsWithProducts();
-    
-    /**
-     * Tìm steps không có sản phẩm
-     */
-    @Query("SELECT s FROM ServiceProcessStep s WHERE s.id NOT IN (SELECT DISTINCT sp.serviceProcessStep.id FROM ServiceProcessStepProduct sp WHERE sp.quantity > 0)")
-    List<ServiceProcessStep> findStepsWithoutProducts();
     
     /**
      * Tìm steps theo process với pagination

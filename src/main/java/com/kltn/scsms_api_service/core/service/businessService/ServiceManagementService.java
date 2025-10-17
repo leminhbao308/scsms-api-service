@@ -1,18 +1,25 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceProductInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.param.ServiceFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceRequest;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceRequest;
+import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.ServiceProcessInfoDto;
 import com.kltn.scsms_api_service.core.entity.Category;
+import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.Service;
 import com.kltn.scsms_api_service.core.entity.ServiceProcess;
+import com.kltn.scsms_api_service.core.entity.ServiceProduct;
 import com.kltn.scsms_api_service.core.service.entityService.CategoryService;
+import com.kltn.scsms_api_service.core.service.entityService.ProductService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceProductService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ServiceMapper;
+import com.kltn.scsms_api_service.mapper.ServiceProductMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,7 +41,10 @@ public class ServiceManagementService {
     private final ServiceService serviceService;
     private final CategoryService categoryService;
     private final ServiceProcessService serviceProcessService;
+    private final ServiceProductService serviceProductService;
+    private final ProductService productService;
     private final ServiceMapper serviceMapper;
+    private final ServiceProductMapper serviceProductMapper;
     
     public List<ServiceInfoDto> getAllServices() {
         log.info("Getting all services");
@@ -67,7 +77,30 @@ public class ServiceManagementService {
     public ServiceInfoDto getServiceById(UUID serviceId) {
         log.info("Getting service by ID: {}", serviceId);
         Service service = serviceService.getById(serviceId);
-        return serviceMapper.toServiceInfoDto(service);
+        ServiceInfoDto dto = serviceMapper.toServiceInfoDto(service);
+        
+        // Load service products
+        List<ServiceProduct> serviceProducts = serviceProductService.findByServiceIdWithProduct(serviceId);
+        List<ServiceProductInfoDto> serviceProductDtos = serviceProducts.stream()
+                .map(serviceProductMapper::toServiceProductInfoDto)
+                .collect(Collectors.toList());
+        dto.setServiceProducts(serviceProductDtos);
+        
+        // Load service process if exists
+        if (service.getServiceProcess() != null) {
+            ServiceProcessInfoDto processDto = ServiceProcessInfoDto.builder()
+                    .id(service.getServiceProcess().getId())
+                    .code(service.getServiceProcess().getCode())
+                    .name(service.getServiceProcess().getName())
+                    .description(service.getServiceProcess().getDescription())
+                    .estimatedDuration(service.getServiceProcess().getEstimatedDuration())
+                    .isDefault(service.getServiceProcess().getIsDefault())
+                    .isActive(service.getServiceProcess().getIsActive())
+                    .build();
+            dto.setServiceProcess(processDto);
+        }
+        
+        return dto;
     }
     
     public ServiceInfoDto getServiceByUrl(String serviceUrl) {
@@ -128,16 +161,19 @@ public class ServiceManagementService {
                 "Service URL already exists: " + createServiceRequest.getServiceUrl());
         }
         
-        
         // Validate category exists if provided
         Category category = null;
         if (createServiceRequest.getCategoryId() != null) {
             category = categoryService.getById(createServiceRequest.getCategoryId());
         }
         
-        // Validate service process exists if provided
+        // Handle service process
         ServiceProcess serviceProcess = null;
-        if (createServiceRequest.getServiceProcessId() != null) {
+        if (createServiceRequest.getServiceProcess() != null) {
+            // Create new service process
+            serviceProcess = createServiceProcessFromRequest(createServiceRequest.getServiceProcess());
+        } else if (createServiceRequest.getServiceProcessId() != null) {
+            // Use existing service process
             serviceProcess = serviceProcessService.findByIdOrThrow(createServiceRequest.getServiceProcessId());
         }
         
@@ -150,10 +186,16 @@ public class ServiceManagementService {
         if (service.getIsFeatured() == null) {
             service.setIsFeatured(false);
         }
+        
         // Save service
         Service savedService = serviceService.save(service);
         
-        return serviceMapper.toServiceInfoDto(savedService);
+        // Handle service products
+        if (createServiceRequest.getServiceProducts() != null && !createServiceRequest.getServiceProducts().isEmpty()) {
+            processServiceProducts(savedService, createServiceRequest.getServiceProducts());
+        }
+        
+        return getServiceById(savedService.getServiceId());
     }
     
     @Transactional
@@ -171,27 +213,32 @@ public class ServiceManagementService {
                 "Service URL already exists: " + updateServiceRequest.getServiceUrl());
         }
         
-        
         // Validate category exists if provided
         if (updateServiceRequest.getCategoryId() != null) {
             Category category = categoryService.getById(updateServiceRequest.getCategoryId());
             existingService.setCategory(category);
         }
         
-        // Validate service process exists if provided
-        if (updateServiceRequest.getServiceProcessId() != null) {
+        // Handle service process
+        if (updateServiceRequest.getServiceProcess() != null) {
+            // Update existing service process
+            updateServiceProcessFromRequest(existingService.getServiceProcess(), updateServiceRequest.getServiceProcess());
+        } else if (updateServiceRequest.getServiceProcessId() != null) {
+            // Use different service process
             ServiceProcess serviceProcess = serviceProcessService.findByIdOrThrow(updateServiceRequest.getServiceProcessId());
             existingService.setServiceProcess(serviceProcess);
         }
         
         // Update service
         Service updatedService = serviceMapper.updateEntity(existingService, updateServiceRequest);
-        
-        
-        // Update service
         Service savedService = serviceService.update(updatedService);
         
-        return serviceMapper.toServiceInfoDto(savedService);
+        // Handle service products
+        if (updateServiceRequest.getServiceProducts() != null) {
+            processUpdateServiceProducts(savedService, updateServiceRequest.getServiceProducts());
+        }
+        
+        return getServiceById(savedService.getServiceId());
     }
     
     @Transactional
@@ -224,5 +271,205 @@ public class ServiceManagementService {
     public long getServiceCountBySkillLevel(Service.SkillLevel skillLevel) {
         log.info("Getting service count by skill level: {}", skillLevel);
         return serviceService.countBySkillLevel(skillLevel);
+    }
+    
+    // ========== SERVICE PRODUCT MANAGEMENT ==========
+    
+    /**
+     * Lấy tất cả sản phẩm của một service
+     */
+    public List<ServiceProductInfoDto> getServiceProducts(UUID serviceId) {
+        log.info("Getting products for service: {}", serviceId);
+        List<ServiceProduct> serviceProducts = serviceProductService.findByServiceIdWithProduct(serviceId);
+        return serviceProducts.stream()
+                .map(serviceProductMapper::toServiceProductInfoDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Thêm sản phẩm vào service
+     */
+    @Transactional
+    public ServiceProductInfoDto addProductToService(UUID serviceId, com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceProductRequest request) {
+        log.info("Adding product to service: {}", serviceId);
+        
+        // Validate service exists
+        Service service = serviceService.getById(serviceId);
+        
+        // Validate product exists
+        Product product = productService.getById(request.getProductId());
+        
+        // Check if product already exists in service
+        if (serviceProductService.existsByServiceIdAndProductIdAndIdNot(serviceId, request.getProductId(), null)) {
+            throw new ClientSideException(ErrorCode.SERVICE_PRODUCT_ALREADY_EXISTS);
+        }
+        
+        // Create ServiceProduct
+        ServiceProduct serviceProduct = ServiceProduct.builder()
+                .service(service)
+                .product(product)
+                .quantity(request.getQuantity())
+                .unit(request.getUnit())
+                .notes(request.getNotes())
+                .isRequired(request.getIsRequired() != null ? request.getIsRequired() : true)
+                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
+                .build();
+        
+        ServiceProduct savedProduct = serviceProductService.save(serviceProduct);
+        return serviceProductMapper.toServiceProductInfoDto(savedProduct);
+    }
+    
+    /**
+     * Cập nhật service product
+     */
+    @Transactional
+    public ServiceProductInfoDto updateServiceProduct(UUID serviceProductId, com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceProductRequest request) {
+        log.info("Updating service product: {}", serviceProductId);
+        
+        ServiceProduct existingProduct = serviceProductService.findByIdOrThrow(serviceProductId);
+        
+        // Check if product already exists in service (if productId changed)
+        if (request.getProductId() != null && !request.getProductId().equals(existingProduct.getProduct().getProductId())) {
+            if (serviceProductService.existsByServiceIdAndProductIdAndIdNot(
+                    existingProduct.getService().getServiceId(), request.getProductId(), serviceProductId)) {
+                throw new ClientSideException(ErrorCode.SERVICE_PRODUCT_ALREADY_EXISTS);
+            }
+        }
+        
+        // Update product information
+        serviceProductMapper.updateEntity(existingProduct, request);
+        
+        // Update product if changed
+        if (request.getProductId() != null && !request.getProductId().equals(existingProduct.getProduct().getProductId())) {
+            Product product = productService.getById(request.getProductId());
+            existingProduct.setProduct(product);
+        }
+        
+        ServiceProduct updatedProduct = serviceProductService.update(existingProduct);
+        return serviceProductMapper.toServiceProductInfoDto(updatedProduct);
+    }
+    
+    /**
+     * Xóa hẳn sản phẩm khỏi service
+     */
+    @Transactional
+    public void removeProductFromService(UUID serviceProductId) {
+        log.info("Removing service product permanently: {}", serviceProductId);
+        serviceProductService.deleteById(serviceProductId);
+    }
+    
+    // ========== HELPER METHODS ==========
+    
+    /**
+     * Tạo ServiceProcess từ CreateServiceProcessRequest
+     */
+    private ServiceProcess createServiceProcessFromRequest(com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.CreateServiceProcessRequest request) {
+        ServiceProcess serviceProcess = ServiceProcess.builder()
+                .code(request.getCode())
+                .name(request.getName())
+                .description(request.getDescription())
+                .estimatedDuration(request.getEstimatedDuration())
+                .isDefault(request.getIsDefault() != null ? request.getIsDefault() : false)
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .build();
+        
+        ServiceProcess savedProcess = serviceProcessService.save(serviceProcess);
+        
+        // Xử lý các bước nếu có
+        if (request.getProcessSteps() != null && !request.getProcessSteps().isEmpty()) {
+            // TODO: Implement process steps creation
+            // This would require ServiceProcessStepService
+        }
+        
+        return savedProcess;
+    }
+    
+    /**
+     * Cập nhật ServiceProcess từ UpdateServiceProcessRequest
+     */
+    private void updateServiceProcessFromRequest(ServiceProcess existingProcess, com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.UpdateServiceProcessRequest request) {
+        if (existingProcess == null) {
+            return;
+        }
+        
+        if (request.getCode() != null) {
+            existingProcess.setCode(request.getCode());
+        }
+        if (request.getName() != null) {
+            existingProcess.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            existingProcess.setDescription(request.getDescription());
+        }
+        if (request.getEstimatedDuration() != null) {
+            existingProcess.setEstimatedDuration(request.getEstimatedDuration());
+        }
+        if (request.getIsDefault() != null) {
+            existingProcess.setIsDefault(request.getIsDefault());
+        }
+        if (request.getIsActive() != null) {
+            existingProcess.setIsActive(request.getIsActive());
+        }
+        
+        serviceProcessService.update(existingProcess);
+        
+        // Xử lý các bước nếu có
+        if (request.getProcessSteps() != null) {
+            // TODO: Implement process steps update
+            // This would require ServiceProcessStepService
+        }
+    }
+    
+    /**
+     * Xử lý ServiceProducts khi tạo service
+     */
+    private void processServiceProducts(Service service, List<com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceProductRequest> productRequests) {
+        for (com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceProductRequest productRequest : productRequests) {
+            // Validate product exists
+            Product product = productService.getById(productRequest.getProductId());
+            
+            // Create ServiceProduct
+            ServiceProduct serviceProduct = ServiceProduct.builder()
+                    .service(service)
+                    .product(product)
+                    .quantity(productRequest.getQuantity())
+                    .unit(productRequest.getUnit())
+                    .notes(productRequest.getNotes())
+                    .isRequired(productRequest.getIsRequired() != null ? productRequest.getIsRequired() : true)
+                    .sortOrder(productRequest.getSortOrder() != null ? productRequest.getSortOrder() : 0)
+                    .build();
+            
+            serviceProductService.save(serviceProduct);
+        }
+    }
+    
+    /**
+     * Xử lý cập nhật ServiceProducts
+     */
+    private void processUpdateServiceProducts(Service service, List<com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceProductRequest> productRequests) {
+        // Xóa tất cả service products cũ
+        List<ServiceProduct> existingProducts = serviceProductService.findByServiceId(service.getServiceId());
+        for (ServiceProduct product : existingProducts) {
+            serviceProductService.delete(product);
+        }
+        
+        // Tạo lại các service products mới
+        for (com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceProductRequest productRequest : productRequests) {
+            // Validate product exists
+            Product product = productService.getById(productRequest.getProductId());
+            
+            // Create ServiceProduct
+            ServiceProduct serviceProduct = ServiceProduct.builder()
+                    .service(service)
+                    .product(product)
+                    .quantity(productRequest.getQuantity())
+                    .unit(productRequest.getUnit())
+                    .notes(productRequest.getNotes())
+                    .isRequired(productRequest.getIsRequired() != null ? productRequest.getIsRequired() : true)
+                    .sortOrder(productRequest.getSortOrder() != null ? productRequest.getSortOrder() : 0)
+                    .build();
+            
+            serviceProductService.save(serviceProduct);
+        }
     }
 }

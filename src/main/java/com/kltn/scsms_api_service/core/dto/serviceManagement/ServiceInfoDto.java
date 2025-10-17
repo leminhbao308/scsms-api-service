@@ -2,9 +2,11 @@ package com.kltn.scsms_api_service.core.dto.serviceManagement;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
+import com.kltn.scsms_api_service.core.dto.serviceProcessManagement.ServiceProcessInfoDto;
 import com.kltn.scsms_api_service.core.entity.Service;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -30,13 +32,11 @@ public class ServiceInfoDto {
     @JsonProperty("category_name")
     private String categoryName;
     
+    @JsonProperty("description")
     private String description;
-    
     
     @JsonProperty("required_skill_level")
     private Service.SkillLevel requiredSkillLevel;
-    
-    
     
     @JsonProperty("service_type_id")
     private UUID serviceTypeId;
@@ -70,6 +70,14 @@ public class ServiceInfoDto {
     
     @JsonProperty("branch_name")
     private String branchName;
+    
+    // Danh sách sản phẩm của service
+    @JsonProperty("service_products")
+    private List<ServiceProductInfoDto> serviceProducts;
+    
+    // Thông tin quy trình dịch vụ (nếu có)
+    @JsonProperty("service_process")
+    private ServiceProcessInfoDto serviceProcess;
     
     @Builder.Default
     private AuditDto audit = AuditDto.builder().build();

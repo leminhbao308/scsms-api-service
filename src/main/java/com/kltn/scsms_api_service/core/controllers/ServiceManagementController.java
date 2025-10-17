@@ -3,9 +3,12 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceInfoDto;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.ServiceProductInfoDto;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.param.ServiceFilterParam;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceRequest;
 import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceRequest;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.request.CreateServiceProductRequest;
+import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServiceProductRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Service;
 import com.kltn.scsms_api_service.core.service.businessService.ServiceManagementService;
@@ -210,6 +213,54 @@ public class ServiceManagementController {
         log.info("Getting service count by skill level: {}", skillLevel);
         long count = serviceManagementService.getServiceCountBySkillLevel(skillLevel);
         return ResponseBuilder.success(count);
+    }
+    
+    // ========== SERVICE PRODUCT MANAGEMENT ==========
+    
+    @GetMapping("/{serviceId}/products")
+    @Operation(summary = "Get service products", description = "Get all products associated with a service")
+    @SwaggerOperation(summary = "Get service products")
+    // @RequirePermission(permissions = {"SERVICE_READ"})
+    public ResponseEntity<ApiResponse<List<ServiceProductInfoDto>>> getServiceProducts(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId) {
+        log.info("Getting products for service: {}", serviceId);
+        List<ServiceProductInfoDto> products = serviceManagementService.getServiceProducts(serviceId);
+        return ResponseBuilder.success(products);
+    }
+    
+    @PostMapping("/{serviceId}/products")
+    @Operation(summary = "Add product to service", description = "Add a product to a service with quantity and other details")
+    @SwaggerOperation(summary = "Add product to service")
+    // @RequirePermission(permissions = {"SERVICE_UPDATE"})
+    public ResponseEntity<ApiResponse<ServiceProductInfoDto>> addProductToService(
+            @Parameter(description = "Service ID") @PathVariable UUID serviceId,
+            @Parameter(description = "Product details") @Valid @RequestBody CreateServiceProductRequest request) {
+        log.info("Adding product to service: {}", serviceId);
+        ServiceProductInfoDto product = serviceManagementService.addProductToService(serviceId, request);
+        return ResponseBuilder.success(product);
+    }
+    
+    @PutMapping("/products/{serviceProductId}")
+    @Operation(summary = "Update service product", description = "Update product details in a service")
+    @SwaggerOperation(summary = "Update service product")
+    // @RequirePermission(permissions = {"SERVICE_UPDATE"})
+    public ResponseEntity<ApiResponse<ServiceProductInfoDto>> updateServiceProduct(
+            @Parameter(description = "Service product ID") @PathVariable UUID serviceProductId,
+            @Parameter(description = "Updated product details") @Valid @RequestBody UpdateServiceProductRequest request) {
+        log.info("Updating service product: {}", serviceProductId);
+        ServiceProductInfoDto product = serviceManagementService.updateServiceProduct(serviceProductId, request);
+        return ResponseBuilder.success(product);
+    }
+    
+    @DeleteMapping("/products/{serviceProductId}")
+    @Operation(summary = "Remove product from service", description = "Permanently remove a product from a service")
+    @SwaggerOperation(summary = "Remove product from service")
+    // @RequirePermission(permissions = {"SERVICE_UPDATE"})
+    public ResponseEntity<ApiResponse<Void>> removeProductFromService(
+            @Parameter(description = "Service product ID") @PathVariable UUID serviceProductId) {
+        log.info("Removing service product permanently: {}", serviceProductId);
+        serviceManagementService.removeProductFromService(serviceProductId);
+        return ResponseBuilder.success(null);
     }
     
 }

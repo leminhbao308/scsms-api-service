@@ -119,21 +119,6 @@ public class ServiceProcessStepService {
         return serviceProcessStepRepository.findByEstimatedTimeBetweenOrderByStepOrderAsc(minTime, maxTime);
     }
     
-    /**
-     * Tìm steps có sản phẩm
-     */
-    public List<ServiceProcessStep> findStepsWithProducts() {
-        log.debug("Finding service process steps with products");
-        return serviceProcessStepRepository.findStepsWithProducts();
-    }
-    
-    /**
-     * Tìm steps không có sản phẩm
-     */
-    public List<ServiceProcessStep> findStepsWithoutProducts() {
-        log.debug("Finding service process steps without products");
-        return serviceProcessStepRepository.findStepsWithoutProducts();
-    }
     
     /**
      * Tìm steps theo process với pagination

@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -63,6 +65,11 @@ public class Service extends AuditEntity {
     @Column(name = "branch_id")
     private UUID branchId; // Chi nhánh cung cấp dịch vụ
 
+    // Quan hệ với ServiceProduct (many-to-many với Product)
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @Builder.Default
+    private List<ServiceProduct> serviceProducts = new ArrayList<>();
+
     // Enums
     public enum SkillLevel {
         BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
@@ -90,5 +97,40 @@ public class Service extends AuditEntity {
      */
     public String getProcessCode() {
         return serviceProcess != null ? serviceProcess.getCode() : "DEFAULT_PROCESS";
+    }
+
+    /**
+     * Kiểm tra xem service có sản phẩm nào không
+     */
+    public boolean hasProducts() {
+        return serviceProducts != null && !serviceProducts.isEmpty();
+    }
+
+    /**
+     * Lấy số lượng sản phẩm của service
+     */
+    public int getProductCount() {
+        return serviceProducts != null ? serviceProducts.size() : 0;
+    }
+
+    /**
+     * Thêm sản phẩm vào service
+     */
+    public void addServiceProduct(ServiceProduct serviceProduct) {
+        if (serviceProducts == null) {
+            serviceProducts = new ArrayList<>();
+        }
+        serviceProducts.add(serviceProduct);
+        serviceProduct.setService(this);
+    }
+
+    /**
+     * Xóa sản phẩm khỏi service
+     */
+    public void removeServiceProduct(ServiceProduct serviceProduct) {
+        if (serviceProducts != null) {
+            serviceProducts.remove(serviceProduct);
+            serviceProduct.setService(null);
+        }
     }
 }

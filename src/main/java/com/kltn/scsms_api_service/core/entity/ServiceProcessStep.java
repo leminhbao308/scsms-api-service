@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,30 +43,11 @@ public class ServiceProcessStep extends AuditEntity {
     @Builder.Default
     private Boolean isRequired = true;
     
-    // Quan hệ với ServiceProcessStepProduct
-    @OneToMany(mappedBy = "serviceProcessStep", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @Builder.Default
-    private List<ServiceProcessStepProduct> stepProducts = new ArrayList<>();
+    // Loại bỏ mối quan hệ với ServiceProcessStepProduct
+    // ServiceProcessStep giờ chỉ chứa thông tin cơ bản về bước
     
-    /**
-     * Kiểm tra xem bước này có sản phẩm nào không
-     */
-    public boolean hasProducts() {
-        return stepProducts != null && !stepProducts.isEmpty();
-    }
-    
-    /**
-     * Lấy tổng số lượng sản phẩm cần thiết cho bước này
-     */
-    public int getTotalProductCount() {
-        if (stepProducts == null || stepProducts.isEmpty()) {
-            return 0;
-        }
-        
-        return stepProducts.stream()
-                .mapToInt(product -> product.getQuantity().intValue())
-                .sum();
-    }
+    // Các method liên quan đến product đã được loại bỏ
+    // ServiceProcessStep giờ chỉ quản lý thông tin cơ bản về bước
     
     /**
      * Kiểm tra xem bước này có thể bỏ qua không

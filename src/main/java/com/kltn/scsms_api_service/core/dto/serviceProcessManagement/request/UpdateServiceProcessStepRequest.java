@@ -2,11 +2,8 @@ package com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
-
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -40,7 +37,4 @@ public class UpdateServiceProcessStepRequest {
     @JsonProperty("is_active")
     private Boolean isActive;
     
-    @Valid
-    @JsonProperty("step_products")
-    private List<UpdateServiceProcessStepProductRequest> stepProducts;
 }

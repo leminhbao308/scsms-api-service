@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServi
 import com.kltn.scsms_api_service.core.entity.Service;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})
@@ -18,6 +19,8 @@ public interface ServiceMapper {
     @Mapping(target = "serviceProcessCode", source = "serviceProcess.code")
     @Mapping(target = "serviceTypeName", ignore = true) // Will be set in service layer
     @Mapping(target = "branchName", ignore = true) // Will be set in service layer
+    @Mapping(target = "serviceProducts", ignore = true) // Will be set in service layer
+    @Mapping(target = "serviceProcess", ignore = true) // Will be set in service layer
     @Mapping(target = "estimatedDuration", source = "estimatedDuration")
     @Mapping(target = "audit.createdDate", source = "createdDate")
     @Mapping(target = "audit.modifiedDate", source = "modifiedDate")
@@ -29,6 +32,7 @@ public interface ServiceMapper {
 
     @Mapping(target = "category", ignore = true) // Will be set in service
     @Mapping(target = "serviceProcess", ignore = true) // Will be set in service
+    @Mapping(target = "serviceProducts", ignore = true) // Will be set in service
     @Mapping(target = "serviceId", ignore = true)
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "isDefaultProcess", constant = "false")
