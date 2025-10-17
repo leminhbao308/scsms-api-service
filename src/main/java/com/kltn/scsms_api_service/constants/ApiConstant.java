@@ -72,6 +72,7 @@ public class ApiConstant {
     public static final String DELETE_VEHICLE_MODEL_API = VEHICLE_MODEL_PREFIX + "/{modelId}/delete";
     // Vehicle Profile APIs
     public static final String GET_ALL_VEHICLE_PROFILES_API = VEHICLE_PROFILE_PREFIX + "/get-all";
+    public static final String GET_ALL_VEHICLE_PROFILES_BY_OWNER_ID_API = VEHICLE_PROFILE_PREFIX + "/owner/{ownerId}/get-all";
     public static final String GET_VEHICLE_PROFILE_BY_ID_API = VEHICLE_PROFILE_PREFIX + "/{profileId}";
     public static final String CREATE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/create";
     public static final String UPDATE_VEHICLE_PROFILE_API = VEHICLE_PROFILE_PREFIX + "/{profileId}/update";

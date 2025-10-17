@@ -29,4 +29,7 @@ public class UpdateVehicleProfileRequest {
     
     @JsonProperty("distance_traveled")
     private Double distanceTraveled;
+    
+    @JsonProperty("is_active")
+    private Boolean isActive;
 }

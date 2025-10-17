@@ -46,6 +46,25 @@ public class VehicleProfileManagementController {
         return ResponseBuilder.paginated("Vehicle brands fetched successfully", vehicleProfiles);
     }
     
+    @GetMapping(ApiConstant.GET_ALL_VEHICLE_PROFILES_BY_OWNER_ID_API)
+    @SwaggerOperation(
+        summary = "Get all vehicle profiles by owner ID",
+        description = "Retrieve a paginated list of vehicle profiles associated with a specific owner.")
+//    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+    public ResponseEntity<ApiResponse<PaginatedResponse<VehicleProfileInfoDto>>> getAllVehicleProfileByOwnerId(
+        @PathVariable("ownerId") String ownerId,
+        @ModelAttribute VehicleProfileFilterParam vehicleProfileFilterParam) {
+        log.info("Fetching vehicle profiles for owner ID: {} with filters: {}", ownerId, vehicleProfileFilterParam);
+        
+        Page<VehicleProfileInfoDto> vehicleProfiles = vehicleProfileManagementService.getAllVehicleProfilesByOwnerId(
+            UUID.fromString(ownerId),
+            VehicleProfileFilterParam.standardize(vehicleProfileFilterParam)
+        );
+        
+        return ResponseBuilder.paginated("Vehicle profiles fetched successfully", vehicleProfiles);
+    }
+    
+    
     @GetMapping(ApiConstant.GET_VEHICLE_PROFILE_BY_ID_API)
     @SwaggerOperation(
         summary = "Get vehicle profile by ID",
