@@ -112,6 +112,13 @@ public enum ErrorCode {
     SERVICE_BAY_CODE_EXISTS("SCS-D003", "SCS-D003", "SERVICE_BAY", "Service bay code already exists", "error.service_bay_code_exists"),
     SERVICE_BAY_NOT_AVAILABLE("SCS-D004", "SCS-D004", "SERVICE_BAY", "Service bay is not available", "error.service_bay_not_available"),
     SERVICE_BAY_TIME_CONFLICT("SCS-D005", "SCS-D005", "SERVICE_BAY", "Service bay time conflict", "error.service_bay_time_conflict"),
+    
+    // Booking Schedule related errors
+    SLOT_NOT_AVAILABLE("SCS-7001", "SCS-7001", "BOOKING_SCHEDULE", "Time slot not available", "error.slot_not_available"),
+    SLOT_INSUFFICIENT_TIME("SCS-7002", "SCS-7002", "BOOKING_SCHEDULE", "Slot does not have enough time for service", "error.slot_insufficient_time"),
+    INVALID_SLOT_STATUS("SCS-7003", "SCS-7003", "BOOKING_SCHEDULE", "Invalid slot status for operation", "error.invalid_slot_status"),
+    MISSING_SLOT_INFO("SCS-7004", "SCS-7004", "BOOKING_SCHEDULE", "Booking must have slot information", "error.missing_slot_info"),
+    INVALID_BOOKING_STATUS("SCS-7005", "SCS-7005", "BOOKING_SCHEDULE", "Invalid booking status for operation", "error.invalid_booking_status"),
     SERVICE_BAY_CANNOT_BE_DELETED("SCS-D006", "SCS-D006", "SERVICE_BAY", "Service bay cannot be deleted", "error.service_bay_cannot_be_deleted"),
     SERVICE_BAY_CANNOT_BE_UPDATED("SCS-D007", "SCS-D007", "SERVICE_BAY", "Service bay cannot be updated", "error.service_bay_cannot_be_updated"),
     SERVICE_BAY_INVALID_STATUS("SCS-D008", "SCS-D008", "SERVICE_BAY", "Invalid service bay status", "error.service_bay_invalid_status"),

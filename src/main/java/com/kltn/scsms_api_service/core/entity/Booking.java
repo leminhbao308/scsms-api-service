@@ -129,6 +129,30 @@ public class Booking extends AuditEntity {
     private Integer bufferMinutes = 15;
     
     /**
+     * Giờ bắt đầu slot (8h, 9h, 10h...)
+     */
+    @Column(name = "slot_start_time")
+    private java.time.LocalTime slotStartTime;
+    
+    /**
+     * Giờ kết thúc slot
+     */
+    @Column(name = "slot_end_time")
+    private java.time.LocalTime slotEndTime;
+    
+    /**
+     * Thời gian hoàn thành thực tế
+     */
+    @Column(name = "actual_completion_time")
+    private LocalDateTime actualCompletionTime;
+    
+    /**
+     * Số phút hoàn thành sớm
+     */
+    @Column(name = "early_completion_minutes")
+    private Integer earlyCompletionMinutes;
+    
+    /**
      * Tổng giá sau chiết khấu
      */
     @Column(name = "total_price", precision = 15, scale = 2)
@@ -354,6 +378,43 @@ public class Booking extends AuditEntity {
     public void completeService() {
         this.status = BookingStatus.COMPLETED;
         this.actualEndAt = LocalDateTime.now();
+        this.actualCompletionTime = LocalDateTime.now();
+        
+        // Tính thời gian hoàn thành sớm
+        if (this.scheduledEndAt != null && this.actualEndAt.isBefore(this.scheduledEndAt)) {
+            this.earlyCompletionMinutes = (int) java.time.Duration.between(this.actualEndAt, this.scheduledEndAt).toMinutes();
+        }
+    }
+    
+    /**
+     * Hoàn thành dịch vụ với thời gian cụ thể
+     */
+    public void completeService(LocalDateTime completionTime) {
+        this.status = BookingStatus.COMPLETED;
+        this.actualEndAt = completionTime;
+        this.actualCompletionTime = completionTime;
+        
+        // Tính thời gian hoàn thành sớm
+        if (this.scheduledEndAt != null && this.actualEndAt.isBefore(this.scheduledEndAt)) {
+            this.earlyCompletionMinutes = (int) java.time.Duration.between(this.actualEndAt, this.scheduledEndAt).toMinutes();
+        }
+    }
+    
+    /**
+     * Kiểm tra booking có hoàn thành sớm không
+     */
+    public boolean isCompletedEarly() {
+        return earlyCompletionMinutes != null && earlyCompletionMinutes > 0;
+    }
+    
+    /**
+     * Lấy thời gian slot dự kiến
+     */
+    public java.time.LocalTime getEstimatedSlotEndTime() {
+        if (slotStartTime != null && estimatedDurationMinutes != null) {
+            return slotStartTime.plusMinutes(estimatedDurationMinutes + (bufferMinutes != null ? bufferMinutes : 0));
+        }
+        return null;
     }
     
     /**

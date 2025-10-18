@@ -26,6 +26,12 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
     List<ServiceBay> findByBranch_BranchIdAndStatusOrderByDisplayOrderAscBayNameAsc(
         UUID branchId, ServiceBay.BayStatus status);
     
+    /**
+     * Tìm bay active theo chi nhánh
+     */
+    List<ServiceBay> findByBranchBranchIdAndStatusAndIsActiveTrueAndIsDeletedFalse(
+        UUID branchId, ServiceBay.BayStatus status);
+    
     
     
     /**

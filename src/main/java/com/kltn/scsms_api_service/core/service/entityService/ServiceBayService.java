@@ -31,6 +31,14 @@ public class ServiceBayService {
     }
     
     /**
+     * Lấy tất cả bay active theo chi nhánh
+     */
+    public List<ServiceBay> findActiveBaysByBranch(UUID branchId) {
+        return serviceBayRepository.findByBranchBranchIdAndStatusAndIsActiveTrueAndIsDeletedFalse(
+            branchId, ServiceBay.BayStatus.ACTIVE);
+    }
+    
+    /**
      * Lưu bay mới
      */
     @Transactional

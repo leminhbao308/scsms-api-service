@@ -1,3 +1,4 @@
+
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
@@ -8,6 +9,7 @@ import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBooki
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.service.businessService.BookingManagementService;
+import com.kltn.scsms_api_service.core.service.businessService.BookingWorkflowService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,6 +33,7 @@ import java.util.UUID;
 public class BookingManagementController {
     
     private final BookingManagementService bookingManagementService;
+    private final BookingWorkflowService bookingWorkflowService;
     
     @GetMapping("/bookings")
     @Operation(summary = "Get all bookings", description = "Retrieve all bookings with optional filtering and pagination")
@@ -222,7 +225,7 @@ public class BookingManagementController {
     public ResponseEntity<ApiResponse<Void>> confirmBooking(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
         log.info("Confirming booking: {}", bookingId);
-        bookingManagementService.confirmBooking(bookingId);
+        bookingWorkflowService.confirmBooking(bookingId);
         return ResponseBuilder.success("Booking confirmed successfully");
     }
     
@@ -232,7 +235,7 @@ public class BookingManagementController {
     public ResponseEntity<ApiResponse<Void>> checkInBooking(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
         log.info("Checking in booking: {}", bookingId);
-        bookingManagementService.checkInBooking(bookingId);
+        bookingWorkflowService.checkInBooking(bookingId);
         return ResponseBuilder.success("Booking checked in successfully");
     }
     
@@ -242,7 +245,7 @@ public class BookingManagementController {
     public ResponseEntity<ApiResponse<Void>> startService(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
         log.info("Starting service for booking: {}", bookingId);
-        bookingManagementService.startService(bookingId);
+        bookingWorkflowService.startService(bookingId);
         return ResponseBuilder.success("Service started successfully");
     }
     
@@ -252,7 +255,7 @@ public class BookingManagementController {
     public ResponseEntity<ApiResponse<Void>> completeService(
             @Parameter(description = "Booking ID") @PathVariable UUID bookingId) {
         log.info("Completing service for booking: {}", bookingId);
-        bookingManagementService.completeService(bookingId);
+        bookingWorkflowService.completeService(bookingId);
         return ResponseBuilder.success("Service completed successfully");
     }
     

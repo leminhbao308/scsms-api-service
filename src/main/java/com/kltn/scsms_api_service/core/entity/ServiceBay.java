@@ -75,6 +75,41 @@ public class ServiceBay extends AuditEntity {
     private String notes;
     
     /**
+     * Giờ bắt đầu làm việc (mặc định 8h sáng)
+     */
+    @Column(name = "working_hours_start", nullable = false)
+    @Builder.Default
+    private Integer workingHoursStart = 8;
+    
+    /**
+     * Giờ kết thúc làm việc (mặc định 18h chiều)
+     */
+    @Column(name = "working_hours_end", nullable = false)
+    @Builder.Default
+    private Integer workingHoursEnd = 18;
+    
+    /**
+     * Thời gian mỗi slot (phút) - mặc định 60 phút
+     */
+    @Column(name = "slot_duration_minutes", nullable = false)
+    @Builder.Default
+    private Integer slotDurationMinutes = 60;
+    
+    /**
+     * Thời gian đệm giữa các booking (phút) - mặc định 10 phút
+     */
+    @Column(name = "buffer_minutes", nullable = false)
+    @Builder.Default
+    private Integer bufferMinutes = 10;
+    
+    /**
+     * Số lượng booking tối đa đồng thời - mặc định 1
+     */
+    @Column(name = "max_concurrent_bookings", nullable = false)
+    @Builder.Default
+    private Integer maxConcurrentBookings = 1;
+    
+    /**
      * Các booking sử dụng bay này
      */
     @OneToMany(mappedBy = "serviceBay", fetch = FetchType.LAZY)
@@ -182,6 +217,36 @@ public class ServiceBay extends AuditEntity {
      */
     public boolean hasTechnicians() {
         return getTechnicianCount() > 0;
+    }
+    
+    // Schedule management methods
+    
+    /**
+     * Kiểm tra bay có hoạt động trong giờ làm việc không
+     */
+    public boolean isWorkingHours(java.time.LocalTime currentTime) {
+        return currentTime.getHour() >= workingHoursStart && currentTime.getHour() < workingHoursEnd;
+    }
+    
+    /**
+     * Lấy số slot trong ngày
+     */
+    public int getTotalSlotsPerDay() {
+        return workingHoursEnd - workingHoursStart;
+    }
+    
+    /**
+     * Kiểm tra slot có hợp lệ không
+     */
+    public boolean isValidSlot(int hour) {
+        return hour >= workingHoursStart && hour < workingHoursEnd;
+    }
+    
+    /**
+     * Tính thời gian kết thúc dự kiến cho slot
+     */
+    public java.time.LocalTime calculateSlotEndTime(java.time.LocalTime startTime, int serviceDurationMinutes) {
+        return startTime.plusMinutes(serviceDurationMinutes + bufferMinutes);
     }
     
     
