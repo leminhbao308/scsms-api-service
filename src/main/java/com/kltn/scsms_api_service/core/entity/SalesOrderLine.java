@@ -21,23 +21,24 @@ public class SalesOrderLine extends AuditEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
-    
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "sales_order_id", nullable = false, foreignKey = @ForeignKey(name = "fk_sol_so"))
     private SalesOrder salesOrder;
-    
-    
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "product_id", nullable = false, foreignKey = @ForeignKey(name = "fk_sol_product"))
     private Product product;
-    
-    
+
     @Column(name = "qty", nullable = false)
     private Long quantity;
-    
-    
+
     // Giá bán đã tính theo PriceBook tại thời điểm tạo order
     @Column(name = "unit_price", precision = 18, scale = 4, nullable = false)
     private BigDecimal unitPrice;
+
+    // True if this item is free from a promotion (FREE_PRODUCT, BUY_X_GET_Y)
+    @Column(name = "is_free_item", nullable = false)
+    @Builder.Default
+    private Boolean isFreeItem = false;
 }
