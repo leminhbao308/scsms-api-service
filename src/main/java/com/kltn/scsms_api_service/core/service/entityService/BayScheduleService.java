@@ -16,7 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -56,25 +58,32 @@ public class BayScheduleService {
         while (startTime.isBefore(endTime)) {
             LocalTime slotEndTime = startTime.plusHours(1);
             
-            BaySchedule schedule = BaySchedule.builder()
-                .serviceBay(bay)
-                .scheduleDate(date)
-                .startTime(startTime)
-                .endTime(slotEndTime)
-                .status(BaySchedule.ScheduleStatus.AVAILABLE)
-                .isActive(true)
-                .isDeleted(false)
-                .build();
-            
-            bayScheduleRepository.save(schedule);
-            log.debug("Created slot: {} - {} for bay: {}", 
-                schedule.getStartTime(), schedule.getEndTime(), bay.getBayName());
+            // Kiểm tra slot đã tồn tại chưa (tránh duplicate)
+            if (!bayScheduleRepository.existsByServiceBayBayIdAndScheduleDateAndStartTimeAndStatus(
+                bayId, date, startTime, BaySchedule.ScheduleStatus.AVAILABLE)) {
+                
+                BaySchedule schedule = BaySchedule.builder()
+                    .serviceBay(bay)
+                    .scheduleDate(date)
+                    .startTime(startTime)
+                    .endTime(slotEndTime)
+                    .status(BaySchedule.ScheduleStatus.AVAILABLE)
+                    .isActive(true)
+                    .isDeleted(false)
+                    .build();
+                
+                bayScheduleRepository.save(schedule);
+                log.debug("Created slot: {} - {} for bay: {}", 
+                    schedule.getStartTime(), schedule.getEndTime(), bay.getBayName());
+            } else {
+                log.debug("Slot already exists: {} - {} for bay: {}", 
+                    startTime, slotEndTime, bay.getBayName());
+            }
             
             startTime = startTime.plusHours(1);
         }
         
-        log.info("Generated {} slots for bay: {} on date: {}", 
-            bay.getTotalSlotsPerDay(), bay.getBayName(), date);
+        log.info("Generated slots for bay: {} on date: {}", bay.getBayName(), date);
     }
     
     /**
@@ -126,9 +135,51 @@ public class BayScheduleService {
     }
     
     /**
+     * Kiểm tra và dọn dẹp duplicate slots
+     */
+    @Transactional
+    public void cleanupDuplicateSlots(UUID bayId, LocalDate date) {
+        log.info("Cleaning up duplicate slots for bay: {} on date: {}", bayId, date);
+        
+        List<BaySchedule> allSlots = bayScheduleRepository.findByServiceBayBayIdAndScheduleDateOrderByStartTime(bayId, date);
+        
+        // Group slots by startTime
+        Map<LocalTime, List<BaySchedule>> slotsByTime = allSlots.stream()
+            .collect(Collectors.groupingBy(BaySchedule::getStartTime));
+        
+        int duplicatesRemoved = 0;
+        for (Map.Entry<LocalTime, List<BaySchedule>> entry : slotsByTime.entrySet()) {
+            List<BaySchedule> slots = entry.getValue();
+            if (slots.size() > 1) {
+                log.warn("Found {} duplicate slots for bay: {} at time: {}", 
+                    slots.size(), bayId, entry.getKey());
+                
+                // Keep the first slot (oldest), mark others as deleted
+                // BaySchedule keepSlot = slots.get(0); // First slot is kept automatically
+                for (int i = 1; i < slots.size(); i++) {
+                    BaySchedule duplicateSlot = slots.get(i);
+                    duplicateSlot.setIsDeleted(true);
+                    duplicateSlot.setNotes("Duplicate slot - cleaned up");
+                    bayScheduleRepository.save(duplicateSlot);
+                    duplicatesRemoved++;
+                    log.debug("Marked duplicate slot as deleted: {}", duplicateSlot.getScheduleId());
+                }
+            }
+        }
+        
+        if (duplicatesRemoved > 0) {
+            log.info("Cleaned up {} duplicate slots for bay: {} on date: {}", 
+                duplicatesRemoved, bayId, date);
+        }
+    }
+    
+    /**
      * Tìm slot theo bay, ngày và giờ bắt đầu
      */
     public BaySchedule getSlot(UUID bayId, LocalDate date, LocalTime startTime) {
+        // Tự động dọn dẹp duplicate slots trước khi tìm
+        cleanupDuplicateSlots(bayId, date);
+        
         return bayScheduleRepository.findByServiceBayBayIdAndScheduleDateAndStartTime(bayId, date, startTime)
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
                 "Slot not found for bay: " + bayId + " at " + date + " " + startTime));

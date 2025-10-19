@@ -16,29 +16,54 @@ import java.util.UUID;
 public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> {
     
     /**
-     * Tìm tất cả schedule của bay trong ngày
+     * Tìm tất cả schedule của bay trong ngày (chỉ lấy slot chưa bị xóa)
      */
-    List<BaySchedule> findByServiceBayBayIdAndScheduleDateOrderByStartTime(UUID bayId, LocalDate date);
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.startTime ASC")
+    List<BaySchedule> findByServiceBayBayIdAndScheduleDateOrderByStartTime(
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date);
     
     /**
-     * Tìm schedule theo bay, ngày và giờ bắt đầu
+     * Tìm schedule theo bay, ngày và giờ bắt đầu (chỉ lấy slot chưa bị xóa)
      */
-    Optional<BaySchedule> findByServiceBayBayIdAndScheduleDateAndStartTime(UUID bayId, LocalDate date, LocalTime startTime);
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.startTime = :startTime " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.createdDate ASC")
+    Optional<BaySchedule> findByServiceBayBayIdAndScheduleDateAndStartTime(
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date, 
+        @Param("startTime") LocalTime startTime);
     
     /**
-     * Tìm các slot available của bay trong ngày
+     * Tìm các slot available của bay trong ngày (chỉ lấy slot chưa bị xóa)
      */
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.status = :status " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.startTime ASC")
     List<BaySchedule> findByServiceBayBayIdAndScheduleDateAndStatusOrderByStartTime(
-        UUID bayId, LocalDate date, BaySchedule.ScheduleStatus status);
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date, 
+        @Param("status") BaySchedule.ScheduleStatus status);
     
     /**
-     * Tìm các slot available của tất cả bay trong chi nhánh trong ngày
+     * Tìm các slot available của tất cả bay trong chi nhánh trong ngày (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
            "JOIN bs.serviceBay sb " +
            "WHERE sb.branch.branchId = :branchId " +
            "AND bs.scheduleDate = :date " +
            "AND bs.status = :status " +
+           "AND bs.isDeleted = false " +
            "ORDER BY sb.displayOrder, bs.startTime")
     List<BaySchedule> findByBranchIdAndDateAndStatus(
         @Param("branchId") UUID branchId, 
@@ -46,18 +71,28 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("status") BaySchedule.ScheduleStatus status);
     
     /**
-     * Kiểm tra slot có available không
+     * Kiểm tra slot có available không (chỉ kiểm tra slot chưa bị xóa)
      */
+    @Query("SELECT COUNT(bs) > 0 FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.startTime = :startTime " +
+           "AND bs.status = :status " +
+           "AND bs.isDeleted = false")
     boolean existsByServiceBayBayIdAndScheduleDateAndStartTimeAndStatus(
-        UUID bayId, LocalDate date, LocalTime startTime, BaySchedule.ScheduleStatus status);
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date, 
+        @Param("startTime") LocalTime startTime, 
+        @Param("status") BaySchedule.ScheduleStatus status);
     
     /**
-     * Tìm các slot bị conflict trong khoảng thời gian
+     * Tìm các slot bị conflict trong khoảng thời gian (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
            "WHERE bs.serviceBay.bayId = :bayId " +
            "AND bs.scheduleDate = :date " +
            "AND bs.status IN ('BOOKED', 'IN_PROGRESS') " +
+           "AND bs.isDeleted = false " +
            "AND ((bs.startTime < :endTime AND bs.endTime > :startTime))")
     List<BaySchedule> findConflictingSlots(
         @Param("bayId") UUID bayId,
@@ -66,13 +101,14 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("endTime") LocalTime endTime);
     
     /**
-     * Tìm các slot trong khoảng thời gian
+     * Tìm các slot trong khoảng thời gian (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
            "WHERE bs.serviceBay.bayId = :bayId " +
            "AND bs.scheduleDate = :date " +
            "AND bs.startTime >= :startTime " +
            "AND bs.endTime <= :endTime " +
+           "AND bs.isDeleted = false " +
            "ORDER BY bs.startTime")
     List<BaySchedule> findSlotsInTimeRange(
         @Param("bayId") UUID bayId,
@@ -81,24 +117,36 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("endTime") LocalTime endTime);
     
     /**
-     * Tìm schedule theo booking
+     * Tìm schedule theo booking (chỉ lấy slot chưa bị xóa)
      */
-    List<BaySchedule> findByBookingBookingId(UUID bookingId);
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.booking.bookingId = :bookingId " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.startTime ASC")
+    List<BaySchedule> findByBookingBookingId(@Param("bookingId") UUID bookingId);
     
     /**
-     * Đếm số slot available của bay trong ngày
+     * Đếm số slot available của bay trong ngày (chỉ đếm slot chưa bị xóa)
      */
+    @Query("SELECT COUNT(bs) FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.status = :status " +
+           "AND bs.isDeleted = false")
     long countByServiceBayBayIdAndScheduleDateAndStatus(
-        UUID bayId, LocalDate date, BaySchedule.ScheduleStatus status);
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date, 
+        @Param("status") BaySchedule.ScheduleStatus status);
     
     /**
-     * Tìm các slot hoàn thành sớm trong ngày
+     * Tìm các slot hoàn thành sớm trong ngày (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
            "WHERE bs.serviceBay.bayId = :bayId " +
            "AND bs.scheduleDate = :date " +
            "AND bs.status = 'COMPLETED' " +
            "AND bs.actualEndTime < bs.endTime " +
+           "AND bs.isDeleted = false " +
            "ORDER BY bs.actualEndTime")
     List<BaySchedule> findEarlyCompletedSlots(
         @Param("bayId") UUID bayId,
@@ -110,7 +158,7 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
     void deleteByServiceBayBayIdAndScheduleDate(UUID bayId, LocalDate date);
     
     /**
-     * Tìm các slot có thể mở rộng (hoàn thành sớm)
+     * Tìm các slot có thể mở rộng (hoàn thành sớm) (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
            "WHERE bs.serviceBay.branch.branchId = :branchId " +
@@ -118,6 +166,7 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
            "AND bs.status = 'COMPLETED' " +
            "AND bs.actualEndTime < bs.endTime " +
            "AND bs.actualEndTime >= :fromTime " +
+           "AND bs.isDeleted = false " +
            "ORDER BY bs.actualEndTime")
     List<BaySchedule> findExpandableSlots(
         @Param("branchId") UUID branchId,
@@ -125,10 +174,17 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("fromTime") LocalTime fromTime);
     
     /**
-     * Xóa slot AVAILABLE của bay trong ngày (chỉ xóa slot chưa được đặt)
+     * Xóa slot AVAILABLE của bay trong ngày (chỉ xóa slot chưa được đặt và chưa bị xóa)
      */
+    @Query("DELETE FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.status = :status " +
+           "AND bs.isDeleted = false")
     void deleteByServiceBayBayIdAndScheduleDateAndStatus(
-        UUID bayId, LocalDate date, BaySchedule.ScheduleStatus status);
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date, 
+        @Param("status") BaySchedule.ScheduleStatus status);
     
     /**
      * Tìm slot đã được đặt trước ngày cụ thể (để archive)
@@ -139,11 +195,25 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
     /**
      * Tìm lịch sử slot trong khoảng thời gian (bao gồm cả đã archive)
      */
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate BETWEEN :startDate AND :endDate " +
+           "AND bs.status IN :statuses " +
+           "ORDER BY bs.scheduleDate, bs.startTime")
     List<BaySchedule> findByServiceBayBayIdAndScheduleDateBetweenAndStatusIn(
-        UUID bayId, LocalDate startDate, LocalDate endDate, List<BaySchedule.ScheduleStatus> statuses);
+        @Param("bayId") UUID bayId, 
+        @Param("startDate") LocalDate startDate, 
+        @Param("endDate") LocalDate endDate, 
+        @Param("statuses") List<BaySchedule.ScheduleStatus> statuses);
     
     /**
      * Đếm số slot của bay trong ngày (chưa bị xóa)
      */
-    long countByServiceBayBayIdAndScheduleDateAndIsDeletedFalse(UUID bayId, LocalDate date);
+    @Query("SELECT COUNT(bs) FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.isDeleted = false")
+    long countByServiceBayBayIdAndScheduleDateAndIsDeletedFalse(
+        @Param("bayId") UUID bayId, 
+        @Param("date") LocalDate date);
 }

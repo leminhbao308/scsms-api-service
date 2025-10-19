@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
+import com.kltn.scsms_api_service.core.entity.BaySchedule;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.service.entityService.BayScheduleService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -46,12 +48,29 @@ public class BookingWorkflowService {
                 "Booking must have slot information before confirmation");
         }
         
-        // Chuyển slot từ AVAILABLE sang BOOKED
-        bayScheduleService.bookSlot(
+        // Kiểm tra slot đã được book chưa (tránh double booking)
+        if (!bayScheduleService.isSlotAvailable(
             booking.getServiceBay().getBayId(),
             booking.getScheduledStartAt().toLocalDate(),
-            booking.getSlotStartTime(),
-            bookingId);
+            booking.getSlotStartTime())) {
+            
+            // Kiểm tra slot có thuộc về booking này không
+            List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
+            boolean slotBelongsToBooking = existingSlots.stream()
+                .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
+            
+            if (!slotBelongsToBooking) {
+                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                    "Slot is not available for booking confirmation");
+            }
+        } else {
+            // Chuyển slot từ AVAILABLE sang BOOKED
+            bayScheduleService.bookSlot(
+                booking.getServiceBay().getBayId(),
+                booking.getScheduledStartAt().toLocalDate(),
+                booking.getSlotStartTime(),
+                bookingId);
+        }
         
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
         bookingService.update(booking);
