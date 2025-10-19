@@ -175,7 +175,8 @@ public class PaymentBusinessService {
             Payment payment = paymentES.findByOrderCode(webhookData.getOrderCode());
             
             if (payment == null) {
-                throw new ClientSideException(ErrorCode.NOT_FOUND, "Payment not found for order code: " + webhookData.getOrderCode());
+                throw new ClientSideException(ErrorCode.NOT_FOUND,
+                    "Payment not found for order code: " + webhookData.getOrderCode());
             }
             
             // Update payment status based on webhook code
@@ -192,7 +193,8 @@ public class PaymentBusinessService {
             
             payment = paymentES.save(payment);
             
-            log.info("Payment status updated to {} for order code: {}", payment.getStatus(), webhookData.getOrderCode());
+            log.info("Payment status updated to {} for order code: {}", payment.getStatus(),
+                webhookData.getOrderCode());
             
             return buildPaymentStatusResponse(payment, "Payment status updated successfully");
             
@@ -305,7 +307,9 @@ public class PaymentBusinessService {
     // Helper methods
     
     private int calculateOrderAmount(SalesOrder salesOrder) {
+        // Only count non-free items (exclude free items from promotions)
         return salesOrder.getLines().stream()
+            .filter(line -> !Boolean.TRUE.equals(line.getIsFreeItem())) // Exclude free items
             .mapToInt(line -> line.getUnitPrice().multiply(
                 java.math.BigDecimal.valueOf(line.getQuantity())).intValue())
             .sum();
@@ -348,7 +352,8 @@ public class PaymentBusinessService {
         // đảm bảo đúng 25 ký tự
         if (s.length() < len) {
             StringBuilder sb = new StringBuilder(len);
-            for (int i = s.length(); i < len; i++) sb.append('0');
+            for (int i = s.length(); i < len; i++)
+                sb.append('0');
             sb.append(s);
             s = sb.toString();
         }

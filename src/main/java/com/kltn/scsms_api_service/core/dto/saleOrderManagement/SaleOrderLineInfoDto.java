@@ -20,11 +20,14 @@ import java.math.BigDecimal;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SaleOrderLineInfoDto extends AuditDto {
     private String id;
-    
+
     private ProductInfoDto product;
-    
+
     private Long quantity;
-    
+
     @JsonProperty("unit_price")
     private BigDecimal unitPrice;
+
+    @JsonProperty("is_free_item")
+    private Boolean isFreeItem;
 }

@@ -281,4 +281,22 @@ public class PromotionManagementController {
 
         return ResponseBuilder.paginated("Promotions ending soon fetched successfully", promotions);
     }
+
+    /**
+     * Get promotion usage history
+     */
+    @GetMapping(ApiConstant.GET_PROMOTION_USAGE_HISTORY_API)
+    @SwaggerOperation(summary = "Get promotion usage history", description = "Retrieve a paginated list of promotion usage history with filters")
+    // @RequirePermission(permissions = PermissionConstant.PROMOTION_READ)
+    public ResponseEntity<ApiResponse<PaginatedResponse<com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionUsageHistoryDto>>> getPromotionUsageHistory(
+            @ModelAttribute com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionUsageHistoryFilterParam filterParam) {
+        log.info("Fetching promotion usage history");
+
+        Page<com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionUsageHistoryDto> usageHistory = promotionManagementService
+                .getPromotionUsageHistory(
+                        com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionUsageHistoryFilterParam
+                                .standardize(filterParam));
+
+        return ResponseBuilder.paginated("Promotion usage history fetched successfully", usageHistory);
+    }
 }
