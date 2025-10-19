@@ -3,13 +3,11 @@ package com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.req
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.ServiceProcessTracking;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -29,21 +27,15 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("service_step_id")
     private UUID serviceStepId;
     
-    @JsonProperty("technician_id")
-    private UUID technicianId;
-    
     @JsonProperty("bay_id")
     private UUID bayId;
-    
-    @Positive(message = "Thời gian ước lượng phải lớn hơn 0")
-    @JsonProperty("estimated_duration")
-    private Integer estimatedDuration;
     
     @JsonProperty("status")
     private ServiceProcessTracking.TrackingStatus status;
     
-    @JsonProperty("progress_percent")
-    private BigDecimal progressPercent;
+    // Removed: technician_id - technicians are assigned to bays
+    // Removed: estimated_duration - simplified tracking
+    // Removed: progress_percent - simplified tracking
     
     @JsonProperty("notes")
     private String notes;

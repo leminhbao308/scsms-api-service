@@ -8,11 +8,13 @@ import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +28,15 @@ public class BayScheduleService {
     private final ServiceBayService serviceBayService;
     private final BookingService bookingService;
     
+    @Value("${app.schedule.mode:MONTHLY}")
+    private String scheduleMode;
+    
+    @Value("${app.schedule.monthly-type:CURRENT_AND_NEXT}")
+    private String monthlyType;
+    
+    @Value("${app.schedule.max-advance-booking-days:30}")
+    private int maxAdvanceBookingDays;
+    
     /**
      * Tạo lịch cho bay trong ngày
      */
@@ -35,16 +46,21 @@ public class BayScheduleService {
         
         ServiceBay bay = serviceBayService.getById(bayId);
         
-        // Xóa lịch cũ nếu có
-        bayScheduleRepository.deleteByServiceBayBayIdAndScheduleDate(bayId, date);
+        // Chỉ xóa slot AVAILABLE (chưa được đặt) để giữ lịch sử
+        cleanupAvailableSlotsOnly(bayId, date);
         
         // Tạo các slot từ workingHoursStart đến workingHoursEnd
-        for (int hour = bay.getWorkingHoursStart(); hour < bay.getWorkingHoursEnd(); hour++) {
+        LocalTime startTime = bay.getWorkingHoursStart();
+        LocalTime endTime = bay.getWorkingHoursEnd();
+        
+        while (startTime.isBefore(endTime)) {
+            LocalTime slotEndTime = startTime.plusHours(1);
+            
             BaySchedule schedule = BaySchedule.builder()
                 .serviceBay(bay)
                 .scheduleDate(date)
-                .startTime(LocalTime.of(hour, 0))
-                .endTime(LocalTime.of(hour + 1, 0))
+                .startTime(startTime)
+                .endTime(slotEndTime)
                 .status(BaySchedule.ScheduleStatus.AVAILABLE)
                 .isActive(true)
                 .isDeleted(false)
@@ -53,6 +69,8 @@ public class BayScheduleService {
             bayScheduleRepository.save(schedule);
             log.debug("Created slot: {} - {} for bay: {}", 
                 schedule.getStartTime(), schedule.getEndTime(), bay.getBayName());
+            
+            startTime = startTime.plusHours(1);
         }
         
         log.info("Generated {} slots for bay: {} on date: {}", 
@@ -114,6 +132,21 @@ public class BayScheduleService {
         return bayScheduleRepository.findByServiceBayBayIdAndScheduleDateAndStartTime(bayId, date, startTime)
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
                 "Slot not found for bay: " + bayId + " at " + date + " " + startTime));
+    }
+    
+    /**
+     * Block slot (đặt slot thành BOOKED)
+     */
+    @Transactional
+    public void blockSlot(UUID bayId, LocalDate date, LocalTime startTime) {
+        BaySchedule slot = getSlot(bayId, date, startTime);
+        if (slot.getStatus() != BaySchedule.ScheduleStatus.AVAILABLE) {
+            throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                "Slot is not available for blocking");
+        }
+        slot.setStatus(BaySchedule.ScheduleStatus.BOOKED);
+        bayScheduleRepository.save(slot);
+        log.info("Blocked slot for bay {} at {} {}", bayId, date, startTime);
     }
     
     /**
@@ -325,5 +358,146 @@ public class BayScheduleService {
         return bayScheduleRepository.findById(scheduleId)
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
                 "BaySchedule not found with ID: " + scheduleId));
+    }
+    
+    /**
+     * Chỉ xóa slot AVAILABLE (chưa được đặt) để giữ lịch sử slot đã đặt
+     */
+    @Transactional
+    public void cleanupAvailableSlotsOnly(UUID bayId, LocalDate date) {
+        log.info("Cleaning up available slots only for bay: {} on date: {}", bayId, date);
+        
+        // Chỉ xóa slot AVAILABLE (chưa được đặt)
+        bayScheduleRepository.deleteByServiceBayBayIdAndScheduleDateAndStatus(
+            bayId, date, BaySchedule.ScheduleStatus.AVAILABLE);
+        
+        log.info("Cleaned up available slots for bay: {} on date: {}", bayId, date);
+    }
+    
+    /**
+     * Soft delete slot đã được đặt sau một khoảng thời gian (để giữ lịch sử)
+     */
+    @Transactional
+    public void archiveOldBookedSlots(int daysToKeep) {
+        log.info("Archiving old booked slots older than {} days", daysToKeep);
+        
+        LocalDate archiveDate = LocalDate.now().minusDays(daysToKeep);
+        
+        List<BaySchedule> oldBookedSlots = bayScheduleRepository
+            .findByScheduleDateBeforeAndStatusInAndIsDeletedFalse(archiveDate, 
+                Arrays.asList(
+                    BaySchedule.ScheduleStatus.BOOKED, 
+                    BaySchedule.ScheduleStatus.COMPLETED,
+                    BaySchedule.ScheduleStatus.CANCELLED
+                ));
+        
+        for (BaySchedule schedule : oldBookedSlots) {
+            schedule.setIsDeleted(true);
+            schedule.setIsActive(false);
+            bayScheduleRepository.save(schedule);
+            log.debug("Archived slot: {} for bay: {} on date: {}", 
+                schedule.getStartTime(), schedule.getServiceBay().getBayName(), schedule.getScheduleDate());
+        }
+        
+        log.info("Archived {} old booked slots", oldBookedSlots.size());
+    }
+    
+    /**
+     * Lấy lịch sử slot đã được đặt (bao gồm cả đã archive)
+     */
+    public List<BaySchedule> getSlotHistory(UUID bayId, LocalDate startDate, LocalDate endDate) {
+        log.info("Getting slot history for bay: {} from {} to {}", bayId, startDate, endDate);
+        
+        return bayScheduleRepository.findByServiceBayBayIdAndScheduleDateBetweenAndStatusIn(
+            bayId, startDate, endDate, 
+            Arrays.asList(
+                BaySchedule.ScheduleStatus.BOOKED, 
+                BaySchedule.ScheduleStatus.COMPLETED,
+                BaySchedule.ScheduleStatus.CANCELLED
+            ));
+    }
+    
+    /**
+     * Kiểm tra xem có thể đặt lịch cho ngày này không (theo monthly mode)
+     */
+    public boolean isDateAvailableForBooking(LocalDate date) {
+        LocalDate today = LocalDate.now();
+        
+        if ("MONTHLY".equalsIgnoreCase(scheduleMode)) {
+            return isDateInMonthlyRange(date, today);
+        } else {
+            // Fallback to rolling window
+            LocalDate maxBookingDate = today.plusDays(maxAdvanceBookingDays);
+            return !date.isBefore(today) && !date.isAfter(maxBookingDate);
+        }
+    }
+    
+    /**
+     * Kiểm tra ngày có trong phạm vi monthly không
+     */
+    private boolean isDateInMonthlyRange(LocalDate date, LocalDate today) {
+        switch (monthlyType.toUpperCase()) {
+            case "CURRENT_ONLY":
+                // Chỉ tháng hiện tại
+                LocalDate endOfCurrentMonth = today.withDayOfMonth(today.lengthOfMonth());
+                return !date.isBefore(today) && !date.isAfter(endOfCurrentMonth);
+                
+            case "NEXT_30_DAYS":
+                // 30 ngày từ đầu tháng hiện tại
+                LocalDate startOfMonth = today.withDayOfMonth(1);
+                LocalDate endDate = startOfMonth.plusDays(30);
+                return !date.isBefore(today) && !date.isAfter(endDate);
+                
+            case "CURRENT_AND_NEXT":
+            default:
+                // Tháng hiện tại + tháng sau
+                LocalDate endOfNextMonth = today.plusMonths(1).withDayOfMonth(
+                    today.plusMonths(1).lengthOfMonth()
+                );
+                return !date.isBefore(today) && !date.isAfter(endOfNextMonth);
+        }
+    }
+    
+    /**
+     * Validate ngày đặt lịch (theo monthly mode)
+     */
+    public void validateBookingDate(LocalDate date) {
+        if (!isDateAvailableForBooking(date)) {
+            LocalDate today = LocalDate.now();
+            String rangeMessage = getMonthlyRangeMessage(today);
+            throw new ClientSideException(ErrorCode.INVALID_BOOKING_DATE, 
+                String.format("Booking date must be within allowed range: %s", rangeMessage));
+        }
+    }
+    
+    /**
+     * Lấy thông báo về phạm vi ngày được phép đặt lịch
+     */
+    private String getMonthlyRangeMessage(LocalDate today) {
+        switch (monthlyType.toUpperCase()) {
+            case "CURRENT_ONLY":
+                LocalDate endOfCurrentMonth = today.withDayOfMonth(today.lengthOfMonth());
+                return String.format("from %s to end of current month (%s)", today, endOfCurrentMonth);
+                
+            case "NEXT_30_DAYS":
+                LocalDate startOfMonth = today.withDayOfMonth(1);
+                LocalDate endDate = startOfMonth.plusDays(30);
+                return String.format("from %s to %s (30 days from start of month)", today, endDate);
+                
+            case "CURRENT_AND_NEXT":
+            default:
+                LocalDate endOfNextMonth = today.plusMonths(1).withDayOfMonth(
+                    today.plusMonths(1).lengthOfMonth()
+                );
+                return String.format("from %s to end of next month (%s)", today, endOfNextMonth);
+        }
+    }
+    
+    /**
+     * Kiểm tra xem đã có slot cho bay và ngày này chưa
+     */
+    public boolean hasSlotsForDate(UUID bayId, LocalDate date) {
+        long slotCount = bayScheduleRepository.countByServiceBayBayIdAndScheduleDateAndIsDeletedFalse(bayId, date);
+        return slotCount > 0;
     }
 }

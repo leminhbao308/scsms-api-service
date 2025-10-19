@@ -251,12 +251,11 @@ public class BookingManagementService {
             log.info("Calculated booking total price from price book: {}", totalPrice);
         }
 
-        // Calculate estimated duration
+        // Calculate estimated duration from services
         if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            Integer totalDuration = request.getBookingItems().stream()
-                    .filter(item -> item != null && item.getDurationMinutes() != null)
-                    .mapToInt(item -> item.getDurationMinutes())
-                    .sum();
+            // For now, use a default duration per service since duration is not in request
+            // In a real implementation, you would fetch service duration from Service entity
+            Integer totalDuration = request.getBookingItems().size() * 60; // Default 60 minutes per service
             booking.setEstimatedDurationMinutes(totalDuration);
         }
 
@@ -289,16 +288,13 @@ public class BookingManagementService {
                 bookingItem.setIsActive(true);
                 bookingItem.setIsDeleted(false);
 
-                // Calculate unit price from price book if not provided
-                if (itemRequest.getUnitPrice() == null) {
-                    BigDecimal unitPrice = calculateItemUnitPrice(itemRequest);
-                    bookingItem.setUnitPrice(unitPrice);
-                    log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
-                }
+                // Always calculate unit price from price book
+                BigDecimal unitPrice = calculateItemUnitPrice(itemRequest);
+                bookingItem.setUnitPrice(unitPrice);
+                log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
 
-                // Calculate total amount
-                BigDecimal subtotal = bookingItem.getUnitPrice()
-                        .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+                // Calculate total amount (services are always quantity 1)
+                BigDecimal subtotal = bookingItem.getUnitPrice(); // Services are always quantity 1
                 BigDecimal totalAmount = subtotal
                         .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount()
                                 : BigDecimal.ZERO)
@@ -559,16 +555,12 @@ public class BookingManagementService {
      */
     private BigDecimal calculateItemUnitPrice(CreateBookingItemRequest itemRequest) {
         try {
-            if (itemRequest.getItemType() == BookingItem.ItemType.SERVICE) {
-                // Lấy giá service từ bảng giá
-                return pricingBusinessService.resolveServicePrice(itemRequest.getItemId(), null);
-            }
+            // Lấy giá service từ bảng giá
+            return pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
         } catch (Exception e) {
-            log.error("Error calculating unit price for item {}: {}", itemRequest.getItemId(), e.getMessage());
+            log.error("Error calculating unit price for service {}: {}", itemRequest.getServiceId(), e.getMessage());
+            throw new RuntimeException("Could not determine unit price for service: " + itemRequest.getItemName());
         }
-
-        // Fallback: throw exception nếu không tính được giá
-        throw new RuntimeException("Could not determine unit price for item: " + itemRequest.getItemName());
     }
 
     /**

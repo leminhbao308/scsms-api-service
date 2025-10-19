@@ -72,7 +72,7 @@ public class BookingItem extends AuditEntity {
     private BigDecimal unitPrice;
     
     /**
-     * Số lượng
+     * Số lượng (services are always quantity 1)
      */
     @Column(name = "quantity", nullable = false)
     @Builder.Default

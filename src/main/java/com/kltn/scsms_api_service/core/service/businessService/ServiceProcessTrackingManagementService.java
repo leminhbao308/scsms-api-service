@@ -53,22 +53,15 @@ public class ServiceProcessTrackingManagementService {
         // Validate service step exists
         ServiceProcessStep serviceStep = serviceProcessStepService.getById(request.getServiceStepId());
         
-        // Validate technician exists
-        User technician = userService.findById(request.getTechnicianId())
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Technician not found"));
-        
         // Validate bay exists
         ServiceBay bay = serviceBayService.getById(request.getBayId());
         
-        // Create tracking
+        // Create tracking (simplified - no technician, estimatedDuration, progressPercent)
         ServiceProcessTracking tracking = ServiceProcessTracking.builder()
                 .booking(booking)
                 .serviceStep(serviceStep)
-                .technician(technician)
                 .bay(bay)
-                .estimatedDuration(request.getEstimatedDuration() != null ? request.getEstimatedDuration() : 30) // Default 30 minutes
                 .status(request.getStatus() != null ? request.getStatus() : ServiceProcessTracking.TrackingStatus.PENDING)
-                .progressPercent(request.getProgressPercent() != null ? request.getProgressPercent() : BigDecimal.ZERO)
                 .notes(request.getNotes())
                 .evidenceMediaUrls(request.getEvidenceMediaUrls())
                 .build();
@@ -91,11 +84,11 @@ public class ServiceProcessTrackingManagementService {
                 "Tracking must be in PENDING status to start");
         }
         
-        // Get technician
+        // Get technician from bay assignment (simplified approach)
         User technician = userService.findById(request.getTechnicianId())
                 .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Technician not found"));
         
-        // Start step
+        // Start step (simplified - no technician parameter)
         tracking.startStep(technician);
         if (request.getNotes() != null) {
             tracking.addNote(request.getNotes(), technician);
@@ -119,10 +112,13 @@ public class ServiceProcessTrackingManagementService {
                 "Tracking must be in progress to update progress");
         }
         
-        // Update progress
-        tracking.updateProgress(request.getProgressPercent(), tracking.getTechnician());
+        // Update progress (simplified - no progress tracking)
+        // Progress update method removed - simplified tracking
         if (request.getNotes() != null) {
-            tracking.addNote(request.getNotes(), tracking.getTechnician());
+            // For simplified tracking, we don't need technician for notes
+            // Just update the notes directly
+            tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
+                    LocalDateTime.now().toString() + " - " + request.getNotes());
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
@@ -146,7 +142,9 @@ public class ServiceProcessTrackingManagementService {
         // Complete step
         tracking.completeStep();
         if (request.getNotes() != null) {
-            tracking.addNote(request.getNotes(), tracking.getTechnician());
+            // For simplified tracking, we don't need technician for notes
+            tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
+                    LocalDateTime.now().toString() + " - " + request.getNotes());
         }
         if (request.getEvidenceMediaUrls() != null && !request.getEvidenceMediaUrls().trim().isEmpty()) {
             // Parse and add media URLs
@@ -154,7 +152,15 @@ public class ServiceProcessTrackingManagementService {
             for (String mediaUrl : mediaUrls) {
                 String trimmedUrl = mediaUrl.trim();
                 if (!trimmedUrl.isEmpty()) {
-                    tracking.addEvidenceMedia(trimmedUrl, tracking.getTechnician());
+                    // For simplified tracking, we don't need technician for evidence media
+                    // Just append to existing evidence media URLs
+                    String currentUrls = tracking.getEvidenceMediaUrls() != null ? tracking.getEvidenceMediaUrls() : "[]";
+                    if (currentUrls.equals("[]")) {
+                        tracking.setEvidenceMediaUrls("[\"" + trimmedUrl + "\"]");
+                    } else {
+                        tracking.setEvidenceMediaUrls(currentUrls.substring(0, currentUrls.length() - 1) + 
+                                ",\"" + trimmedUrl + "\"]");
+                    }
                 }
             }
         }
@@ -177,8 +183,12 @@ public class ServiceProcessTrackingManagementService {
                 "Tracking cannot be cancelled in current status");
         }
         
-        // Cancel step
-        tracking.cancelStep(request.getReason(), tracking.getTechnician());
+        // Cancel step (simplified - no technician needed)
+        tracking.setStatus(ServiceProcessTracking.TrackingStatus.CANCELLED);
+        tracking.setEndTime(LocalDateTime.now());
+        tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
+                "Cancelled: " + request.getReason());
+        tracking.setLastUpdatedAt(LocalDateTime.now());
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
@@ -198,16 +208,15 @@ public class ServiceProcessTrackingManagementService {
     }
     
     /**
-     * Lấy tracking theo kỹ thuật viên
+     * Lấy tracking theo kỹ thuật viên (deprecated - technicians are now assigned to bays)
      */
     @Transactional(readOnly = true)
     public List<ServiceProcessTrackingInfoDto> getTrackingsByTechnician(UUID technicianId) {
-        log.info("Getting trackings for technician: {}", technicianId);
+        log.warn("getTrackingsByTechnician is deprecated - technicians are now assigned to bays. Use getTrackingsByBay instead.");
         
-        List<ServiceProcessTracking> trackings = serviceProcessTrackingService.findByTechnician(technicianId);
-        return trackings.stream()
-                .map(serviceProcessTrackingMapper::toServiceProcessTrackingInfoDto)
-                .collect(Collectors.toList());
+        // For now, return empty list since technician tracking is no longer supported
+        // In the future, this could be implemented by finding trackings for bays assigned to this technician
+        return List.of();
     }
     
     /**
@@ -289,36 +298,41 @@ public class ServiceProcessTrackingManagementService {
     }
     
     /**
-     * Lấy thống kê hiệu suất theo kỹ thuật viên
+     * Lấy thống kê hiệu suất theo kỹ thuật viên (deprecated - efficiency tracking removed)
      */
     @Transactional(readOnly = true)
     public BigDecimal getTechnicianEfficiency(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        log.info("Getting efficiency for technician: {} from {} to {}", technicianId, startDate, endDate);
+        log.warn("getTechnicianEfficiency is deprecated - efficiency tracking has been removed from simplified tracking system.");
         
-        Double efficiency = serviceProcessTrackingService.getAverageEfficiencyByTechnician(technicianId, startDate, endDate);
-        return efficiency != null ? BigDecimal.valueOf(efficiency) : BigDecimal.ZERO;
+        // Return zero since efficiency tracking is no longer supported
+        return BigDecimal.ZERO;
     }
     
     /**
-     * Lấy tổng thời gian làm việc theo kỹ thuật viên
+     * Lấy tổng thời gian làm việc theo kỹ thuật viên (deprecated - actual duration tracking removed)
      */
     @Transactional(readOnly = true)
     public Long getTechnicianTotalWorkTime(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        log.info("Getting total work time for technician: {} from {} to {}", technicianId, startDate, endDate);
+        log.warn("getTechnicianTotalWorkTime is deprecated - actual duration tracking has been removed from simplified tracking system.");
         
-        return serviceProcessTrackingService.sumActualDurationByTechnician(technicianId, startDate, endDate);
+        // Return zero since actual duration tracking is no longer supported
+        return 0L;
     }
     
     /**
      * Thêm media evidence cho tracking
      */
-    public ServiceProcessTrackingInfoDto addEvidenceMedia(UUID trackingId, String mediaUrl) {
+    public ServiceProcessTrackingInfoDto addEvidenceMedia(UUID trackingId, String mediaUrl, UUID technicianId) {
         log.info("Adding evidence media for tracking: {}", trackingId);
         
         ServiceProcessTracking tracking = serviceProcessTrackingService.getById(trackingId);
         
+        // Get technician
+        User technician = userService.findById(technicianId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Technician not found"));
+        
         // Add evidence media
-        tracking.addEvidenceMedia(mediaUrl, tracking.getTechnician());
+        tracking.addEvidenceMedia(mediaUrl, technician);
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);

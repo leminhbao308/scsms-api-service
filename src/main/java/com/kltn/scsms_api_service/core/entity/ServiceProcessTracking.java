@@ -42,12 +42,7 @@ public class ServiceProcessTracking extends AuditEntity {
     @JoinColumn(name = "service_step_id", nullable = false)
     private ServiceProcessStep serviceStep;
     
-    /**
-     * Kỹ thuật viên đang phụ trách bước này
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "technician_id", nullable = false)
-    private User technician;
+    // Technician removed - will use bay's assigned technicians
     
     /**
      * Bay đang được sử dụng
@@ -68,17 +63,7 @@ public class ServiceProcessTracking extends AuditEntity {
     @Column(name = "end_time")
     private LocalDateTime endTime;
     
-    /**
-     * Thời gian ước lượng hoàn thành (phút)
-     */
-    @Column(name = "estimated_duration")
-    private Integer estimatedDuration;
-    
-    /**
-     * Thời gian thực tế thực hiện (phút)
-     */
-    @Column(name = "actual_duration")
-    private Integer actualDuration;
+    // Duration fields removed - will use service step's default duration
     
     /**
      * Trạng thái tiến trình của bước
@@ -88,12 +73,7 @@ public class ServiceProcessTracking extends AuditEntity {
     @Builder.Default
     private TrackingStatus status = TrackingStatus.PENDING;
     
-    /**
-     * Tiến độ hoàn thành (0.00 - 100.00)
-     */
-    @Column(name = "progress_percent", precision = 5, scale = 2)
-    @Builder.Default
-    private BigDecimal progressPercent = BigDecimal.ZERO;
+    // Progress percent removed - simplified tracking
     
     /**
      * Ghi chú từ kỹ thuật viên hoặc quản lý
@@ -126,35 +106,14 @@ public class ServiceProcessTracking extends AuditEntity {
     /**
      * Bắt đầu thực hiện bước
      */
-    public void startStep(User technician) {
+    public void startStep(User updatedBy) {
         this.status = TrackingStatus.IN_PROGRESS;
         this.startTime = LocalDateTime.now();
-        this.technician = technician;
-        this.progressPercent = BigDecimal.ZERO;
-        this.lastUpdatedBy = technician;
+        this.lastUpdatedBy = updatedBy;
         this.lastUpdatedAt = LocalDateTime.now();
     }
     
-    /**
-     * Cập nhật tiến độ
-     */
-    public void updateProgress(BigDecimal progressPercent, User updatedBy) {
-        if (progressPercent.compareTo(BigDecimal.ZERO) < 0) {
-            progressPercent = BigDecimal.ZERO;
-        }
-        if (progressPercent.compareTo(new BigDecimal("100")) > 0) {
-            progressPercent = new BigDecimal("100");
-        }
-        
-        this.progressPercent = progressPercent;
-        this.lastUpdatedBy = updatedBy;
-        this.lastUpdatedAt = LocalDateTime.now();
-        
-        // Tự động hoàn thành nếu đạt 100%
-        if (progressPercent.compareTo(new BigDecimal("100")) == 0) {
-            completeStep();
-        }
-    }
+    // Progress update method removed - simplified tracking
     
     /**
      * Hoàn thành bước
@@ -162,13 +121,7 @@ public class ServiceProcessTracking extends AuditEntity {
     public void completeStep() {
         this.status = TrackingStatus.COMPLETED;
         this.endTime = LocalDateTime.now();
-        this.progressPercent = new BigDecimal("100");
         this.lastUpdatedAt = LocalDateTime.now();
-        
-        // Tính thời gian thực tế
-        if (this.startTime != null) {
-            this.actualDuration = (int) java.time.Duration.between(this.startTime, this.endTime).toMinutes();
-        }
     }
     
     /**
@@ -180,11 +133,6 @@ public class ServiceProcessTracking extends AuditEntity {
         this.notes = (this.notes != null ? this.notes + "\n" : "") + "Cancelled: " + reason;
         this.lastUpdatedBy = cancelledBy;
         this.lastUpdatedAt = LocalDateTime.now();
-        
-        // Tính thời gian thực tế
-        if (this.startTime != null) {
-            this.actualDuration = (int) java.time.Duration.between(this.startTime, this.endTime).toMinutes();
-        }
     }
     
     /**
@@ -235,20 +183,7 @@ public class ServiceProcessTracking extends AuditEntity {
         return status == TrackingStatus.CANCELLED;
     }
     
-    /**
-     * Tính hiệu suất (actual vs estimated duration)
-     */
-    public BigDecimal getEfficiency() {
-        if (estimatedDuration == null || estimatedDuration == 0) {
-            return BigDecimal.ZERO;
-        }
-        if (actualDuration == null) {
-            return BigDecimal.ZERO;
-        }
-        
-        return new BigDecimal(estimatedDuration)
-                .divide(new BigDecimal(actualDuration), 4, java.math.RoundingMode.HALF_UP);
-    }
+    // Efficiency calculation removed - simplified tracking
     
     /**
      * Cập nhật thời gian modified

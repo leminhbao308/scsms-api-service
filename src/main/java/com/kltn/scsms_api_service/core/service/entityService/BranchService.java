@@ -49,6 +49,13 @@ public class BranchService {
         return branchRepository.save(branch);
     }
     
+    /**
+     * Lấy tất cả chi nhánh active
+     */
+    public List<Branch> findAllActiveBranches() {
+        return branchRepository.findByIsActiveTrueAndIsDeletedFalse();
+    }
+    
     public Page<Branch> getAllBranchesWithFilters(BranchFilterParam filterParam) {
         log.info("Getting branches with filters: {}", filterParam);
         

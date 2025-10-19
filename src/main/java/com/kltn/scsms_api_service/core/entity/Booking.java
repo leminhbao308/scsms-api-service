@@ -98,7 +98,7 @@ public class Booking extends AuditEntity {
     private ServiceBay serviceBay;
     
     /**
-     * Thời điểm khách mong muốn
+     * Thời điểm slot đã được chọn (ghi nhận slot thực tế được đặt)
      */
     @Column(name = "preferred_start_at")
     private LocalDateTime preferredStartAt;

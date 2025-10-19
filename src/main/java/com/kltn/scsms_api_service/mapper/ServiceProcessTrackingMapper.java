@@ -25,9 +25,7 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "serviceStepDescription", source = "serviceStep.description")
     @Mapping(target = "serviceStepOrder", source = "serviceStep.stepOrder")
     @Mapping(target = "isRequired", source = "serviceStep.isRequired")
-    @Mapping(target = "technicianId", source = "technician.userId")
-    @Mapping(target = "technicianName", source = "technician.fullName")
-    @Mapping(target = "technicianCode", source = "technician.userId")
+    // Technician fields removed - will use bay's assigned technicians
     @Mapping(target = "bayId", source = "bay.bayId")
     @Mapping(target = "bayName", source = "bay.bayName")
     @Mapping(target = "bayCode", source = "bay.bayCode")
@@ -35,7 +33,7 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "lastUpdatedByName", source = "lastUpdatedBy.fullName")
     @Mapping(target = "createdAt", source = "createdDate")
     @Mapping(target = "modifiedAt", source = "modifiedDate")
-    @Mapping(target = "efficiency", expression = "java(entity.getEfficiency())")
+    // Efficiency calculation removed - simplified tracking
     ServiceProcessTrackingInfoDto toServiceProcessTrackingInfoDto(ServiceProcessTracking entity);   
 
     /**
@@ -43,11 +41,9 @@ public interface ServiceProcessTrackingMapper {
      */
     @Mapping(target = "trackingId", ignore = true)
     @Mapping(target = "booking", ignore = true)
-    @Mapping(target = "technician", ignore = true)
     @Mapping(target = "bay", ignore = true)
     @Mapping(target = "startTime", ignore = true)
     @Mapping(target = "endTime", ignore = true)
-    @Mapping(target = "actualDuration", ignore = true)
     @Mapping(target = "lastUpdatedBy", ignore = true)
     @Mapping(target = "lastUpdatedAt", ignore = true)
     @Mapping(target = "isActive", ignore = true)
@@ -65,11 +61,9 @@ public interface ServiceProcessTrackingMapper {
      */
     @Mapping(target = "trackingId", ignore = true)
     @Mapping(target = "booking", ignore = true)
-    @Mapping(target = "technician", ignore = true)
     @Mapping(target = "bay", ignore = true)
     @Mapping(target = "startTime", ignore = true)
     @Mapping(target = "endTime", ignore = true)
-    @Mapping(target = "actualDuration", ignore = true)
     @Mapping(target = "lastUpdatedBy", ignore = true)
     @Mapping(target = "lastUpdatedAt", ignore = true)
     @Mapping(target = "isActive", ignore = true)

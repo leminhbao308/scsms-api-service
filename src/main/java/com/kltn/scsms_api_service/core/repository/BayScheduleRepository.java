@@ -123,4 +123,27 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("branchId") UUID branchId,
         @Param("date") LocalDate date,
         @Param("fromTime") LocalTime fromTime);
+    
+    /**
+     * Xóa slot AVAILABLE của bay trong ngày (chỉ xóa slot chưa được đặt)
+     */
+    void deleteByServiceBayBayIdAndScheduleDateAndStatus(
+        UUID bayId, LocalDate date, BaySchedule.ScheduleStatus status);
+    
+    /**
+     * Tìm slot đã được đặt trước ngày cụ thể (để archive)
+     */
+    List<BaySchedule> findByScheduleDateBeforeAndStatusInAndIsDeletedFalse(
+        LocalDate date, List<BaySchedule.ScheduleStatus> statuses);
+    
+    /**
+     * Tìm lịch sử slot trong khoảng thời gian (bao gồm cả đã archive)
+     */
+    List<BaySchedule> findByServiceBayBayIdAndScheduleDateBetweenAndStatusIn(
+        UUID bayId, LocalDate startDate, LocalDate endDate, List<BaySchedule.ScheduleStatus> statuses);
+    
+    /**
+     * Đếm số slot của bay trong ngày (chưa bị xóa)
+     */
+    long countByServiceBayBayIdAndScheduleDateAndIsDeletedFalse(UUID bayId, LocalDate date);
 }

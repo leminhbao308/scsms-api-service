@@ -19,11 +19,6 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
     List<ServiceProcessTracking> findByBooking_BookingIdOrderByCreatedDateAsc(UUID bookingId);
 
     /**
-     * Tìm tracking theo kỹ thuật viên
-     */
-    List<ServiceProcessTracking> findByTechnician_UserIdOrderByStartTimeDesc(UUID technicianId);
-
-    /**
      * Tìm tracking theo bay
      */
     List<ServiceProcessTracking> findByBay_BayIdOrderByStartTimeDesc(UUID bayId);
@@ -38,12 +33,6 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
      */
     List<ServiceProcessTracking> findByBooking_BookingIdAndStatusOrderByCreatedDateAsc(
             UUID bookingId, ServiceProcessTracking.TrackingStatus status);
-
-    /**
-     * Tìm tracking theo kỹ thuật viên và trạng thái
-     */
-    List<ServiceProcessTracking> findByTechnician_UserIdAndStatusOrderByStartTimeDesc(
-            UUID technicianId, ServiceProcessTracking.TrackingStatus status);
 
     /**
      * Tìm tracking theo bay và trạng thái
@@ -75,18 +64,6 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
     List<ServiceProcessTracking> findInProgressTrackings();
 
     /**
-     * Tìm tracking theo kỹ thuật viên trong khoảng thời gian
-     */
-    @Query("SELECT spt FROM ServiceProcessTracking spt WHERE " +
-            "spt.technician.userId = :technicianId AND " +
-            "spt.startTime BETWEEN :startDate AND :endDate " +
-            "ORDER BY spt.startTime DESC")
-    List<ServiceProcessTracking> findByTechnicianAndTimeRange(
-            @Param("technicianId") UUID technicianId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    /**
      * Tìm tracking theo bay trong khoảng thời gian
      */
     @Query("SELECT spt FROM ServiceProcessTracking spt WHERE " +
@@ -104,11 +81,6 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
     long countByStatus(ServiceProcessTracking.TrackingStatus status);
 
     /**
-     * Đếm tracking theo kỹ thuật viên
-     */
-    long countByTechnician_UserId(UUID technicianId);
-
-    /**
      * Đếm tracking theo bay
      */
     long countByBay_BayId(UUID bayId);
@@ -118,55 +90,6 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
      */
     long countByBooking_BookingId(UUID bookingId);
 
-    /**
-     * Tính tổng thời gian thực tế theo kỹ thuật viên
-     */
-    @Query("SELECT COALESCE(SUM(spt.actualDuration), 0) FROM ServiceProcessTracking spt " +
-            "WHERE spt.technician.userId = :technicianId AND " +
-            "spt.status = 'COMPLETED' AND " +
-            "spt.startTime BETWEEN :startDate AND :endDate")
-    Long sumActualDurationByTechnician(
-            @Param("technicianId") UUID technicianId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Tính tổng thời gian ước lượng theo kỹ thuật viên
-     */
-    @Query("SELECT COALESCE(SUM(spt.estimatedDuration), 0) FROM ServiceProcessTracking spt " +
-            "WHERE spt.technician.userId = :technicianId AND " +
-            "spt.startTime BETWEEN :startDate AND :endDate")
-    Long sumEstimatedDurationByTechnician(
-            @Param("technicianId") UUID technicianId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Tính hiệu suất trung bình theo kỹ thuật viên
-     */
-    @Query("SELECT AVG(CASE WHEN spt.actualDuration > 0 THEN " +
-            "CAST(spt.estimatedDuration AS DOUBLE) / CAST(spt.actualDuration AS DOUBLE) " +
-            "ELSE 0 END) FROM ServiceProcessTracking spt " +
-            "WHERE spt.technician.userId = :technicianId AND " +
-            "spt.status = 'COMPLETED' AND " +
-            "spt.actualDuration > 0 AND " +
-            "spt.startTime BETWEEN :startDate AND :endDate")
-    Double getAverageEfficiencyByTechnician(
-            @Param("technicianId") UUID technicianId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Tìm tracking có tiến độ thấp (cần theo dõi)
-     */
-    @Query("SELECT spt FROM ServiceProcessTracking spt WHERE " +
-            "spt.status = 'IN_PROGRESS' AND " +
-            "spt.progressPercent < :threshold AND " +
-            "spt.startTime < :thresholdTime " +
-            "ORDER BY spt.startTime ASC")
-    List<ServiceProcessTracking> findLowProgressTrackings(
-            @Param("threshold") java.math.BigDecimal threshold,
-            @Param("thresholdTime") LocalDateTime thresholdTime);
 
     /**
      * Tìm tracking theo service step và trạng thái
@@ -207,9 +130,4 @@ public interface ServiceProcessTrackingRepository extends JpaRepository<ServiceP
             "ORDER BY spt.createdDate DESC LIMIT 1")
     ServiceProcessTracking findLatestTrackingForBooking(@Param("bookingId") UUID bookingId);
 
-    /**
-     * Tìm tracking theo kỹ thuật viên và booking
-     */
-    List<ServiceProcessTracking> findByTechnician_UserIdAndBooking_BookingIdOrderByStartTimeDesc(
-            UUID technicianId, UUID bookingId);
 }

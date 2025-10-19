@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 /**
  * Request DTO để cập nhật tiến độ tracking
  */
@@ -17,8 +15,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ProgressUpdateRequest {
     
-    @JsonProperty("progress_percent")
-    private BigDecimal progressPercent;
+    // Removed: progress_percent - simplified tracking
     
     @JsonProperty("notes")
     private String notes;

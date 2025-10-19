@@ -136,21 +136,22 @@ public class ServiceProcessTrackingController {
     }
 
     /**
-     * Lấy tracking theo kỹ thuật viên
+     * Lấy tracking theo kỹ thuật viên (DEPRECATED - technicians are now assigned to bays)
      */
     @GetMapping(ApiConstant.GET_SERVICE_PROCESS_TRACKINGS_BY_TECHNICIAN_API)
-    @SwaggerOperation(summary = "Lấy tracking theo kỹ thuật viên", description = "Lấy danh sách tracking theo kỹ thuật viên")
+    @SwaggerOperation(summary = "Lấy tracking theo kỹ thuật viên (DEPRECATED)", 
+                     description = "DEPRECATED: Lấy danh sách tracking theo kỹ thuật viên. Technicians are now assigned to bays. Use getTrackingsByBay instead.")
     // @RequirePermission(permissions = {
     // PermissionConstant.SERVICE_PROCESS_TRACKING_READ })
     public ResponseEntity<BaseResponseData<List<ServiceProcessTrackingInfoDto>>> getTrackingsByTechnician(
             @Parameter(description = "Technician ID") @PathVariable UUID technicianId) {
-        log.info("Getting service process trackings by technician: {}", technicianId);
+        log.warn("DEPRECATED: getTrackingsByTechnician called for technician: {}. Use getTrackingsByBay instead.", technicianId);
 
         List<ServiceProcessTrackingInfoDto> response = serviceProcessTrackingManagementService
                 .getTrackingsByTechnician(technicianId);
 
         return ResponseEntity
-                .ok(new BaseResponseData<>(true, "Lấy danh sách tracking theo kỹ thuật viên thành công", response));
+                .ok(new BaseResponseData<>(true, "DEPRECATED: Lấy danh sách tracking theo kỹ thuật viên thành công. Use getTrackingsByBay instead.", response));
     }
 
     /**
@@ -283,11 +284,12 @@ public class ServiceProcessTrackingController {
     // PermissionConstant.SERVICE_PROCESS_TRACKING_UPDATE })
     public ResponseEntity<BaseResponseData<ServiceProcessTrackingInfoDto>> addEvidenceMedia(
             @Parameter(description = "Tracking ID") @PathVariable UUID trackingId,
-            @RequestParam String mediaUrl) {
-        log.info("Adding evidence media for tracking: {}", trackingId);
+            @RequestParam String mediaUrl,
+            @RequestParam UUID technicianId) {
+        log.info("Adding evidence media for tracking: {} by technician: {}", trackingId, technicianId);
 
         ServiceProcessTrackingInfoDto response = serviceProcessTrackingManagementService.addEvidenceMedia(trackingId,
-                mediaUrl);
+                mediaUrl, technicianId);
 
         return ResponseEntity.ok(new BaseResponseData<>(true, "Thêm media evidence thành công", response));
     }

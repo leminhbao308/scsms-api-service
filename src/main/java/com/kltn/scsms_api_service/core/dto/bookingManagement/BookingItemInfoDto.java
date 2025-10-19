@@ -18,17 +18,17 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingItemInfoDto {
-    
+
     private UUID bookingItemId;
     private UUID bookingId;
-    
+
     // Item information
     private BookingItem.ItemType itemType;
     private UUID itemId;
     private String itemName;
     private String itemUrl;
     private String itemDescription;
-    
+
     // Pricing information
     private BigDecimal unitPrice;
     private Integer quantity;
@@ -36,26 +36,26 @@ public class BookingItemInfoDto {
     private BigDecimal discountAmount;
     private BigDecimal taxAmount;
     private BigDecimal totalAmount;
-    
+
     // Duration information
     private Integer durationMinutes;
     private Long actualDurationMinutes;
-    
+
     // Status and timing
     private BookingItem.ItemStatus itemStatus;
     private LocalDateTime actualStartAt;
     private LocalDateTime actualEndAt;
-    
+
     // Additional information
     private String notes;
     private Integer displayOrder;
-    
+
     // Audit information
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;
     private String modifiedBy;
-    
+
     // Computed fields
     private Boolean isCompleted;
     private Boolean isInProgress;

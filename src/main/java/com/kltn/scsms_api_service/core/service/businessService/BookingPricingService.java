@@ -67,48 +67,32 @@ public class BookingPricingService {
      * Tính giá cho một booking item từ bảng giá
      * @param itemRequest Booking item request
      * @param priceBook Price book để lấy giá
-     * @return Giá của item (đã nhân với quantity)
+     * @return Giá của item (services are always quantity 1)
      */
     private BigDecimal calculateItemPrice(CreateBookingItemRequest itemRequest, PriceBook priceBook) {
-        if (itemRequest.getUnitPrice() != null) {
-            // Nếu đã có unitPrice trong request, sử dụng giá đó (fallback)
-            log.warn("Using unitPrice from request for item {}: {}", itemRequest.getItemId(), itemRequest.getUnitPrice());
-            return itemRequest.getUnitPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-        }
-
         BigDecimal unitPrice = BigDecimal.ZERO;
         UUID priceBookId = priceBook != null ? priceBook.getId() : null;
 
         try {
-            if (itemRequest.getItemType() == BookingItem.ItemType.SERVICE) {
-                // Lấy giá service từ bảng giá
-                unitPrice = getServicePriceFromPriceBook(itemRequest.getItemId(), priceBookId);
-                
-                // Fallback: nếu không có trong bảng giá, throw exception
-                if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
-                    log.error("No price found in price book for service: {}", itemRequest.getItemId());
-                    throw new RuntimeException("No price found for service: " + itemRequest.getItemName());
-                }
-                
+            // Lấy giá service từ bảng giá (services are always quantity 1)
+            unitPrice = getServicePriceFromPriceBook(itemRequest.getServiceId(), priceBookId);
+            
+            // Nếu không có trong bảng giá, throw exception
+            if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
+                log.error("No price found in price book for service: {}", itemRequest.getServiceId());
+                throw new RuntimeException("No price found for service: " + itemRequest.getItemName());
             }
+                
         } catch (Exception e) {
-            log.error("Error calculating price for item {}: {}", itemRequest.getItemId(), e.getMessage());
-            // Fallback to request unitPrice if available
-            if (itemRequest.getUnitPrice() != null) {
-                unitPrice = itemRequest.getUnitPrice();
-            }
+            log.error("Error calculating price for service {}: {}", itemRequest.getServiceId(), e.getMessage());
+            throw new RuntimeException("Could not determine price for service: " + itemRequest.getItemName());
         }
 
-        if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
-            log.error("Could not determine price for item {}: {}", itemRequest.getItemId(), itemRequest.getItemName());
-            throw new RuntimeException("Could not determine price for item: " + itemRequest.getItemName());
-        }
-
-        BigDecimal totalItemPrice = unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-        log.info("Item {} ({}): unitPrice={}, quantity={}, total={}", 
-                itemRequest.getItemName(), itemRequest.getItemType(), unitPrice, itemRequest.getQuantity(), totalItemPrice);
+        // Services are always quantity 1, so total price = unit price
+        log.info("Service {}: unitPrice={} (quantity=1, total={})", 
+                itemRequest.getItemName(), unitPrice, unitPrice);
         
-        return totalItemPrice;
+        return unitPrice;
     }
 
     /**
@@ -134,11 +118,11 @@ public class BookingPricingService {
      */
     public BigDecimal calculateBookingItemPrice(BookingItem bookingItem, UUID priceBookId) {
         CreateBookingItemRequest itemRequest = CreateBookingItemRequest.builder()
-                .itemType(bookingItem.getItemType())
-                .itemId(bookingItem.getItemId())
+                .serviceId(bookingItem.getItemId()) // Use itemId as serviceId
                 .itemName(bookingItem.getItemName())
-                .unitPrice(bookingItem.getUnitPrice())
-                .quantity(bookingItem.getQuantity())
+                .itemDescription(bookingItem.getItemDescription())
+                .discountAmount(bookingItem.getDiscountAmount())
+                .taxAmount(bookingItem.getTaxAmount())
                 .build();
 
         return calculateItemPrice(itemRequest, 

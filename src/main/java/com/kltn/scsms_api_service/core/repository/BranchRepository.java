@@ -68,4 +68,9 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     @Query("SELECT b FROM Branch b WHERE b.center.centerId = :centerId ORDER BY b.branchName")
     List<Branch> findByCenterIdOrderByBranchName(@Param("centerId") UUID centerId);
     
+    /**
+     * Tìm tất cả chi nhánh active
+     */
+    List<Branch> findByIsActiveTrueAndIsDeletedFalse();
+    
 }

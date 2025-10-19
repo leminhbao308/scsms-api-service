@@ -26,3 +26,13 @@ app:
         expires-in: ${APP_JWT_OTP_EXPIRES_IN:300000} # 5 minutes in milliseconds
     reset-password:
         expires-in: ${APP_JWT_RESET_PASSWORD_EXPIRES_IN:300000} # 5 minutes in milliseconds
+  
+  schedule:
+    # Mode: ROLLING_WINDOW (30 ngày từ hôm nay) hoặc MONTHLY (theo tháng)
+    mode: ${APP_SCHEDULE_MODE:MONTHLY}
+    # Monthly type: CURRENT_ONLY, NEXT_30_DAYS, CURRENT_AND_NEXT
+    monthly-type: ${APP_SCHEDULE_MONTHLY_TYPE:CURRENT_AND_NEXT}
+    # Archive: số ngày sau đó slot đã đặt sẽ được soft delete (mặc định 30 ngày)
+    archive-days: ${APP_SCHEDULE_ARCHIVE_DAYS:30}
+    # Max advance booking: số ngày tối đa khách hàng có thể đặt trước (mặc định 30 ngày)
+    max-advance-booking-days: ${APP_SCHEDULE_MAX_ADVANCE_BOOKING_DAYS:30}

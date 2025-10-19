@@ -11,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -22,9 +21,9 @@ import java.util.UUID;
 @Slf4j
 @Transactional(readOnly = true)
 public class ServiceProcessTrackingService {
-    
+
     private final ServiceProcessTrackingRepository serviceProcessTrackingRepository;
-    
+
     /**
      * Lưu tracking mới
      */
@@ -38,7 +37,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_SAVE_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Cập nhật tracking
      */
@@ -52,7 +51,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_UPDATE_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking theo ID
      */
@@ -64,7 +63,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Lấy tracking theo ID (throw exception nếu không tìm thấy)
      */
@@ -72,7 +71,7 @@ public class ServiceProcessTrackingService {
         return findById(trackingId)
                 .orElseThrow(() -> new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_NOT_FOUND));
     }
-    
+
     /**
      * Lấy tất cả tracking với phân trang
      */
@@ -84,7 +83,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking theo booking
      */
@@ -96,19 +95,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
-    /**
-     * Tìm tracking theo kỹ thuật viên
-     */
-    public List<ServiceProcessTracking> findByTechnician(UUID technicianId) {
-        try {
-            return serviceProcessTrackingRepository.findByTechnician_UserIdOrderByStartTimeDesc(technicianId);
-        } catch (Exception e) {
-            log.error("Error finding service process tracking by technician: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
+
     /**
      * Tìm tracking theo bay
      */
@@ -120,7 +107,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking theo trạng thái
      */
@@ -132,19 +119,21 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking theo booking và trạng thái
      */
-    public List<ServiceProcessTracking> findByBookingAndStatus(UUID bookingId, ServiceProcessTracking.TrackingStatus status) {
+    public List<ServiceProcessTracking> findByBookingAndStatus(UUID bookingId,
+            ServiceProcessTracking.TrackingStatus status) {
         try {
-            return serviceProcessTrackingRepository.findByBooking_BookingIdAndStatusOrderByCreatedDateAsc(bookingId, status);
+            return serviceProcessTrackingRepository.findByBooking_BookingIdAndStatusOrderByCreatedDateAsc(bookingId,
+                    status);
         } catch (Exception e) {
             log.error("Error finding service process tracking by booking and status: {}", e.getMessage(), e);
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking đang thực hiện
      */
@@ -156,7 +145,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Tìm tracking theo khoảng thời gian
      */
@@ -168,23 +157,12 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
-    /**
-     * Tìm tracking theo kỹ thuật viên và khoảng thời gian
-     */
-    public List<ServiceProcessTracking> findByTechnicianAndTimeRange(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        try {
-            return serviceProcessTrackingRepository.findByTechnicianAndTimeRange(technicianId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Error finding service process tracking by technician and time range: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
+
     /**
      * Tìm tracking theo bay và khoảng thời gian
      */
-    public List<ServiceProcessTracking> findByBayAndTimeRange(UUID bayId, LocalDateTime startDate, LocalDateTime endDate) {
+    public List<ServiceProcessTracking> findByBayAndTimeRange(UUID bayId, LocalDateTime startDate,
+            LocalDateTime endDate) {
         try {
             return serviceProcessTrackingRepository.findByBayAndTimeRange(bayId, startDate, endDate);
         } catch (Exception e) {
@@ -192,19 +170,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
-    /**
-     * Tìm tracking có tiến độ thấp
-     */
-    public List<ServiceProcessTracking> findLowProgressTrackings(BigDecimal threshold, LocalDateTime thresholdTime) {
-        try {
-            return serviceProcessTrackingRepository.findLowProgressTrackings(threshold, thresholdTime);
-        } catch (Exception e) {
-            log.error("Error finding low progress trackings: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
+
     /**
      * Tìm tracking cuối cùng của booking
      */
@@ -216,7 +182,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Kiểm tra xem có tracking nào đang thực hiện cho booking không
      */
@@ -228,7 +194,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Đếm tracking theo trạng thái
      */
@@ -240,55 +206,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
         }
     }
-    
-    /**
-     * Đếm tracking theo kỹ thuật viên
-     */
-    public long countByTechnician(UUID technicianId) {
-        try {
-            return serviceProcessTrackingRepository.countByTechnician_UserId(technicianId);
-        } catch (Exception e) {
-            log.error("Error counting service process tracking by technician: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
-    /**
-     * Tính tổng thời gian thực tế theo kỹ thuật viên
-     */
-    public Long sumActualDurationByTechnician(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        try {
-            return serviceProcessTrackingRepository.sumActualDurationByTechnician(technicianId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Error summing actual duration by technician: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
-    /**
-     * Tính tổng thời gian ước lượng theo kỹ thuật viên
-     */
-    public Long sumEstimatedDurationByTechnician(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        try {
-            return serviceProcessTrackingRepository.sumEstimatedDurationByTechnician(technicianId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Error summing estimated duration by technician: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
-    /**
-     * Tính hiệu suất trung bình theo kỹ thuật viên
-     */
-    public Double getAverageEfficiencyByTechnician(UUID technicianId, LocalDateTime startDate, LocalDateTime endDate) {
-        try {
-            return serviceProcessTrackingRepository.getAverageEfficiencyByTechnician(technicianId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Error getting average efficiency by technician: {}", e.getMessage(), e);
-            throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_FIND_FAILED, e.getMessage());
-        }
-    }
-    
+
     /**
      * Xóa tracking
      */
@@ -302,7 +220,7 @@ public class ServiceProcessTrackingService {
             throw new ServerSideException(ErrorCode.SERVICE_PROCESS_TRACKING_DELETE_FAILED, e.getMessage());
         }
     }
-    
+
     /**
      * Xóa tracking theo booking
      */

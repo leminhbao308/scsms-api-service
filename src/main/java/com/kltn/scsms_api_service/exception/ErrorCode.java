@@ -119,6 +119,7 @@ public enum ErrorCode {
     INVALID_SLOT_STATUS("SCS-7003", "SCS-7003", "BOOKING_SCHEDULE", "Invalid slot status for operation", "error.invalid_slot_status"),
     MISSING_SLOT_INFO("SCS-7004", "SCS-7004", "BOOKING_SCHEDULE", "Booking must have slot information", "error.missing_slot_info"),
     INVALID_BOOKING_STATUS("SCS-7005", "SCS-7005", "BOOKING_SCHEDULE", "Invalid booking status for operation", "error.invalid_booking_status"),
+    INVALID_BOOKING_DATE("SCS-7006", "SCS-7006", "BOOKING_SCHEDULE", "Booking date is outside allowed range", "error.invalid_booking_date"),
     SERVICE_BAY_CANNOT_BE_DELETED("SCS-D006", "SCS-D006", "SERVICE_BAY", "Service bay cannot be deleted", "error.service_bay_cannot_be_deleted"),
     SERVICE_BAY_CANNOT_BE_UPDATED("SCS-D007", "SCS-D007", "SERVICE_BAY", "Service bay cannot be updated", "error.service_bay_cannot_be_updated"),
     SERVICE_BAY_INVALID_STATUS("SCS-D008", "SCS-D008", "SERVICE_BAY", "Invalid service bay status", "error.service_bay_invalid_status"),
