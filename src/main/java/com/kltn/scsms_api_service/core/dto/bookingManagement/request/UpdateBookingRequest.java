@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Request DTO để cập nhật booking
@@ -42,6 +43,12 @@ public class UpdateBookingRequest {
     @JsonProperty("vehicle_color")
     private String vehicleColor;
     
+    // Branch and Service Bay information
+    @JsonProperty("branch_id")
+    private UUID branchId;
+    @JsonProperty("service_bay_id")
+    private UUID serviceBayId;
+    
     // Scheduling information
     @JsonProperty("preferred_start_at")
     private LocalDateTime preferredStartAt;
@@ -49,6 +56,12 @@ public class UpdateBookingRequest {
     private LocalDateTime scheduledStartAt;
     @JsonProperty("scheduled_end_at")
     private LocalDateTime scheduledEndAt;
+    
+    // Slot information
+    @JsonProperty("slot_date")
+    private java.time.LocalDate slotDate;
+    @JsonProperty("slot_start_time")
+    private java.time.LocalTime slotStartTime;
     
     // Duration information
     @JsonProperty("estimated_duration_minutes")

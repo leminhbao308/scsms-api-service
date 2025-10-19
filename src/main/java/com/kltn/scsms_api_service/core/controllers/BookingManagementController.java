@@ -4,6 +4,7 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.param.BookingFilterParam;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.request.ChangeSlotRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBookingRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -196,6 +197,18 @@ public class BookingManagementController {
         return ResponseBuilder.success(booking);
     }
     
+    @PostMapping("/bookings/{bookingId}/change-slot")
+    @Operation(summary = "Change booking slot", description = "Change the slot (bay, date, time) of an existing booking")
+    @SwaggerOperation(summary = "Change booking slot")
+    public ResponseEntity<ApiResponse<BookingInfoDto>> changeBookingSlot(
+            @Parameter(description = "Booking ID") @PathVariable UUID bookingId,
+            @Parameter(description = "Change slot request") @RequestBody ChangeSlotRequest request) {
+        log.info("Changing slot for booking: {} to bay: {} at {} {}", 
+            bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
+        BookingInfoDto booking = bookingManagementService.changeBookingSlot(bookingId, request);
+        return ResponseBuilder.success(booking);
+    }
+    
     @PostMapping("/bookings/{bookingId}/delete")
     @Operation(summary = "Delete booking", description = "Delete a booking (soft delete)")
     @SwaggerOperation(summary = "Delete booking")
@@ -215,7 +228,7 @@ public class BookingManagementController {
         String reason = request.get("reason");
         String cancelledBy = request.get("cancelledBy");
         log.info("Cancelling booking: {} with reason: {}", bookingId, reason);
-        bookingManagementService.cancelBooking(bookingId, reason, cancelledBy);
+        bookingWorkflowService.cancelBooking(bookingId, reason, cancelledBy);
         return ResponseBuilder.success("Booking cancelled successfully");
     }
     

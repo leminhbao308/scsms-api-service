@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/booking-schedule")
+@RequestMapping("/booking-schedule")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Booking Schedule Management", description = "APIs for managing booking schedules and time slots")

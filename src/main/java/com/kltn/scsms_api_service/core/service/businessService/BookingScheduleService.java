@@ -58,33 +58,35 @@ public class BookingScheduleService {
         List<TimeSlotDto> availableSlots = new ArrayList<>();
         
         for (ServiceBay bay : availableBays) {
-            List<BaySchedule> baySlots = bayScheduleService.getAvailableSlots(bay.getBayId(), request.getDate());
+            // Lấy tất cả slot (cả available và booked) để hiển thị đúng trạng thái
+            List<BaySchedule> allBaySlots = bayScheduleService.getBaySchedules(bay.getBayId(), request.getDate());
             
-            for (BaySchedule slot : baySlots) {
-                // Kiểm tra slot có đủ thời gian cho dịch vụ không
-                if (canAccommodateService(slot, request.getServiceDurationMinutes(), request)) {
-                    TimeSlotDto timeSlot = TimeSlotDto.builder()
-                        .bayId(bay.getBayId())
-                        .bayName(bay.getBayName())
-                        .bayCode(bay.getBayCode())
-                        .startTime(slot.getStartTime())
-                        .endTime(slot.getEndTime())
-                        .estimatedEndTime(calculateEstimatedEndTime(
-                            slot.getStartTime(),
-                            request.getServiceDurationMinutes(),
-                            bay.getBufferMinutes()))
-                        .status(slot.getStatus().name())
-                        .notes(slot.getNotes())
-                        .isAvailable(true)
-                        .durationMinutes(request.getServiceDurationMinutes())
-                        .build();
-                    
-                    availableSlots.add(timeSlot);
-                }
+            for (BaySchedule slot : allBaySlots) {
+                // Kiểm tra slot có đủ thời gian cho dịch vụ không (chỉ cho slot available)
+                boolean canAccommodate = slot.getStatus() == BaySchedule.ScheduleStatus.AVAILABLE && 
+                    canAccommodateService(slot, request.getServiceDurationMinutes(), request);
+                
+                TimeSlotDto timeSlot = TimeSlotDto.builder()
+                    .bayId(bay.getBayId())
+                    .bayName(bay.getBayName())
+                    .bayCode(bay.getBayCode())
+                    .startTime(slot.getStartTime())
+                    .endTime(slot.getEndTime())
+                    .estimatedEndTime(calculateEstimatedEndTime(
+                        slot.getStartTime(),
+                        request.getServiceDurationMinutes(),
+                        0)) // Không cộng buffer vào service duration
+                    .status(slot.getStatus().name())
+                    .notes(slot.getNotes())
+                    .isAvailable(slot.getStatus() == BaySchedule.ScheduleStatus.AVAILABLE && canAccommodate)
+                    .durationMinutes(request.getServiceDurationMinutes())
+                    .build();
+                
+                availableSlots.add(timeSlot);
             }
         }
         
-        log.info("Found {} available slots", availableSlots.size());
+        log.info("Found {} total slots (including booked slots)", availableSlots.size());
         return availableSlots;
     }
     
@@ -115,18 +117,38 @@ public class BookingScheduleService {
                 "Slot does not have enough time for the service");
         }
         
-        // Đặt slot
-        bayScheduleService.bookSlot(request.getBayId(), request.getDate(), request.getStartTime(), request.getBookingId());
-        
-        // Cập nhật booking với thông tin slot
-        updateBookingWithSlotInfo(booking, bay, request);
-        
-        // Block các slot trong khoảng thời gian
+        // Tính thời gian kết thúc dự kiến (KHÔNG cộng buffer)
         LocalTime endTime = calculateEstimatedEndTime(
             request.getStartTime(), 
             request.getServiceDurationMinutes(), 
-            bay.getBufferMinutes());
-        bayScheduleService.blockSlotsInTimeRange(request.getBayId(), request.getDate(), request.getStartTime(), endTime);
+            0); // Không cộng buffer vào service duration
+        
+        // Tìm tất cả slot cần thiết cho dịch vụ
+        List<BaySchedule> requiredSlots = findRequiredSlotsForService(
+            request.getBayId(), 
+            request.getDate(), 
+            request.getStartTime(), 
+            endTime);
+        
+        // Kiểm tra tất cả slot cần thiết đều available
+        for (BaySchedule requiredSlot : requiredSlots) {
+            if (requiredSlot.getStatus() != BaySchedule.ScheduleStatus.AVAILABLE) {
+                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                    "Required slot is not available: " + requiredSlot.getStartTime() + " - " + requiredSlot.getEndTime());
+            }
+        }
+        
+        // Đặt tất cả slot cần thiết
+        for (BaySchedule requiredSlot : requiredSlots) {
+            bayScheduleService.bookSlot(
+                requiredSlot.getServiceBay().getBayId(),
+                requiredSlot.getScheduleDate(),
+                requiredSlot.getStartTime(),
+                request.getBookingId());
+        }
+        
+        // Cập nhật booking với thông tin slot
+        updateBookingWithSlotInfo(booking, bay, request);
         
         log.info("Successfully booked slot for booking: {}", request.getBookingId());
     }
@@ -252,22 +274,11 @@ public class BookingScheduleService {
     }
     
     /**
-     * Kiểm tra slot có thể chứa dịch vụ không
+     * Kiểm tra slot có thể chứa dịch vụ không (bao gồm cả slot liền kề)
      */
     private boolean canAccommodateService(BaySchedule slot, Integer serviceDurationMinutes, AvailableSlotsRequest request) {
         // Kiểm tra thời gian
         if (serviceDurationMinutes == null || serviceDurationMinutes <= 0) {
-            return false;
-        }
-        
-        // Kiểm tra slot có đủ thời gian không (bao gồm buffer)
-        ServiceBay bay = slot.getServiceBay();
-        LocalTime estimatedEndTime = calculateEstimatedEndTime(
-            slot.getStartTime(), 
-            serviceDurationMinutes, 
-            bay.getBufferMinutes());
-        
-        if (estimatedEndTime.isAfter(slot.getEndTime())) {
             return false;
         }
         
@@ -281,7 +292,71 @@ public class BookingScheduleService {
             }
         }
         
+        // Kiểm tra slot có đủ thời gian không (KHÔNG cộng buffer)
+        ServiceBay bay = slot.getServiceBay();
+        LocalTime estimatedEndTime = calculateEstimatedEndTime(
+            slot.getStartTime(), 
+            serviceDurationMinutes, 
+            0); // Không cộng buffer vào service duration
+        
+        // Nếu dịch vụ chỉ cần 1 slot
+        if (!estimatedEndTime.isAfter(slot.getEndTime())) {
+            return true;
+        }
+        
+        // Nếu dịch vụ cần nhiều slot, kiểm tra các slot liền kề
+        return canAccommodateMultiSlotService(slot, serviceDurationMinutes, bay);
+    }
+    
+    /**
+     * Kiểm tra dịch vụ cần nhiều slot liền kề
+     */
+    private boolean canAccommodateMultiSlotService(BaySchedule startSlot, Integer serviceDurationMinutes, ServiceBay bay) {
+        LocalTime estimatedEndTime = calculateEstimatedEndTime(
+            startSlot.getStartTime(), 
+            serviceDurationMinutes, 
+            0); // Không cộng buffer vào service duration
+        
+        // Tìm tất cả slot cần thiết cho dịch vụ
+        List<BaySchedule> requiredSlots = findRequiredSlotsForService(
+            bay.getBayId(), 
+            startSlot.getScheduleDate(), 
+            startSlot.getStartTime(), 
+            estimatedEndTime);
+        
+        // Kiểm tra tất cả slot cần thiết đều available
+        for (BaySchedule requiredSlot : requiredSlots) {
+            if (requiredSlot.getStatus() != BaySchedule.ScheduleStatus.AVAILABLE) {
+                return false;
+            }
+        }
+        
         return true;
+    }
+    
+    /**
+     * Tìm tất cả slot cần thiết cho dịch vụ
+     */
+    private List<BaySchedule> findRequiredSlotsForService(UUID bayId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        List<BaySchedule> requiredSlots = new ArrayList<>();
+        
+        // Lấy tất cả slot trong khoảng thời gian
+        List<BaySchedule> allSlots = bayScheduleService.getBaySchedules(bayId, date);
+        
+        // Tìm các slot nằm trong khoảng thời gian cần thiết
+        for (BaySchedule slot : allSlots) {
+            // Slot bắt đầu trước hoặc bằng startTime và kết thúc sau startTime
+            // HOẶC slot bắt đầu trước endTime và kết thúc sau hoặc bằng endTime
+            if ((slot.getStartTime().isBefore(startTime) || slot.getStartTime().equals(startTime)) && 
+                slot.getEndTime().isAfter(startTime)) {
+                requiredSlots.add(slot);
+            } else if (slot.getStartTime().isBefore(endTime) && 
+                      (slot.getEndTime().isAfter(endTime) || slot.getEndTime().equals(endTime))) {
+                requiredSlots.add(slot);
+            }
+        }
+        
+        return requiredSlots;
     }
     
     /**

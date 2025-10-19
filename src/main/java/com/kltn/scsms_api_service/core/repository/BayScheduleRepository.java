@@ -118,6 +118,20 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("endTime") LocalTime endTime);
     
     /**
+     * Tìm tất cả slot liên quan đến booking (chỉ lấy slot chưa bị xóa)
+     */
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.booking.bookingId = :bookingId " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.startTime")
+    List<BaySchedule> findByServiceBayBayIdAndScheduleDateAndBookingBookingId(
+        @Param("bayId") UUID bayId,
+        @Param("date") LocalDate date,
+        @Param("bookingId") UUID bookingId);
+    
+    /**
      * Tìm schedule theo booking (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +

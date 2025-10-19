@@ -94,8 +94,6 @@ public abstract class BookingMapper {
     @Mapping(target = "cancellationReason", ignore = true)
     @Mapping(target = "cancelledAt", ignore = true)
     @Mapping(target = "cancelledBy", ignore = true)
-    @Mapping(target = "createdDate", ignore = true)
-    @Mapping(target = "modifiedDate", ignore = true)
     @Mapping(target = "isActive", ignore = true)
     @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
