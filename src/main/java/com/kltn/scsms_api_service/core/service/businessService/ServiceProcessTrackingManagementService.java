@@ -35,6 +35,7 @@ public class ServiceProcessTrackingManagementService {
     private final UserService userService;
     private final ServiceBayService serviceBayService;
     private final ServiceProcessTrackingMapper serviceProcessTrackingMapper;
+    private final ServiceService serviceService;
     
     /**
      * Tạo tracking mới cho booking
@@ -53,21 +54,34 @@ public class ServiceProcessTrackingManagementService {
         // Validate service step exists
         ServiceProcessStep serviceStep = serviceProcessStepService.getById(request.getServiceStepId());
         
-        // Validate bay exists
-        ServiceBay bay = serviceBayService.getById(request.getBayId());
+        // Get bay from booking (if not provided in request)
+        UUID bayId = request.getBayId() != null ? request.getBayId() : booking.getServiceBay().getBayId();
+        ServiceBay bay = serviceBayService.getById(bayId);
+        
+        // Get car service ID (from request or from booking items)
+        UUID carServiceId = request.getCarServiceId();
+        if (carServiceId == null && booking.getBookingItems() != null && !booking.getBookingItems().isEmpty()) {
+            // Get the first service from booking items
+            carServiceId = booking.getBookingItems().stream()
+                    .filter(item -> item.getItemType() == BookingItem.ItemType.SERVICE)
+                    .map(BookingItem::getItemId)
+                    .findFirst()
+                    .orElse(null);
+        }
         
         // Create tracking (simplified - no technician, estimatedDuration, progressPercent)
         ServiceProcessTracking tracking = ServiceProcessTracking.builder()
                 .booking(booking)
                 .serviceStep(serviceStep)
                 .bay(bay)
+                .carServiceId(carServiceId)
                 .status(request.getStatus() != null ? request.getStatus() : ServiceProcessTracking.TrackingStatus.PENDING)
                 .notes(request.getNotes())
                 .evidenceMediaUrls(request.getEvidenceMediaUrls())
                 .build();
         
         ServiceProcessTracking savedTracking = serviceProcessTrackingService.save(tracking);
-        return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(savedTracking);
+        return populateCarServiceName(serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(savedTracking));
     }
     
     /**
@@ -332,5 +346,20 @@ public class ServiceProcessTrackingManagementService {
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
+    }
+    
+    /**
+     * Helper method to populate car service name in DTO
+     */
+    private ServiceProcessTrackingInfoDto populateCarServiceName(ServiceProcessTrackingInfoDto dto) {
+        if (dto.getCarServiceId() != null) {
+            try {
+                com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(dto.getCarServiceId());
+                dto.setCarServiceName(service.getServiceName());
+            } catch (Exception e) {
+                log.warn("Failed to get service name for carServiceId {}: {}", dto.getCarServiceId(), e.getMessage());
+            }
+        }
+        return dto;
     }
 }

@@ -30,6 +30,9 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("bay_id")
     private UUID bayId;
     
+    @JsonProperty("car_service_id")
+    private UUID carServiceId;
+    
     @JsonProperty("status")
     private ServiceProcessTracking.TrackingStatus status;
     

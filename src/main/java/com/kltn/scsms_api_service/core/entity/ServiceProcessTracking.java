@@ -51,6 +51,12 @@ public class ServiceProcessTracking extends AuditEntity {
     private ServiceBay bay;
     
     /**
+     * ID của dịch vụ đang được thực hiện (để dễ dàng phân loại trên UI)
+     */
+    @Column(name = "car_service_id")
+    private UUID carServiceId;
+    
+    /**
      * Thời điểm bắt đầu thực hiện bước này
      */
     @Column(name = "start_time")
