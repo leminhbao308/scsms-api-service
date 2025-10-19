@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
 
 /**
  * Request DTO để bắt đầu thực hiện bước dịch vụ
@@ -16,9 +15,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StartStepRequest {
-    
-    @JsonProperty("technician_id")
-    private UUID technicianId;
     
     @JsonProperty("notes")
     private String notes;

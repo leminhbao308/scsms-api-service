@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -113,6 +112,15 @@ public class ServiceProcessTracking extends AuditEntity {
         this.lastUpdatedAt = LocalDateTime.now();
     }
     
+    /**
+     * Bắt đầu thực hiện bước (simplified - no user tracking)
+     */
+    public void startStep() {
+        this.status = TrackingStatus.IN_PROGRESS;
+        this.startTime = LocalDateTime.now();
+        this.lastUpdatedAt = LocalDateTime.now();
+    }
+    
     // Progress update method removed - simplified tracking
     
     /**
@@ -142,6 +150,15 @@ public class ServiceProcessTracking extends AuditEntity {
         this.notes = (this.notes != null ? this.notes + "\n" : "") + 
                     LocalDateTime.now().toString() + " - " + note;
         this.lastUpdatedBy = addedBy;
+        this.lastUpdatedAt = LocalDateTime.now();
+    }
+    
+    /**
+     * Thêm ghi chú (simplified - no user tracking)
+     */
+    public void addNote(String note) {
+        this.notes = (this.notes != null ? this.notes + "\n" : "") + 
+                    LocalDateTime.now().toString() + " - " + note;
         this.lastUpdatedAt = LocalDateTime.now();
     }
     

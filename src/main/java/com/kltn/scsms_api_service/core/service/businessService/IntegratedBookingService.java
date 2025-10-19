@@ -33,7 +33,7 @@ public class IntegratedBookingService {
     private final VehicleProfileService vehicleProfileService;
     private final BookingItemService bookingItemService;
     private final BookingPricingService bookingPricingService;
-    private final BookingMapper bookingMapper;
+    private final BookingInfoService bookingInfoService;
     
     /**
      * Tạo booking hoàn chỉnh với slot trong một API call
@@ -62,7 +62,7 @@ public class IntegratedBookingService {
         log.info("Successfully created integrated booking: {} with slot: {}",
             savedBooking.getBookingId(), request.getSelectedSlot());
         
-        return bookingMapper.toBookingInfoDto(savedBooking);
+        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
     
     /**

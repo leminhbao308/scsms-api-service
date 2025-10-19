@@ -44,6 +44,7 @@ public class BookingManagementService {
     private final ServiceBayService serviceBayService;
     private final BookingMapper bookingMapper;
     private final BookingItemMapper bookingItemMapper;
+    private final BookingInfoService bookingInfoService;
     private final BookingPricingService bookingPricingService;
     private final PricingBusinessService pricingBusinessService;
 
@@ -53,9 +54,7 @@ public class BookingManagementService {
     public List<BookingInfoDto> getAllBookings() {
         log.info("Getting all bookings");
         List<Booking> bookings = bookingService.findAll();
-        return bookings.stream()
-                .map(bookingMapper::toBookingInfoDto)
-                .collect(Collectors.toList());
+        return bookingInfoService.toBookingInfoDtoList(bookings);
     }
 
     /**
@@ -77,7 +76,7 @@ public class BookingManagementService {
         // For now, we'll fetch all and filter in memory or use JPA Criteria API
         Page<Booking> bookingPage = bookingService.findAll(pageable);
 
-        return bookingPage.map(bookingMapper::toBookingInfoDto);
+        return bookingPage.map(bookingInfoService::toBookingInfoDto);
     }
 
     /**
@@ -86,7 +85,7 @@ public class BookingManagementService {
     public BookingInfoDto getBookingById(UUID bookingId) {
         log.info("Getting booking by ID: {}", bookingId);
         Booking booking = bookingService.getById(bookingId);
-        return bookingMapper.toBookingInfoDto(booking);
+        return bookingInfoService.toBookingInfoDto(booking);
     }
 
     /**
@@ -95,7 +94,7 @@ public class BookingManagementService {
     public BookingInfoDto getBookingByCode(String bookingCode) {
         log.info("Getting booking by code: {}", bookingCode);
         Booking booking = bookingService.getByBookingCode(bookingCode);
-        return bookingMapper.toBookingInfoDto(booking);
+        return bookingInfoService.toBookingInfoDto(booking);
     }
 
     /**
@@ -309,7 +308,7 @@ public class BookingManagementService {
         // Bay assignment is handled automatically through the relationship
         // No need to manually assign bay
 
-        return bookingMapper.toBookingInfoDto(savedBooking);
+        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
 
     /**
@@ -365,7 +364,7 @@ public class BookingManagementService {
         Booking updatedBooking = bookingMapper.updateEntity(existingBooking, request);
         Booking savedBooking = bookingService.update(updatedBooking);
 
-        return bookingMapper.toBookingInfoDto(savedBooking);
+        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
 
     /**
@@ -638,6 +637,6 @@ public class BookingManagementService {
         Booking savedBooking = bookingService.save(booking);
 
         log.info("Successfully marked booking {} as paid", bookingId);
-        return bookingMapper.toBookingInfoDto(savedBooking);
+        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
 }

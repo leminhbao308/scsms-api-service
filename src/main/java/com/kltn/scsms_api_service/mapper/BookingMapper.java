@@ -2,15 +2,19 @@ package com.kltn.scsms_api_service.mapper;
 
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingRequest;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingItemRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBookingRequest;
 import com.kltn.scsms_api_service.core.entity.Booking;
+import com.kltn.scsms_api_service.core.entity.BookingItem;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-public interface BookingMapper {
+public abstract class BookingMapper {
     
     /**
      * Convert Booking entity to BookingInfoDto
@@ -22,6 +26,10 @@ public interface BookingMapper {
     @Mapping(target = "branchCode", source = "branch.branchCode")
     @Mapping(target = "bayId", source = "serviceBay.bayId")
     @Mapping(target = "bayName", source = "serviceBay.bayName")
+    @Mapping(target = "bookingItems", source = "bookingItems")
+    @Mapping(target = "slotId", ignore = true) // Will be populated by custom method
+    @Mapping(target = "slotDurationMinutes", source = "serviceBay.slotDurationMinutes")
+    @Mapping(target = "slotStatus", ignore = true) // Will be populated by custom method
     @Mapping(target = "isActive", expression = "java(entity.isActive())")
     @Mapping(target = "isCancelled", expression = "java(entity.isCancelled())")
     @Mapping(target = "isCompleted", expression = "java(entity.isCompleted())")
@@ -31,7 +39,7 @@ public interface BookingMapper {
     @Mapping(target = "actualDurationMinutes", expression = "java(entity.getActualDurationMinutes())")
     @Mapping(target = "createdAt", source = "createdDate")
     @Mapping(target = "updatedAt", source = "modifiedDate")
-    BookingInfoDto toBookingInfoDto(Booking entity);
+    public abstract BookingInfoDto toBookingInfoDto(Booking entity);
     
     /**
      * Convert CreateBookingRequest to Booking entity
@@ -48,6 +56,10 @@ public interface BookingMapper {
     @Mapping(target = "actualCheckInAt", ignore = true)
     @Mapping(target = "actualStartAt", ignore = true)
     @Mapping(target = "actualEndAt", ignore = true)
+    @Mapping(target = "actualCompletionTime", ignore = true)
+    @Mapping(target = "earlyCompletionMinutes", ignore = true)
+    @Mapping(target = "slotStartTime", ignore = true)
+    @Mapping(target = "slotEndTime", ignore = true)
     @Mapping(target = "cancellationReason", ignore = true)
     @Mapping(target = "cancelledAt", ignore = true)
     @Mapping(target = "cancelledBy", ignore = true)
@@ -58,7 +70,7 @@ public interface BookingMapper {
     @Mapping(target = "createdBy", ignore = true)
     @Mapping(target = "modifiedBy", ignore = true)
     @Mapping(target = "version", ignore = true)
-    Booking toEntity(CreateBookingRequest request);
+    public abstract Booking toEntity(CreateBookingRequest request);
     
     /**
      * Update Booking entity from UpdateBookingRequest
@@ -75,6 +87,10 @@ public interface BookingMapper {
     @Mapping(target = "actualCheckInAt", ignore = true)
     @Mapping(target = "actualStartAt", ignore = true)
     @Mapping(target = "actualEndAt", ignore = true)
+    @Mapping(target = "actualCompletionTime", ignore = true)
+    @Mapping(target = "earlyCompletionMinutes", ignore = true)
+    @Mapping(target = "slotStartTime", ignore = true)
+    @Mapping(target = "slotEndTime", ignore = true)
     @Mapping(target = "cancellationReason", ignore = true)
     @Mapping(target = "cancelledAt", ignore = true)
     @Mapping(target = "cancelledBy", ignore = true)
@@ -85,5 +101,16 @@ public interface BookingMapper {
     @Mapping(target = "createdBy", ignore = true)
     @Mapping(target = "modifiedBy", ignore = true)
     @Mapping(target = "version", ignore = true)
-    Booking updateEntity(@MappingTarget Booking entity, UpdateBookingRequest request);
+    public abstract Booking updateEntity(@MappingTarget Booking entity, UpdateBookingRequest request);
+    
+    /**
+     * Convert BookingItem entity to CreateBookingItemRequest
+     */
+    @Mapping(target = "serviceId", source = "itemId")
+    public abstract CreateBookingItemRequest toCreateBookingItemRequest(BookingItem bookingItem);
+    
+    /**
+     * Convert list of BookingItem entities to list of CreateBookingItemRequest
+     */
+    public abstract List<CreateBookingItemRequest> toCreateBookingItemRequestList(List<BookingItem> bookingItems);
 }

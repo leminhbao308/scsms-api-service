@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.entity.BaySchedule;
 import com.kltn.scsms_api_service.core.service.businessService.BookingScheduleService;
 import com.kltn.scsms_api_service.core.service.entityService.BayScheduleService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -16,7 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -102,6 +105,103 @@ public class ScheduleManagementController {
             bookingScheduleService.getBaySlotStatistics(bayId, date);
         
         return ResponseBuilder.success(statistics);
+    }
+    
+    /**
+     * Debug slot availability - kiểm tra chi tiết trạng thái slot
+     */
+    @GetMapping("/debug-slot")
+    @Operation(summary = "Debug slot availability", description = "Debug detailed slot status for troubleshooting")
+    @SwaggerOperation(summary = "Debug slot availability")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> debugSlotAvailability(
+            @Parameter(description = "Bay ID") @RequestParam UUID bayId,
+            @Parameter(description = "Date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Parameter(description = "Start Time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime) {
+        
+        log.info("Debugging slot availability for bay: {} on date: {} at time: {}", bayId, date, startTime);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("bayId", bayId);
+        result.put("date", date);
+        result.put("startTime", startTime);
+        
+        try {
+            // Check if slot exists
+            boolean slotExists = bayScheduleService.getSlot(bayId, date, startTime) != null;
+            result.put("slotExists", slotExists);
+            
+            // Check if slot is available
+            boolean isAvailable = bayScheduleService.isSlotAvailable(bayId, date, startTime);
+            result.put("isAvailable", isAvailable);
+            
+            // Get all slots for this bay and date
+            List<BaySchedule> allSlots = bayScheduleService.getBaySchedules(bayId, date);
+            result.put("totalSlots", allSlots.size());
+            
+            // Get available slots
+            List<BaySchedule> availableSlots = bayScheduleService.getAvailableSlots(bayId, date);
+            result.put("availableSlots", availableSlots.size());
+            
+            // Get slot details if exists
+            if (slotExists) {
+                BaySchedule slot = bayScheduleService.getSlot(bayId, date, startTime);
+                result.put("slotStatus", slot.getStatus().toString());
+                result.put("slotId", slot.getScheduleId());
+                result.put("isActive", slot.getIsActive());
+                result.put("isDeleted", slot.getIsDeleted());
+                if (slot.getBooking() != null) {
+                    result.put("bookingId", slot.getBooking().getBookingId());
+                    result.put("bookingCode", slot.getBooking().getBookingCode());
+                }
+            }
+            
+            result.put("message", "Debug information retrieved successfully");
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("message", "Error occurred while debugging slot");
+        }
+        
+        return ResponseBuilder.success(result);
+    }
+    
+    /**
+     * Reset slot status to AVAILABLE (for debugging)
+     */
+    @PostMapping("/reset-slot")
+    @Operation(summary = "Reset slot status", description = "Reset slot status to AVAILABLE for debugging purposes")
+    @SwaggerOperation(summary = "Reset slot status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resetSlotStatus(
+            @Parameter(description = "Bay ID") @RequestParam UUID bayId,
+            @Parameter(description = "Date") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Parameter(description = "Start Time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime) {
+        
+        log.info("Resetting slot status for bay: {} on date: {} at time: {}", bayId, date, startTime);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("bayId", bayId);
+        result.put("date", date);
+        result.put("startTime", startTime);
+        
+        try {
+            BaySchedule slot = bayScheduleService.getSlot(bayId, date, startTime);
+            String oldStatus = slot.getStatus().toString();
+            
+            // Reset to AVAILABLE
+            slot.setStatus(BaySchedule.ScheduleStatus.AVAILABLE);
+            slot.setBooking(null);
+            bayScheduleService.save(slot);
+            
+            result.put("oldStatus", oldStatus);
+            result.put("newStatus", "AVAILABLE");
+            result.put("message", "Slot status reset successfully");
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("message", "Error occurred while resetting slot status");
+        }
+        
+        return ResponseBuilder.success(result);
     }
     
     /**

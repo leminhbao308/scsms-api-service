@@ -84,14 +84,10 @@ public class ServiceProcessTrackingManagementService {
                 "Tracking must be in PENDING status to start");
         }
         
-        // Get technician from bay assignment (simplified approach)
-        User technician = userService.findById(request.getTechnicianId())
-                .orElseThrow(() -> new ServerSideException(ErrorCode.ENTITY_NOT_FOUND, "Technician not found"));
-        
-        // Start step (simplified - no technician parameter)
-        tracking.startStep(technician);
+        // Start step (simplified - no technician parameter needed)
+        tracking.startStep();
         if (request.getNotes() != null) {
-            tracking.addNote(request.getNotes(), technician);
+            tracking.addNote(request.getNotes());
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
