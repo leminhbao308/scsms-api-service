@@ -42,16 +42,24 @@ public class SalesBusinessService {
         SalesOrder so = salesOrderEntityService.require(soId);
         // price resolution + reservation
         for (SalesOrderLine line : solES.byOrder(so.getId())) {
-            if (line.getUnitPrice() == null) {
-                line.setUnitPrice(pricingBS.resolveUnitPrice(line.getProduct().getProductId()));
-                solES.update(line);
+            // Only process product items (skip service items)
+            if (line.isProductItem() && line.getProduct() != null) {
+                if (line.getUnitPrice() == null) {
+                    line.setUnitPrice(pricingBS.resolveUnitPrice(line.getProduct().getProductId()));
+                    solES.update(line);
+                }
+                inventoryBS.reserveStock(
+                        so.getBranch().getBranchId(),
+                        line.getProduct().getProductId(),
+                        line.getQuantity(),
+                        so.getId(),
+                        StockRefType.SALE_ORDER);
+            } else if (line.isServiceItem()) {
+                // For service items, we don't need to reserve stock or resolve pricing
+                // Service items are already priced and don't have physical inventory
+                log.info("Skipping inventory reservation for service item - ServiceId: {}, OriginalBookingId: {}", 
+                    line.getServiceId(), line.getOriginalBookingId());
             }
-            inventoryBS.reserveStock(
-                    so.getBranch().getBranchId(),
-                    line.getProduct().getProductId(),
-                    line.getQuantity(),
-                    so.getId(),
-                    StockRefType.SALE_ORDER);
         }
         so.setStatus(SalesStatus.CONFIRMED);
         return salesOrderEntityService.update(so);
@@ -61,12 +69,20 @@ public class SalesBusinessService {
     public SalesOrder fulfill(UUID soId) {
         SalesOrder so = salesOrderEntityService.require(soId);
         for (SalesOrderLine line : solES.byOrder(so.getId())) {
-            inventoryBS.fulfillStockFIFO(
-                    so.getBranch().getBranchId(),
-                    line.getProduct().getProductId(),
-                    line.getQuantity(),
-                    so.getId(),
-                    StockRefType.SALE_ORDER);
+            // Only process product items (skip service items)
+            if (line.isProductItem() && line.getProduct() != null) {
+                inventoryBS.fulfillStockFIFO(
+                        so.getBranch().getBranchId(),
+                        line.getProduct().getProductId(),
+                        line.getQuantity(),
+                        so.getId(),
+                        StockRefType.SALE_ORDER);
+            } else if (line.isServiceItem()) {
+                // For service items, we don't need to fulfill stock
+                // Service items don't have physical inventory
+                log.info("Skipping stock fulfillment for service item - ServiceId: {}, OriginalBookingId: {}", 
+                    line.getServiceId(), line.getOriginalBookingId());
+            }
         }
         so.setStatus(SalesStatus.FULFILLED);
         return salesOrderEntityService.update(so);
@@ -93,9 +109,9 @@ public class SalesBusinessService {
             UUID productId = entry.getKey();
             Long returnQty = entry.getValue();
 
-            // Find the original line to get unit price
+            // Find the original line to get unit price (only for product items)
             SalesOrderLine originalLine = so.getLines().stream()
-                    .filter(line -> line.getProduct().getProductId().equals(productId))
+                    .filter(line -> line.isProductItem() && line.getProduct() != null && line.getProduct().getProductId().equals(productId))
                     .findFirst()
                     .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                             "Product not found in original order"));

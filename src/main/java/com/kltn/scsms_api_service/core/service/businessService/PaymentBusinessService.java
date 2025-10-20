@@ -88,11 +88,29 @@ public class PaymentBusinessService {
             
             // Create item list for PayOS
             List<ItemData> items = salesOrder.getLines().stream()
-                .map(line -> ItemData.builder()
-                    .name(line.getProduct().getProductName())
-                    .quantity(line.getQuantity().intValue())
-                    .price(line.getUnitPrice().intValue())
-                    .build())
+                .map(line -> {
+                    String itemName;
+                    if (line.isProductItem() && line.getProduct() != null) {
+                        // Product item - use product name
+                        itemName = line.getProduct().getProductName();
+                    } else if (line.isServiceItem()) {
+                        // Service item - create descriptive name
+                        String serviceIdShort = line.getServiceId() != null ? 
+                            line.getServiceId().toString().substring(0, 8) : "Unknown";
+                        String bookingCode = line.getOriginalBookingCode() != null ? 
+                            line.getOriginalBookingCode() : "N/A";
+                        itemName = String.format("Dịch vụ %s (Booking: %s)", serviceIdShort, bookingCode);
+                    } else {
+                        // Fallback for unknown item types
+                        itemName = "Unknown Item";
+                    }
+                    
+                    return ItemData.builder()
+                        .name(itemName)
+                        .quantity(line.getQuantity().intValue())
+                        .price(line.getUnitPrice().intValue())
+                        .build();
+                })
                 .toList();
             
             // Create payment data
