@@ -36,10 +36,6 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("status")
     private ServiceProcessTracking.TrackingStatus status;
     
-    // Removed: technician_id - technicians are assigned to bays
-    // Removed: estimated_duration - simplified tracking
-    // Removed: progress_percent - simplified tracking
-    
     @JsonProperty("notes")
     private String notes;
     
