@@ -256,7 +256,8 @@ public class BookingManagementService {
         // Calculate estimated duration from services
         if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
             // For now, use a default duration per service since duration is not in request
-            // In a real implementation, you would fetch service duration from Service entity
+            // In a real implementation, you would fetch service duration from Service
+            // entity
             Integer totalDuration = request.getBookingItems().size() * 60; // Default 60 minutes per service
             booking.setEstimatedDurationMinutes(totalDuration);
         }
@@ -365,12 +366,12 @@ public class BookingManagementService {
 
         // Update booking
         Booking updatedBooking = bookingMapper.updateEntity(existingBooking, request);
-        
+
         // Xử lý thay đổi slot nếu có
         if (request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null) {
             handleSlotChange(updatedBooking, request);
         }
-        
+
         Booking savedBooking = bookingService.update(updatedBooking);
 
         return bookingInfoService.toBookingInfoDto(savedBooking);
@@ -588,14 +589,14 @@ public class BookingManagementService {
 
     /**
      * Lấy tất cả booking có trạng thái thanh toán pending và trạng thái booking
-     * không phải cancelled
+     * completed
      */
     public List<BookingInfoDto> getBookingsWithPendingPayment() {
-        log.info("Getting bookings with pending payment status and not cancelled");
+        log.info("Getting bookings with pending payment status and completed status");
 
-        List<Booking> bookings = bookingService.findByPaymentStatusAndStatusNot(
+        List<Booking> bookings = bookingService.findByPaymentStatusAndStatus(
                 Booking.PaymentStatus.PENDING,
-                Booking.BookingStatus.CANCELLED);
+                Booking.BookingStatus.COMPLETED);
 
         return bookings.stream()
                 .map(bookingMapper::toBookingInfoDto)
@@ -648,152 +649,153 @@ public class BookingManagementService {
         log.info("Successfully marked booking {} as paid", bookingId);
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
-    
+
     /**
      * Thay đổi slot của booking
      */
     @Transactional
     public BookingInfoDto changeBookingSlot(UUID bookingId, ChangeSlotRequest request) {
-        log.info("Changing slot for booking: {} to bay: {} at {} {}", 
-            bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
-        
+        log.info("Changing slot for booking: {} to bay: {} at {} {}",
+                bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
+
         // 1. Lấy booking hiện tại
         Booking existingBooking = bookingService.getById(bookingId);
-        
+
         // 2. Kiểm tra booking có thể thay đổi slot không
         if (existingBooking.isCompleted() || existingBooking.isCancelled()) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_UPDATED,
-                "Cannot change slot for completed or cancelled booking");
+                    "Cannot change slot for completed or cancelled booking");
         }
-        
+
         if (existingBooking.getStatus() == Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_UPDATED,
-                "Cannot change slot for booking that is in progress");
+                    "Cannot change slot for booking that is in progress");
         }
-        
+
         // 3. Validate slot mới
-        if (!bayScheduleService.isSlotAvailable(request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime())) {
+        if (!bayScheduleService.isSlotAvailable(request.getNewBayId(), request.getNewSlotDate(),
+                request.getNewSlotStartTime())) {
             throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE,
-                "New slot is not available for booking");
+                    "New slot is not available for booking");
         }
-        
+
         // 4. Lấy service bay mới
         ServiceBay newServiceBay = serviceBayService.getById(request.getNewBayId());
-        
+
         // 5. Tính thời gian kết thúc dự kiến
         LocalDateTime newSlotStartDateTime = LocalDateTime.of(request.getNewSlotDate(), request.getNewSlotStartTime());
         LocalDateTime newSlotEndDateTime = newSlotStartDateTime.plusMinutes(
-            request.getServiceDurationMinutes() + newServiceBay.getBufferMinutes()
-        );
-        
+                request.getServiceDurationMinutes() + newServiceBay.getBufferMinutes());
+
         // 6. Giải phóng slot cũ
         if (existingBooking.getServiceBay() != null && existingBooking.getSlotStartTime() != null) {
             bayScheduleService.releaseAllSlotsForBooking(bookingId);
             log.info("Released old slots for booking: {}", bookingId);
         }
-        
+
         // 7. Cập nhật thông tin booking
         existingBooking.setServiceBay(newServiceBay);
         existingBooking.setSlotStartTime(request.getNewSlotStartTime());
         existingBooking.setScheduledStartAt(newSlotStartDateTime);
         existingBooking.setScheduledEndAt(newSlotEndDateTime);
         existingBooking.setPreferredStartAt(newSlotStartDateTime);
-        
+
         // 8. Đặt slot mới
         bayScheduleService.bookSlot(
-            request.getNewBayId(),
-            request.getNewSlotDate(),
-            request.getNewSlotStartTime(),
-            bookingId
-        );
-        
+                request.getNewBayId(),
+                request.getNewSlotDate(),
+                request.getNewSlotStartTime(),
+                bookingId);
+
         // 9. Block các slot phụ nếu cần
         // Chỉ tính dựa trên service duration, không cộng bufferMinutes
-        int slotsNeeded = (int) Math.ceil((double) request.getServiceDurationMinutes() / newServiceBay.getSlotDurationMinutes());
-        
+        int slotsNeeded = (int) Math
+                .ceil((double) request.getServiceDurationMinutes() / newServiceBay.getSlotDurationMinutes());
+
         if (slotsNeeded > 1) {
             for (int i = 1; i < slotsNeeded; i++) {
                 bayScheduleService.blockSlot(
-                    request.getNewBayId(),
-                    request.getNewSlotDate(),
-                    request.getNewSlotStartTime().plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
-                    bookingId
-                );
+                        request.getNewBayId(),
+                        request.getNewSlotDate(),
+                        request.getNewSlotStartTime().plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
+                        bookingId);
             }
         }
-        
+
         // 10. Lưu booking
         Booking savedBooking = bookingService.update(existingBooking);
-        
-        log.info("Successfully changed slot for booking: {} to bay: {} at {} {}", 
-            bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
-        
+
+        log.info("Successfully changed slot for booking: {} to bay: {} at {} {}",
+                bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
+
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
-    
+
     /**
      * Xử lý thay đổi slot trong update booking
      */
     private void handleSlotChange(Booking booking, UpdateBookingRequest request) {
         log.info("Handling slot change for booking: {}", booking.getBookingId());
-        
+
         // 1. Validate slot mới
-        UUID newBayId = request.getServiceBayId() != null ? request.getServiceBayId() : booking.getServiceBay().getBayId();
-        LocalDate newSlotDate = request.getSlotDate() != null ? request.getSlotDate() : booking.getScheduledStartAt().toLocalDate();
-        LocalTime newSlotStartTime = request.getSlotStartTime() != null ? request.getSlotStartTime() : booking.getSlotStartTime();
-        
+        UUID newBayId = request.getServiceBayId() != null ? request.getServiceBayId()
+                : booking.getServiceBay().getBayId();
+        LocalDate newSlotDate = request.getSlotDate() != null ? request.getSlotDate()
+                : booking.getScheduledStartAt().toLocalDate();
+        LocalTime newSlotStartTime = request.getSlotStartTime() != null ? request.getSlotStartTime()
+                : booking.getSlotStartTime();
+
         if (!bayScheduleService.isSlotAvailable(newBayId, newSlotDate, newSlotStartTime)) {
             throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE,
-                "New slot is not available for booking");
+                    "New slot is not available for booking");
         }
-        
+
         // 2. Lấy service bay mới
         ServiceBay newServiceBay = serviceBayService.getById(newBayId);
-        
+
         // 3. Tính thời gian kết thúc dự kiến
         LocalDateTime newSlotStartDateTime = LocalDateTime.of(newSlotDate, newSlotStartTime);
-        int serviceDurationMinutes = request.getEstimatedDurationMinutes() != null ? 
-            request.getEstimatedDurationMinutes() : booking.getTotalEstimatedDuration();
+        int serviceDurationMinutes = request.getEstimatedDurationMinutes() != null
+                ? request.getEstimatedDurationMinutes()
+                : booking.getTotalEstimatedDuration();
         LocalDateTime newSlotEndDateTime = newSlotStartDateTime.plusMinutes(
-            serviceDurationMinutes + newServiceBay.getBufferMinutes()
-        );
-        
+                serviceDurationMinutes + newServiceBay.getBufferMinutes());
+
         // 4. Giải phóng slot cũ nếu có thay đổi
         boolean slotChanged = !newBayId.equals(booking.getServiceBay().getBayId()) ||
-                             !newSlotDate.equals(booking.getScheduledStartAt().toLocalDate()) ||
-                             !newSlotStartTime.equals(booking.getSlotStartTime());
-        
+                !newSlotDate.equals(booking.getScheduledStartAt().toLocalDate()) ||
+                !newSlotStartTime.equals(booking.getSlotStartTime());
+
         if (slotChanged) {
             bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
             log.info("Released old slots for booking: {}", booking.getBookingId());
-            
+
             // 5. Cập nhật thông tin slot trong booking
             booking.setServiceBay(newServiceBay);
             booking.setSlotStartTime(newSlotStartTime);
             booking.setScheduledStartAt(newSlotStartDateTime);
             booking.setScheduledEndAt(newSlotEndDateTime);
             booking.setPreferredStartAt(newSlotStartDateTime);
-            
+
             // 6. Đặt slot mới
             bayScheduleService.bookSlot(newBayId, newSlotDate, newSlotStartTime, booking.getBookingId());
-            
+
             // 7. Block các slot phụ nếu cần
             // Chỉ tính dựa trên service duration, không cộng bufferMinutes
             int slotsNeeded = (int) Math.ceil((double) serviceDurationMinutes / newServiceBay.getSlotDurationMinutes());
-            
+
             if (slotsNeeded > 1) {
                 for (int i = 1; i < slotsNeeded; i++) {
                     bayScheduleService.blockSlot(
-                        newBayId,
-                        newSlotDate,
-                        newSlotStartTime.plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
-                        booking.getBookingId()
-                    );
+                            newBayId,
+                            newSlotDate,
+                            newSlotStartTime.plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
+                            booking.getBookingId());
                 }
             }
-            
-            log.info("Successfully changed slot for booking: {} to bay: {} at {} {}", 
-                booking.getBookingId(), newBayId, newSlotDate, newSlotStartTime);
+
+            log.info("Successfully changed slot for booking: {} to bay: {} at {} {}",
+                    booking.getBookingId(), newBayId, newSlotDate, newSlotStartTime);
         }
     }
 }
