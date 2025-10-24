@@ -45,7 +45,6 @@ public abstract class BookingMapper {
      * Convert CreateBookingRequest to Booking entity
      */
     @Mapping(target = "bookingId", ignore = true)
-    @Mapping(target = "bookingCode", ignore = true)
     @Mapping(target = "customer", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "branch", ignore = true)
@@ -76,7 +75,6 @@ public abstract class BookingMapper {
      * Update Booking entity from UpdateBookingRequest
      */
     @Mapping(target = "bookingId", ignore = true)
-    @Mapping(target = "bookingCode", ignore = true)
     @Mapping(target = "customer", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "branch", ignore = true)
