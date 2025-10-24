@@ -49,6 +49,12 @@ public class BayScheduleService {
         
         ServiceBay bay = serviceBayService.getById(bayId);
         
+        // Kiểm tra bay có cho phép booking không
+        if (!bay.isAvailableForBooking()) {
+            log.warn("Bay {} does not allow booking. Skipping schedule generation.", bay.getBayName());
+            return;
+        }
+        
         // Chỉ xóa slot AVAILABLE (chưa được đặt) để giữ lịch sử
         cleanupAvailableSlotsOnly(bayId, date);
         
@@ -94,14 +100,15 @@ public class BayScheduleService {
     public void generateBranchDailySchedule(UUID branchId, LocalDate date) {
         log.info("Generating daily schedule for branch: {} on date: {}", branchId, date);
         
-        List<ServiceBay> bays = serviceBayService.findActiveBaysByBranch(branchId);
+        // Chỉ lấy các bay cho phép booking
+        List<ServiceBay> allowedBays = serviceBayService.findAvailableForBookingBaysByBranch(branchId);
         
-        for (ServiceBay bay : bays) {
+        for (ServiceBay bay : allowedBays) {
             generateDailySchedule(bay.getBayId(), date);
         }
         
-        log.info("Generated daily schedule for {} bays in branch: {} on date: {}", 
-            bays.size(), branchId, date);
+        log.info("Generated daily schedule for {} allowed bays in branch: {} on date: {}", 
+            allowedBays.size(), branchId, date);
     }
     
     /**

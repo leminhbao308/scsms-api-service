@@ -21,9 +21,11 @@ public interface ServiceBayMapper {
      */
     @Mapping(target = "branchName", source = "branch.branchName")
     @Mapping(target = "branchCode", source = "branch.branchCode")
+    @Mapping(target = "allowBooking", source = "allowBooking")
     @Mapping(target = "isAvailable", expression = "java(entity.isActive())")
     @Mapping(target = "isMaintenance", expression = "java(entity.isMaintenance())")
     @Mapping(target = "isClosed", expression = "java(entity.isClosed())")
+    @Mapping(target = "isAvailableForBooking", expression = "java(entity.isAvailableForBooking())")
     @Mapping(target = "totalBookings", expression = "java(entity.getBookings() != null ? (long) entity.getBookings().size() : 0L)")
     @Mapping(target = "activeBookings", expression = "java(entity.getBookings() != null ? entity.getBookings().stream().filter(booking -> booking.isActive()).count() : 0L)")
     @Mapping(target = "technicians", expression = "java(mapTechnicians(entity.getTechnicians()))")

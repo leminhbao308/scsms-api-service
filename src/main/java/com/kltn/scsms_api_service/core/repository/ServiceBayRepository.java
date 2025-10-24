@@ -32,6 +32,12 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
     List<ServiceBay> findByBranchBranchIdAndStatusAndIsActiveTrueAndIsDeletedFalse(
         UUID branchId, ServiceBay.BayStatus status);
     
+    /**
+     * Tìm bay cho phép booking theo chi nhánh
+     */
+    List<ServiceBay> findByBranchBranchIdAndStatusAndAllowBookingAndIsActiveTrueAndIsDeletedFalse(
+        UUID branchId, ServiceBay.BayStatus status, Boolean allowBooking);
+    
     
     
     /**
@@ -70,6 +76,7 @@ public interface ServiceBayRepository extends JpaRepository<ServiceBay, UUID> {
     @Query("SELECT DISTINCT b FROM ServiceBay b " +
            "WHERE b.branch.branchId = :branchId " +
            "AND b.status = 'ACTIVE' " +
+           "AND b.allowBooking = true " +
            "AND b.bayId NOT IN (" +
            "    SELECT bk.serviceBay.bayId FROM Booking bk " +
            "    WHERE bk.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'PAUSED') " +

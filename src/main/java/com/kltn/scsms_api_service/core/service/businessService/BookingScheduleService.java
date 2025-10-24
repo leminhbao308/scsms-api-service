@@ -51,8 +51,8 @@ public class BookingScheduleService {
             ServiceBay bay = serviceBayService.getById(request.getBayId());
             availableBays = List.of(bay);
         } else {
-            // Tìm slot cho tất cả bay trong chi nhánh
-            availableBays = serviceBayService.findActiveBaysByBranch(request.getBranchId());
+            // Tìm slot cho tất cả bay cho phép booking trong chi nhánh
+            availableBays = serviceBayService.findAvailableForBookingBaysByBranch(request.getBranchId());
         }
         
         List<TimeSlotDto> availableSlots = new ArrayList<>();
@@ -263,9 +263,10 @@ public class BookingScheduleService {
      * Đảm bảo lịch ngày đã được tạo
      */
     private void ensureDailyScheduleExists(UUID branchId, LocalDate date) {
-        List<ServiceBay> bays = serviceBayService.findActiveBaysByBranch(branchId);
+        // Chỉ tạo lịch cho các bay cho phép booking
+        List<ServiceBay> allowedBays = serviceBayService.findAvailableForBookingBaysByBranch(branchId);
         
-        for (ServiceBay bay : bays) {
+        for (ServiceBay bay : allowedBays) {
             List<BaySchedule> existingSchedules = bayScheduleService.getBaySchedules(bay.getBayId(), date);
             if (existingSchedules.isEmpty()) {
                 bayScheduleService.generateDailySchedule(bay.getBayId(), date);

@@ -45,6 +45,9 @@ public class UpdateServiceBayRequest {
     @JsonProperty("status")
     private ServiceBay.BayStatus status;
     
+    @JsonProperty("allow_booking")
+    private Boolean allowBooking;
+    
     // Technician management fields
     @JsonProperty("technician_ids")
     private List<UUID> technicianIds;

@@ -39,6 +39,22 @@ public class ServiceBayService {
     }
     
     /**
+     * Lấy tất cả bay cho phép booking theo chi nhánh
+     */
+    public List<ServiceBay> findBookingAllowedBaysByBranch(UUID branchId) {
+        return serviceBayRepository.findByBranchBranchIdAndStatusAndAllowBookingAndIsActiveTrueAndIsDeletedFalse(
+            branchId, ServiceBay.BayStatus.ACTIVE, true);
+    }
+    
+    /**
+     * Lấy tất cả bay sẵn sàng cho booking (active + allowBooking) theo chi nhánh
+     */
+    public List<ServiceBay> findAvailableForBookingBaysByBranch(UUID branchId) {
+        return serviceBayRepository.findByBranchBranchIdAndStatusAndAllowBookingAndIsActiveTrueAndIsDeletedFalse(
+            branchId, ServiceBay.BayStatus.ACTIVE, true);
+    }
+    
+    /**
      * Lưu bay mới
      */
     @Transactional

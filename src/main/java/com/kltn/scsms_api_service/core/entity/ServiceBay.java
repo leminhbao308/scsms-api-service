@@ -111,6 +111,14 @@ public class ServiceBay extends AuditEntity {
     private Integer maxConcurrentBookings = 1;
 
     /**
+     * Cho phép khách hàng booking bay này hay không
+     * Mục đích: Kiểm soát bay nào được phép đặt lịch
+     */
+    @Column(name = "allow_booking", nullable = false)
+    @Builder.Default
+    private Boolean allowBooking = true;
+
+    /**
      * Các booking sử dụng bay này
      */
     @OneToMany(mappedBy = "serviceBay", fetch = FetchType.LAZY)
@@ -133,6 +141,21 @@ public class ServiceBay extends AuditEntity {
      */
     public boolean isActive() {
         return status == BayStatus.ACTIVE;
+    }
+
+    /**
+     * Kiểm tra bay có cho phép booking không
+     */
+    public boolean isBookingAllowed() {
+        return allowBooking != null && allowBooking;
+    }
+
+    /**
+     * Kiểm tra bay có sẵn sàng cho booking không
+     * (Hoạt động + Cho phép booking)
+     */
+    public boolean isAvailableForBooking() {
+        return isActive() && isBookingAllowed();
     }
 
     /**
@@ -171,6 +194,28 @@ public class ServiceBay extends AuditEntity {
     public void activateBay() {
         this.status = BayStatus.ACTIVE;
         this.notes = null;
+    }
+
+    /**
+     * Cho phép booking cho bay này
+     */
+    public void enableBooking() {
+        this.allowBooking = true;
+    }
+
+    /**
+     * Cấm booking cho bay này
+     */
+    public void disableBooking() {
+        this.allowBooking = false;
+    }
+
+    /**
+     * Cấm booking với lý do
+     */
+    public void disableBooking(String reason) {
+        this.allowBooking = false;
+        this.notes = reason;
     }
 
     // Technician management methods
