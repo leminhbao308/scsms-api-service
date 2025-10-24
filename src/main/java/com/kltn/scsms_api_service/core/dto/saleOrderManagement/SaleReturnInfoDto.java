@@ -21,6 +21,8 @@ import java.util.List;
 public class SaleReturnInfoDto extends AuditDto {
     private String id;
     
+    private String reason;
+    
     @JsonProperty("sales_order")
     private SaleOrderInfoDto salesOrder;
     

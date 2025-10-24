@@ -120,7 +120,7 @@ public class SalesOrdersController {
                 Boolean isFree = (l.getIsFreeItem() != null && l.getIsFreeItem());
                 
                 // Log line item details
-                log.info("Processing line item - ProductId: {}, ServiceId: {}, IsServiceItem: {}, OriginalBookingId: {}, OriginalBookingCode: {}", 
+                log.info("Processing line item - ProductId: {}, ServiceId: {}, IsServiceItem: {}, OriginalBookingId: {}, OriginalBookingCode: {}",
                     l.getProductId(), l.getServiceId(), l.isServiceItem(), l.getOriginalBookingId(), l.getOriginalBookingCode());
                 
                 // Build SalesOrderLine with service item support
@@ -158,7 +158,7 @@ public class SalesOrdersController {
                 createdLines.add(createdLine);
                 
                 // Log created line details
-                log.info("Created SalesOrderLine - Id: {}, IsServiceItem: {}, ServiceId: {}, OriginalBookingId: {}", 
+                log.info("Created SalesOrderLine - Id: {}, IsServiceItem: {}, ServiceId: {}, OriginalBookingId: {}",
                     createdLine.getId(), createdLine.isServiceItem(), createdLine.getServiceId(), createdLine.getOriginalBookingId());
             }
             so.getLines().clear();
@@ -260,8 +260,9 @@ public class SalesOrdersController {
                 unitCosts.put(line.getProduct().getProductId(), line.getUnitPrice());
             }
         }
+        String reason = (req != null) ? req.getReason() : "";
 
-        SaleReturnInfoDto srDto = srMapper.toSaleReturnInfoDto(salesBS.createReturn(soId, items, unitCosts));
+        SaleReturnInfoDto srDto = srMapper.toSaleReturnInfoDto(salesBS.createReturn(soId, reason, items, unitCosts));
 
         return ResponseBuilder.success("Sales return created", srDto);
     }
@@ -475,6 +476,7 @@ public class SalesOrdersController {
     @AllArgsConstructor
     public static class CreateReturnRequest {
         private List<ReturnItem> items;
+        private String reason;
     }
 
     @Data
