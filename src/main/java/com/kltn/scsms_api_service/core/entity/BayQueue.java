@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -44,6 +45,12 @@ public class BayQueue extends AuditEntity {
      */
     @Column(name = "queue_position", nullable = false)
     private Integer queuePosition;
+    
+    /**
+     * Ngày của hàng chờ (để phân biệt hàng chờ theo ngày)
+     */
+    @Column(name = "queue_date", nullable = false)
+    private LocalDate queueDate;
     
     /**
      * Thời gian bắt đầu dự kiến

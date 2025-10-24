@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -57,8 +58,8 @@ public class WalkInBookingService {
             booking.getVehicle() != null ? booking.getVehicle().getLicensePlate() : "null",
             booking.getVehicleYear());
         
-        // 4. Thêm vào hàng chờ bay
-        bayQueueService.addToQueue(request.getAssignedBayId(), booking.getBookingId());
+        // 4. Thêm vào hàng chờ bay (sử dụng ngày hiện tại)
+        bayQueueService.addToQueue(request.getAssignedBayId(), booking.getBookingId(), LocalDate.now());
         
         // 5. Lấy thông tin hàng chờ
         var queueEntry = bayQueueService.getBookingQueuePosition(booking.getBookingId());

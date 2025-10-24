@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +34,14 @@ public class BayQueueService {
      */
     @Transactional
     public BayQueue addToQueue(UUID bayId, UUID bookingId) {
+        return addToQueue(bayId, bookingId, LocalDate.now());
+    }
+    
+    /**
+     * Thêm booking vào hàng chờ của một bay trong ngày cụ thể
+     */
+    @Transactional
+    public BayQueue addToQueue(UUID bayId, UUID bookingId, LocalDate queueDate) {
         log.info("Adding booking {} to bay {} queue", bookingId, bayId);
         
         // Validate bay và booking
@@ -46,8 +55,8 @@ public class BayQueueService {
                 "Booking đã có trong hàng chờ bay khác");
         }
         
-        // Lấy vị trí cuối cùng trong hàng chờ
-        Integer lastPosition = bayQueueRepository.findLastQueuePosition(bayId);
+        // Lấy vị trí cuối cùng trong hàng chờ của ngày cụ thể
+        Integer lastPosition = bayQueueRepository.findLastQueuePositionByDate(bayId, queueDate);
         Integer newPosition = lastPosition + 1;
         
         // Tính thời gian dự kiến
@@ -60,6 +69,7 @@ public class BayQueueService {
             .bayId(bayId)
             .bookingId(bookingId)
             .queuePosition(newPosition)
+            .queueDate(queueDate)
             .estimatedStartTime(estimatedStartTime)
             .estimatedCompletionTime(estimatedCompletionTime)
             .isActive(true)
@@ -132,6 +142,14 @@ public class BayQueueService {
     public List<BayQueue> getBayQueue(UUID bayId) {
         log.info("Getting queue for bay {}", bayId);
         return bayQueueRepository.findActiveByBayId(bayId);
+    }
+    
+    /**
+     * Lấy hàng chờ của một bay trong ngày cụ thể
+     */
+    public List<BayQueue> getBayQueue(UUID bayId, LocalDate queueDate) {
+        log.info("Getting queue for bay {} on date {}", bayId, queueDate);
+        return bayQueueRepository.findActiveByBayIdAndDate(bayId, queueDate);
     }
     
     /**

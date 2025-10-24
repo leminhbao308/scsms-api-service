@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,12 @@ public interface BayQueueRepository extends JpaRepository<BayQueue, UUID> {
      */
     @Query("SELECT bq FROM BayQueue bq WHERE bq.bayId = :bayId AND bq.isActive = true ORDER BY bq.queuePosition ASC")
     List<BayQueue> findActiveByBayId(@Param("bayId") UUID bayId);
+    
+    /**
+     * Tìm tất cả queue entries của một bay trong ngày cụ thể (active only)
+     */
+    @Query("SELECT bq FROM BayQueue bq WHERE bq.bayId = :bayId AND bq.queueDate = :queueDate AND bq.isActive = true ORDER BY bq.queuePosition ASC")
+    List<BayQueue> findActiveByBayIdAndDate(@Param("bayId") UUID bayId, @Param("queueDate") LocalDate queueDate);
     
     /**
      * Tìm tất cả queue entries của một bay (bao gồm cả inactive)
@@ -43,10 +50,22 @@ public interface BayQueueRepository extends JpaRepository<BayQueue, UUID> {
     Integer findLastQueuePosition(@Param("bayId") UUID bayId);
     
     /**
+     * Tìm vị trí cuối cùng trong hàng chờ của một bay trong ngày cụ thể
+     */
+    @Query("SELECT COALESCE(MAX(bq.queuePosition), 0) FROM BayQueue bq WHERE bq.bayId = :bayId AND bq.queueDate = :queueDate AND bq.isActive = true")
+    Integer findLastQueuePositionByDate(@Param("bayId") UUID bayId, @Param("queueDate") LocalDate queueDate);
+    
+    /**
      * Đếm số lượng booking đang chờ trong một bay
      */
     @Query("SELECT COUNT(bq) FROM BayQueue bq WHERE bq.bayId = :bayId AND bq.isActive = true")
     Long countActiveByBayId(@Param("bayId") UUID bayId);
+    
+    /**
+     * Đếm số lượng booking đang chờ trong một bay trong ngày cụ thể
+     */
+    @Query("SELECT COUNT(bq) FROM BayQueue bq WHERE bq.bayId = :bayId AND bq.queueDate = :queueDate AND bq.isActive = true")
+    Long countActiveByBayIdAndDate(@Param("bayId") UUID bayId, @Param("queueDate") LocalDate queueDate);
     
     /**
      * Tìm queue entries có vị trí lớn hơn hoặc bằng một vị trí cụ thể

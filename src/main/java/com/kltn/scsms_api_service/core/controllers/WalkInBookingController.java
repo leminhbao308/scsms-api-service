@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,19 +34,23 @@ public class WalkInBookingController {
     private final BayQueueService bayQueueService;
     private final WalkInBookingService walkInBookingService;
     
-    /**
-     * Đề xuất bay tốt nhất cho walk-in booking
-     */
-    @PostMapping("/recommend-bay")
-    @Operation(summary = "Đề xuất bay", description = "Đề xuất bay tốt nhất cho walk-in booking")
-    public ResponseEntity<BayRecommendationResponse> recommendBay(
-            @RequestBody BayRecommendationRequest request) {
+        /**
+         * Đề xuất bay tốt nhất cho walk-in booking
+         */
+        @PostMapping("/recommend-bay")
+        @Operation(summary = "Đề xuất bay", description = "Đề xuất bay tốt nhất cho walk-in booking")
+        public ResponseEntity<BayRecommendationResponse> recommendBay(
+                @RequestBody BayRecommendationRequest request,
+                @RequestParam(required = false) String queueDate) {
         try {
             log.info("Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes", 
                 request.getBranchId(), request.getServiceDurationMinutes());
             
+            // Parse ngày nếu có
+            LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
+            
             // Gọi service để đề xuất bay
-            BayRecommendationService.BayRecommendation recommendation = bayRecommendationService.recommendBay(convertToServiceRequest(request));
+            BayRecommendationService.BayRecommendation recommendation = bayRecommendationService.recommendBay(convertToServiceRequest(request), parsedQueueDate);
             
             // Convert to response DTO
             BayRecommendationResponse response = convertToResponse(recommendation);
@@ -80,17 +85,22 @@ public class WalkInBookingController {
         }
     }
     
-    /**
-     * Lấy thông tin hàng chờ của một bay
-     */
-    @GetMapping("/bay-queue/{bayId}")
-    @Operation(summary = "Lấy hàng chờ bay", description = "Lấy thông tin hàng chờ của một bay")
-    public ResponseEntity<List<BookingQueueItemResponse>> getBayQueue(@PathVariable UUID bayId) {
+        /**
+         * Lấy thông tin hàng chờ của một bay
+         */
+        @GetMapping("/bay-queue/{bayId}")
+        @Operation(summary = "Lấy hàng chờ bay", description = "Lấy thông tin hàng chờ của một bay")
+        public ResponseEntity<List<BookingQueueItemResponse>> getBayQueue(
+                @PathVariable UUID bayId,
+                @RequestParam(required = false) String queueDate) {
         try {
             log.info("Getting queue for bay: {}", bayId);
 
+            // Parse ngày nếu có
+            LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
+            
             // Lấy thông tin hàng chờ
-            List<BayQueue> bayQueues = bayQueueService.getBayQueue(bayId);
+            List<BayQueue> bayQueues = bayQueueService.getBayQueue(bayId, parsedQueueDate);
             
             // Convert to response DTOs
             List<BookingQueueItemResponse> queueItems = bayQueues.stream()

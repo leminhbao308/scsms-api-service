@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,6 +32,13 @@ public class BayRecommendationService {
      * Đề xuất bay tốt nhất cho walk-in booking
      */
     public BayRecommendation recommendBay(BayRecommendationRequest request) {
+        return recommendBay(request, LocalDate.now());
+    }
+    
+    /**
+     * Đề xuất bay tốt nhất cho walk-in booking trong ngày cụ thể
+     */
+    public BayRecommendation recommendBay(BayRecommendationRequest request, LocalDate queueDate) {
         log.info("Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes", 
             request.getBranchId(), request.getServiceDurationMinutes());
         
@@ -42,7 +50,7 @@ public class BayRecommendationService {
         }
         
         // 2. Tính điểm cho từng bay
-        List<BayScore> bayScores = calculateBayScores(availableBays, request);
+        List<BayScore> bayScores = calculateBayScores(availableBays, request, queueDate);
         
         // 3. Sắp xếp theo điểm số (cao nhất trước)
         bayScores.sort(Comparator.comparing(BayScore::getScore).reversed());
@@ -51,8 +59,8 @@ public class BayRecommendationService {
         BayScore bestBayScore = bayScores.get(0);
         ServiceBay recommendedBay = bestBayScore.getBay();
         
-        // 5. Lấy thông tin hàng chờ của bay được đề xuất
-        List<BookingQueueItem> queue = getBayQueue(recommendedBay.getBayId());
+        // 5. Lấy thông tin hàng chờ của bay được đề xuất trong ngày cụ thể
+        List<BookingQueueItem> queue = getBayQueue(recommendedBay.getBayId(), queueDate);
         
         // 6. Tính thời gian chờ ước tính
         int estimatedWaitTime = calculateEstimatedWaitTime(queue, request.getServiceDurationMinutes());
@@ -92,19 +100,26 @@ public class BayRecommendationService {
      * Tính điểm cho từng bay
      */
     private List<BayScore> calculateBayScores(List<ServiceBay> bays, BayRecommendationRequest request) {
+        return calculateBayScores(bays, request, LocalDate.now());
+    }
+    
+    /**
+     * Tính điểm cho từng bay trong ngày cụ thể
+     */
+    private List<BayScore> calculateBayScores(List<ServiceBay> bays, BayRecommendationRequest request, LocalDate queueDate) {
         return bays.stream()
             .map(bay -> {
                 int score = 0;
                 StringBuilder reason = new StringBuilder();
                 
                 // 1. Ưu tiên bay trống (100 điểm)
-                if (isBayEmpty(bay.getBayId())) {
+                if (isBayEmpty(bay.getBayId(), queueDate)) {
                     score += 100;
                     reason.append("Bay trống; ");
                 }
                 
                 // 2. Ưu tiên bay có ít người chờ (10 điểm mỗi vị trí trống)
-                int queueLength = getBayQueueLength(bay.getBayId());
+                int queueLength = getBayQueueLength(bay.getBayId(), queueDate);
                 score += (10 - queueLength) * 10;
                 reason.append("Hàng chờ: ").append(queueLength).append(" người; ");
                 
@@ -115,7 +130,7 @@ public class BayRecommendationService {
                 }
                 
                 // 4. Ưu tiên bay có thời gian hoàn thành sớm (30 điểm)
-                LocalDateTime estimatedCompletion = getEstimatedCompletionTime(bay.getBayId());
+                LocalDateTime estimatedCompletion = getEstimatedCompletionTime(bay.getBayId(), queueDate);
                 if (estimatedCompletion != null) {
                     long minutesToComplete = java.time.Duration.between(LocalDateTime.now(), estimatedCompletion).toMinutes();
                     score += Math.max(0, 30 - (int) minutesToComplete);
@@ -143,7 +158,14 @@ public class BayRecommendationService {
      * Kiểm tra bay có trống không
      */
     private boolean isBayEmpty(UUID bayId) {
-        Long queueLength = bayQueueRepository.countActiveByBayId(bayId);
+        return isBayEmpty(bayId, LocalDate.now());
+    }
+    
+    /**
+     * Kiểm tra bay có trống không trong ngày cụ thể
+     */
+    private boolean isBayEmpty(UUID bayId, LocalDate queueDate) {
+        Long queueLength = bayQueueRepository.countActiveByBayIdAndDate(bayId, queueDate);
         return queueLength == 0;
     }
     
@@ -151,7 +173,14 @@ public class BayRecommendationService {
      * Lấy độ dài hàng chờ của bay
      */
     private int getBayQueueLength(UUID bayId) {
-        Long queueLength = bayQueueRepository.countActiveByBayId(bayId);
+        return getBayQueueLength(bayId, LocalDate.now());
+    }
+    
+    /**
+     * Lấy độ dài hàng chờ của bay trong ngày cụ thể
+     */
+    private int getBayQueueLength(UUID bayId, LocalDate queueDate) {
+        Long queueLength = bayQueueRepository.countActiveByBayIdAndDate(bayId, queueDate);
         return queueLength.intValue();
     }
     
@@ -180,7 +209,14 @@ public class BayRecommendationService {
      * Lấy thời gian hoàn thành dự kiến của bay
      */
     private LocalDateTime getEstimatedCompletionTime(UUID bayId) {
-        List<BayQueue> queues = bayQueueRepository.findActiveByBayId(bayId);
+        return getEstimatedCompletionTime(bayId, LocalDate.now());
+    }
+    
+    /**
+     * Lấy thời gian hoàn thành dự kiến của bay trong ngày cụ thể
+     */
+    private LocalDateTime getEstimatedCompletionTime(UUID bayId, LocalDate queueDate) {
+        List<BayQueue> queues = bayQueueRepository.findActiveByBayIdAndDate(bayId, queueDate);
         if (queues.isEmpty()) {
             return null;
         }
@@ -197,7 +233,14 @@ public class BayRecommendationService {
      * Lấy thông tin hàng chờ của bay
      */
     private List<BookingQueueItem> getBayQueue(UUID bayId) {
-        List<BayQueue> queues = bayQueueRepository.findActiveByBayId(bayId);
+        return getBayQueue(bayId, LocalDate.now());
+    }
+    
+    /**
+     * Lấy thông tin hàng chờ của bay trong ngày cụ thể
+     */
+    private List<BookingQueueItem> getBayQueue(UUID bayId, LocalDate queueDate) {
+        List<BayQueue> queues = bayQueueRepository.findActiveByBayIdAndDate(bayId, queueDate);
         
         return queues.stream()
             .map(this::convertToQueueItem)
