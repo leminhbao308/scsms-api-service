@@ -221,5 +221,5 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     /**
      * Tìm booking theo trạng thái thanh toán và trạng thái booking không phải cancelled
      */
-    List<Booking> findByPaymentStatusAndStatusNot(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus);
+    List<Booking> findByPaymentStatusAndStatus(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus);
 }

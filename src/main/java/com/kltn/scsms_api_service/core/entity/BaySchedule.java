@@ -157,6 +157,17 @@ public class BaySchedule extends AuditEntity {
     }
     
     /**
+     * Hoàn thành slot với thời gian cụ thể
+     */
+    public void completeService(LocalTime completionTime) {
+        if (!isInProgress()) {
+            throw new IllegalStateException("Cannot complete service for slot that is not in progress");
+        }
+        this.status = ScheduleStatus.COMPLETED;
+        this.actualEndTime = completionTime;
+    }
+    
+    /**
      * Hủy slot
      */
     public void cancelSlot(String reason) {

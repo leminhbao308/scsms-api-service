@@ -144,11 +144,8 @@ public class BookingWorkflowService {
         booking.completeService();
         bookingService.update(booking);
         
-        // Hoàn thành slot
-        bayScheduleService.completeService(
-            booking.getServiceBay().getBayId(),
-            booking.getScheduledStartAt().toLocalDate(),
-            booking.getSlotStartTime());
+        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion
+        bayScheduleService.completeAllSlotsForBooking(bookingId);
         
         log.info("Successfully completed service for booking: {}", bookingId);
     }
@@ -171,11 +168,8 @@ public class BookingWorkflowService {
         booking.completeService(completionTime);
         bookingService.update(booking);
         
-        // Hoàn thành slot
-        bayScheduleService.completeService(
-            booking.getServiceBay().getBayId(),
-            booking.getScheduledStartAt().toLocalDate(),
-            booking.getSlotStartTime());
+        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion
+        bayScheduleService.completeAllSlotsForBooking(bookingId, completionTime);
         
         log.info("Successfully completed service for booking: {} at {}", bookingId, completionTime);
     }
@@ -194,13 +188,9 @@ public class BookingWorkflowService {
                 "Cannot cancel completed or already cancelled booking");
         }
         
-        // Hủy slot nếu đã được đặt
+        // Giải phóng tất cả slot liên quan đến booking (để slot có thể được sử dụng lại)
         if (booking.getServiceBay() != null && booking.getSlotStartTime() != null) {
-            bayScheduleService.cancelSlot(
-                booking.getServiceBay().getBayId(),
-                booking.getScheduledStartAt().toLocalDate(),
-                booking.getSlotStartTime(),
-                reason);
+            bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
         }
         
         // Hủy booking

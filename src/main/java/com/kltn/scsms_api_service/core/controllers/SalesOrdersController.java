@@ -118,13 +118,48 @@ public class SalesOrdersController {
             List<SalesOrderLine> createdLines = new ArrayList<>();
             for (CreateSOLine l : req.getLines()) {
                 Boolean isFree = (l.getIsFreeItem() != null && l.getIsFreeItem());
-                createdLines.add(solES.create(SalesOrderLine.builder()
+                
+                // Log line item details
+                log.info("Processing line item - ProductId: {}, ServiceId: {}, IsServiceItem: {}, OriginalBookingId: {}, OriginalBookingCode: {}", 
+                    l.getProductId(), l.getServiceId(), l.isServiceItem(), l.getOriginalBookingId(), l.getOriginalBookingCode());
+                
+                // Build SalesOrderLine with service item support
+                SalesOrderLine.SalesOrderLineBuilder lineBuilder = SalesOrderLine.builder()
                         .salesOrder(so)
-                        .product(productES.getRefByProductId(l.productId))
                         .quantity(l.getQty())
                         .unitPrice(l.getUnitPrice())
-                        .isFreeItem(isFree)
-                        .build()));
+                        .isFreeItem(isFree);
+                
+                // Set product reference only for product items (not service items)
+                if (l.isProductItem() && l.getProductId() != null) {
+                    lineBuilder.product(productES.getRefByProductId(l.productId));
+                    log.info("Added product reference - ProductId: {}", l.getProductId());
+                } else {
+                    // For service items, product will be null (no foreign key constraint)
+                    lineBuilder.product(null);
+                    log.info("Service item - Product set to NULL (no product reference needed)");
+                }
+                
+                // Add service item fields if present
+                if (l.getServiceId() != null) {
+                    lineBuilder.serviceId(l.getServiceId());
+                    log.info("Added service item - ServiceId: {}", l.getServiceId());
+                }
+                if (l.getOriginalBookingId() != null) {
+                    lineBuilder.originalBookingId(l.getOriginalBookingId());
+                    log.info("Added booking context - BookingId: {}", l.getOriginalBookingId());
+                }
+                if (l.getOriginalBookingCode() != null) {
+                    lineBuilder.originalBookingCode(l.getOriginalBookingCode());
+                    log.info("Added booking code - BookingCode: {}", l.getOriginalBookingCode());
+                }
+                
+                SalesOrderLine createdLine = solES.create(lineBuilder.build());
+                createdLines.add(createdLine);
+                
+                // Log created line details
+                log.info("Created SalesOrderLine - Id: {}, IsServiceItem: {}, ServiceId: {}, OriginalBookingId: {}", 
+                    createdLine.getId(), createdLine.isServiceItem(), createdLine.getServiceId(), createdLine.getOriginalBookingId());
             }
             so.getLines().clear();
             so.getLines().addAll(createdLines);
@@ -343,6 +378,44 @@ public class SalesOrdersController {
         @JsonProperty("is_free_item")
         @Builder.Default
         private Boolean isFreeItem = false; // true if item is free from promotion
+
+        // ===== SERVICE ITEM SUPPORT =====
+        
+        /**
+         * Service ID if this line item represents a service (null for product items)
+         */
+        @JsonProperty("service_id")
+        private UUID serviceId;
+        
+        /**
+         * Original booking ID if this service item comes from a booking
+         */
+        @JsonProperty("original_booking_id")
+        private UUID originalBookingId;
+        
+        /**
+         * Original booking code for display purposes
+         */
+        @JsonProperty("original_booking_code")
+        private String originalBookingCode;
+        
+        // ===== HELPER METHODS =====
+        
+        /**
+         * Check if this line item represents a service
+         * @return true if serviceId is not null
+         */
+        public boolean isServiceItem() {
+            return serviceId != null;
+        }
+        
+        /**
+         * Check if this line item represents a product
+         * @return true if serviceId is null
+         */
+        public boolean isProductItem() {
+            return serviceId == null;
+        }
     }
 
     @Data

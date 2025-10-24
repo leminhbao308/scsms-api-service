@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
@@ -190,14 +191,25 @@ public class BayScheduleService {
      */
     @Transactional
     public void blockSlot(UUID bayId, LocalDate date, LocalTime startTime) {
+        blockSlot(bayId, date, startTime, null);
+    }
+    
+    /**
+     * Block slot với bookingId (chuyển từ AVAILABLE sang BOOKED)
+     */
+    @Transactional
+    public void blockSlot(UUID bayId, LocalDate date, LocalTime startTime, UUID bookingId) {
         BaySchedule slot = getSlot(bayId, date, startTime);
         if (slot.getStatus() != BaySchedule.ScheduleStatus.AVAILABLE) {
             throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
                 "Slot is not available for blocking");
         }
         slot.setStatus(BaySchedule.ScheduleStatus.BOOKED);
+        if (bookingId != null) {
+            slot.setBooking(bookingService.getById(bookingId));
+        }
         bayScheduleRepository.save(slot);
-        log.info("Blocked slot for bay {} at {} {}", bayId, date, startTime);
+        log.info("Blocked slot for bay {} at {} {} with bookingId: {}", bayId, date, startTime, bookingId);
     }
     
     /**
@@ -295,6 +307,158 @@ public class BayScheduleService {
     }
     
     /**
+     * Giải phóng tất cả slot liên quan đến booking
+     */
+    @Transactional
+    public void releaseAllSlotsForBooking(UUID bookingId) {
+        log.info("Releasing all slots for booking: {}", bookingId);
+        
+        // Tìm TẤT CẢ slot của booking (không giới hạn ngày)
+        List<BaySchedule> relatedSlots = bayScheduleRepository.findByBookingBookingId(bookingId);
+        
+        for (BaySchedule slot : relatedSlots) {
+            slot.releaseSlot();
+            bayScheduleRepository.save(slot);
+        }
+        
+        log.info("Successfully released {} slots for booking: {}", relatedSlots.size(), bookingId);
+    }
+    
+    /**
+     * Hoàn thành tất cả slot của booking và xử lý early completion
+     */
+    @Transactional
+    public void completeAllSlotsForBooking(UUID bookingId) {
+        log.info("Completing all slots for booking: {}", bookingId);
+        
+        // Tìm TẤT CẢ slot của booking
+        List<BaySchedule> relatedSlots = bayScheduleRepository.findByBookingBookingId(bookingId);
+        
+        if (relatedSlots.isEmpty()) {
+            log.warn("No slots found for booking: {}", bookingId);
+            return;
+        }
+        
+        // Sắp xếp theo thời gian để xử lý đúng thứ tự
+        relatedSlots.sort((s1, s2) -> {
+            int dateCompare = s1.getScheduleDate().compareTo(s2.getScheduleDate());
+            if (dateCompare != 0) return dateCompare;
+            return s1.getStartTime().compareTo(s2.getStartTime());
+        });
+        
+        // Hoàn thành tất cả slot
+        for (BaySchedule slot : relatedSlots) {
+            if (slot.getStatus() == BaySchedule.ScheduleStatus.IN_PROGRESS) {
+                slot.completeService();
+                bayScheduleRepository.save(slot);
+            }
+        }
+        
+        // Xử lý early completion nếu có
+        if (isBookingCompletedEarly(relatedSlots)) {
+            BaySchedule firstSlot = relatedSlots.get(0);
+            // Tính tổng thời gian dự kiến của tất cả slot
+            LocalTime totalExpectedEndTime = calculateTotalExpectedEndTime(relatedSlots);
+            
+            // Giải phóng slot trống do hoàn thành sớm
+            releaseSlotsDueToEarlyCompletion(
+                firstSlot.getServiceBay().getBayId(),
+                firstSlot.getScheduleDate(),
+                firstSlot.getActualEndTime(),
+                totalExpectedEndTime
+            );
+        }
+        
+        log.info("Successfully completed {} slots for booking: {}", relatedSlots.size(), bookingId);
+    }
+    
+    /**
+     * Hoàn thành tất cả slot của booking với thời gian cụ thể
+     */
+    @Transactional
+    public void completeAllSlotsForBooking(UUID bookingId, LocalDateTime completionTime) {
+        log.info("Completing all slots for booking: {} at {}", bookingId, completionTime);
+        
+        // Tìm TẤT CẢ slot của booking
+        List<BaySchedule> relatedSlots = bayScheduleRepository.findByBookingBookingId(bookingId);
+        
+        if (relatedSlots.isEmpty()) {
+            log.warn("No slots found for booking: {}", bookingId);
+            return;
+        }
+        
+        // Sắp xếp theo thời gian để xử lý đúng thứ tự
+        relatedSlots.sort((s1, s2) -> {
+            int dateCompare = s1.getScheduleDate().compareTo(s2.getScheduleDate());
+            if (dateCompare != 0) return dateCompare;
+            return s1.getStartTime().compareTo(s2.getStartTime());
+        });
+        
+        // Hoàn thành tất cả slot với thời gian cụ thể
+        for (BaySchedule slot : relatedSlots) {
+            if (slot.getStatus() == BaySchedule.ScheduleStatus.IN_PROGRESS) {
+                slot.completeService(completionTime.toLocalTime());
+                bayScheduleRepository.save(slot);
+            }
+        }
+        
+        // Xử lý early completion nếu có
+        if (isBookingCompletedEarly(relatedSlots)) {
+            BaySchedule firstSlot = relatedSlots.get(0);
+            // Tính tổng thời gian dự kiến của tất cả slot
+            LocalTime totalExpectedEndTime = calculateTotalExpectedEndTime(relatedSlots);
+            
+            // Giải phóng slot trống do hoàn thành sớm
+            releaseSlotsDueToEarlyCompletion(
+                firstSlot.getServiceBay().getBayId(),
+                firstSlot.getScheduleDate(),
+                firstSlot.getActualEndTime(),
+                totalExpectedEndTime
+            );
+        }
+        
+        log.info("Successfully completed {} slots for booking: {} at {}", 
+            relatedSlots.size(), bookingId, completionTime);
+    }
+    
+    /**
+     * Tính tổng thời gian kết thúc dự kiến của tất cả slot
+     */
+    private LocalTime calculateTotalExpectedEndTime(List<BaySchedule> slots) {
+        if (slots.isEmpty()) {
+            return null;
+        }
+        
+        // Lấy slot cuối cùng và tính thời gian kết thúc
+        BaySchedule lastSlot = slots.get(slots.size() - 1);
+        return lastSlot.getEndTime();
+    }
+    
+    /**
+     * Kiểm tra xem booking có hoàn thành sớm không (so với tổng thời gian dự kiến)
+     */
+    private boolean isBookingCompletedEarly(List<BaySchedule> slots) {
+        if (slots.isEmpty()) {
+            return false;
+        }
+        
+        // Lấy slot đầu tiên (có actualEndTime)
+        BaySchedule firstSlot = slots.get(0);
+        if (firstSlot.getActualEndTime() == null) {
+            return false;
+        }
+        
+        // Tính tổng thời gian dự kiến của tất cả slot
+        LocalTime totalExpectedEndTime = calculateTotalExpectedEndTime(slots);
+        if (totalExpectedEndTime == null) {
+            return false;
+        }
+        
+        // So sánh thời gian hoàn thành thực tế với tổng thời gian dự kiến
+        return firstSlot.getActualEndTime().isBefore(totalExpectedEndTime);
+    }
+    
+    /**
      * Mở các slot trống do hoàn thành sớm
      */
     @Transactional
@@ -325,7 +489,17 @@ public class BayScheduleService {
     @Transactional
     public void blockSlotsInTimeRange(UUID bayId, LocalDate date, 
                                     LocalTime startTime, LocalTime endTime) {
-        log.info("Blocking slots for bay: {} from {} to {} on {}", bayId, startTime, endTime, date);
+        blockSlotsInTimeRange(bayId, date, startTime, endTime, null);
+    }
+    
+    /**
+     * Block các slot trong khoảng thời gian với bookingId
+     */
+    @Transactional
+    public void blockSlotsInTimeRange(UUID bayId, LocalDate date, 
+                                    LocalTime startTime, LocalTime endTime, UUID bookingId) {
+        log.info("Blocking slots for bay: {} from {} to {} on {} with bookingId: {}", 
+            bayId, startTime, endTime, date, bookingId);
         
         List<BaySchedule> slotsToBlock = bayScheduleRepository.findSlotsInTimeRange(
             bayId, date, startTime, endTime);
@@ -333,8 +507,12 @@ public class BayScheduleService {
         for (BaySchedule slot : slotsToBlock) {
             if (slot.getStatus() == BaySchedule.ScheduleStatus.AVAILABLE) {
                 slot.setStatus(BaySchedule.ScheduleStatus.BOOKED);
+                if (bookingId != null) {
+                    slot.setBooking(bookingService.getById(bookingId));
+                }
                 bayScheduleRepository.save(slot);
-                log.debug("Blocked slot: {} - {}", slot.getStartTime(), slot.getEndTime());
+                log.debug("Blocked slot: {} - {} with bookingId: {}", 
+                    slot.getStartTime(), slot.getEndTime(), bookingId);
             }
         }
         
@@ -416,13 +594,10 @@ public class BayScheduleService {
      */
     @Transactional
     public void cleanupAvailableSlotsOnly(UUID bayId, LocalDate date) {
-        log.info("Cleaning up available slots only for bay: {} on date: {}", bayId, date);
         
         // Chỉ xóa slot AVAILABLE (chưa được đặt)
         bayScheduleRepository.deleteByServiceBayBayIdAndScheduleDateAndStatus(
             bayId, date, BaySchedule.ScheduleStatus.AVAILABLE);
-        
-        log.info("Cleaned up available slots for bay: {} on date: {}", bayId, date);
     }
     
     /**
@@ -430,8 +605,6 @@ public class BayScheduleService {
      */
     @Transactional
     public void archiveOldBookedSlots(int daysToKeep) {
-        log.info("Archiving old booked slots older than {} days", daysToKeep);
-        
         LocalDate archiveDate = LocalDate.now().minusDays(daysToKeep);
         
         List<BaySchedule> oldBookedSlots = bayScheduleRepository
@@ -446,19 +619,13 @@ public class BayScheduleService {
             schedule.setIsDeleted(true);
             schedule.setIsActive(false);
             bayScheduleRepository.save(schedule);
-            log.debug("Archived slot: {} for bay: {} on date: {}", 
-                schedule.getStartTime(), schedule.getServiceBay().getBayName(), schedule.getScheduleDate());
         }
-        
-        log.info("Archived {} old booked slots", oldBookedSlots.size());
     }
     
     /**
      * Lấy lịch sử slot đã được đặt (bao gồm cả đã archive)
      */
     public List<BaySchedule> getSlotHistory(UUID bayId, LocalDate startDate, LocalDate endDate) {
-        log.info("Getting slot history for bay: {} from {} to {}", bayId, startDate, endDate);
-        
         return bayScheduleRepository.findByServiceBayBayIdAndScheduleDateBetweenAndStatusIn(
             bayId, startDate, endDate, 
             Arrays.asList(

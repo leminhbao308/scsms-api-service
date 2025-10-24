@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.BaySchedule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -117,6 +118,20 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
         @Param("endTime") LocalTime endTime);
     
     /**
+     * Tìm tất cả slot liên quan đến booking (chỉ lấy slot chưa bị xóa)
+     */
+    @Query("SELECT bs FROM BaySchedule bs " +
+           "WHERE bs.serviceBay.bayId = :bayId " +
+           "AND bs.scheduleDate = :date " +
+           "AND bs.booking.bookingId = :bookingId " +
+           "AND bs.isDeleted = false " +
+           "ORDER BY bs.startTime")
+    List<BaySchedule> findByServiceBayBayIdAndScheduleDateAndBookingBookingId(
+        @Param("bayId") UUID bayId,
+        @Param("date") LocalDate date,
+        @Param("bookingId") UUID bookingId);
+    
+    /**
      * Tìm schedule theo booking (chỉ lấy slot chưa bị xóa)
      */
     @Query("SELECT bs FROM BaySchedule bs " +
@@ -176,6 +191,7 @@ public interface BayScheduleRepository extends JpaRepository<BaySchedule, UUID> 
     /**
      * Xóa slot AVAILABLE của bay trong ngày (chỉ xóa slot chưa được đặt và chưa bị xóa)
      */
+    @Modifying
     @Query("DELETE FROM BaySchedule bs " +
            "WHERE bs.serviceBay.bayId = :bayId " +
            "AND bs.scheduleDate = :date " +

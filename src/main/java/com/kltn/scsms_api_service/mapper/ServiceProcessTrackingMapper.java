@@ -29,6 +29,8 @@ public interface ServiceProcessTrackingMapper {
     @Mapping(target = "bayId", source = "bay.bayId")
     @Mapping(target = "bayName", source = "bay.bayName")
     @Mapping(target = "bayCode", source = "bay.bayCode")
+    @Mapping(target = "carServiceId", source = "carServiceId")
+    @Mapping(target = "carServiceName", ignore = true) // Will be populated by custom method
     @Mapping(target = "lastUpdatedBy", source = "lastUpdatedBy.userId")
     @Mapping(target = "lastUpdatedByName", source = "lastUpdatedBy.fullName")
     @Mapping(target = "createdAt", source = "createdDate")

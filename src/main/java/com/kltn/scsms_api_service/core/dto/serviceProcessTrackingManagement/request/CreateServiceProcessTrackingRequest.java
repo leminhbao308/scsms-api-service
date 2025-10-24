@@ -30,12 +30,11 @@ public class CreateServiceProcessTrackingRequest {
     @JsonProperty("bay_id")
     private UUID bayId;
     
+    @JsonProperty("car_service_id")
+    private UUID carServiceId;
+    
     @JsonProperty("status")
     private ServiceProcessTracking.TrackingStatus status;
-    
-    // Removed: technician_id - technicians are assigned to bays
-    // Removed: estimated_duration - simplified tracking
-    // Removed: progress_percent - simplified tracking
     
     @JsonProperty("notes")
     private String notes;

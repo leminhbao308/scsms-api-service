@@ -177,7 +177,7 @@ public class BookingService {
     /**
      * Tìm các booking có trạng thái thanh toán cụ thể và trạng thái booking không phải cancelled
      */
-    public List<Booking> findByPaymentStatusAndStatusNot(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus) {
-        return bookingRepository.findByPaymentStatusAndStatusNot(paymentStatus, bookingStatus);
+    public List<Booking> findByPaymentStatusAndStatus(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus) {
+        return bookingRepository.findByPaymentStatusAndStatus(paymentStatus, bookingStatus);
     }
 }

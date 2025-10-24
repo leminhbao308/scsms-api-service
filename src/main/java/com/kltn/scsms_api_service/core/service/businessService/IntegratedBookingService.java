@@ -7,7 +7,6 @@ import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
-import com.kltn.scsms_api_service.mapper.BookingMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * Service tích hợp để tạo booking với slot trong một API call
@@ -33,7 +33,7 @@ public class IntegratedBookingService {
     private final VehicleProfileService vehicleProfileService;
     private final BookingItemService bookingItemService;
     private final BookingPricingService bookingPricingService;
-    private final BookingMapper bookingMapper;
+    private final BookingInfoService bookingInfoService;
     
     /**
      * Tạo booking hoàn chỉnh với slot trong một API call
@@ -62,7 +62,7 @@ public class IntegratedBookingService {
         log.info("Successfully created integrated booking: {} with slot: {}",
             savedBooking.getBookingId(), request.getSelectedSlot());
         
-        return bookingMapper.toBookingInfoDto(savedBooking);
+        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
     
     /**
@@ -154,13 +154,18 @@ public class IntegratedBookingService {
                 "Slot not found");
         }
         
-        // Check if slot duration is sufficient
+        // Check if we have enough consecutive slots for the service
         ServiceBay bay = serviceBayService.getById(slot.getBayId());
-        int slotDurationMinutes = bay.getSlotDurationMinutes();
-        if (slotDurationMinutes < slot.getServiceDurationMinutes()) {
-            throw new ClientSideException(ErrorCode.SLOT_INSUFFICIENT_TIME, 
-                "Slot duration (" + slotDurationMinutes + " minutes) is insufficient for service duration (" + 
-                slot.getServiceDurationMinutes() + " minutes)");
+        int slotsNeeded = (int) Math.ceil((double) slot.getServiceDurationMinutes() / bay.getSlotDurationMinutes());
+        
+        // Check if all required slots are available
+        for (int i = 0; i < slotsNeeded; i++) {
+            LocalTime slotStartTime = slot.getStartTime().plusMinutes(i * bay.getSlotDurationMinutes());
+            if (!bayScheduleService.isSlotAvailable(slot.getBayId(), slot.getDate(), slotStartTime)) {
+                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                    "Required slot at " + slotStartTime + " is not available for service duration " + 
+                    slot.getServiceDurationMinutes() + " minutes (needs " + slotsNeeded + " slots)");
+            }
         }
     }
     
@@ -242,16 +247,17 @@ public class IntegratedBookingService {
         
         // Block additional slots if needed
         ServiceBay bay = serviceBayService.getById(slot.getBayId());
-        int totalDurationMinutes = slot.getServiceDurationMinutes() + bay.getBufferMinutes();
-        int slotsNeeded = (int) Math.ceil((double) totalDurationMinutes / bay.getSlotDurationMinutes());
+        // Chỉ tính dựa trên service duration, không cộng bufferMinutes
+        int slotsNeeded = (int) Math.ceil((double) slot.getServiceDurationMinutes() / bay.getSlotDurationMinutes());
         
         if (slotsNeeded > 1) {
-            // Block additional slots
+            // Block additional slots with bookingId
             for (int i = 1; i < slotsNeeded; i++) {
                 bayScheduleService.blockSlot(
                     slot.getBayId(),
                     slot.getDate(),
-                    slot.getStartTime().plusMinutes(i * bay.getSlotDurationMinutes())
+                    slot.getStartTime().plusMinutes(i * bay.getSlotDurationMinutes()),
+                    booking.getBookingId()
                 );
             }
         }

@@ -45,6 +45,10 @@ public class ServiceProcessTrackingInfoDto {
     private String bayName;
     private String bayCode;
     
+    // Car service information
+    private UUID carServiceId;
+    private String carServiceName;
+    
     // Timing information
     private LocalDateTime startTime;
     private LocalDateTime endTime;
