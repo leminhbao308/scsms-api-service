@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.SalesOrderLine;
 import com.kltn.scsms_api_service.core.entity.SalesReturn;
 import com.kltn.scsms_api_service.core.entity.SalesReturnLine;
+import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType;
 import com.kltn.scsms_api_service.core.service.entityService.*;
@@ -30,6 +31,7 @@ public class SalesBusinessService {
     private final InventoryBusinessService inventoryBS;
     private final PricingBusinessService pricingBS;
     private final ProductService productES;
+    private final UserService userES;
 
     @Transactional
     public SalesOrder createDraft(SalesOrder so) {
@@ -58,7 +60,7 @@ public class SalesBusinessService {
                 // For service items, we don't need to reserve stock or resolve pricing
                 // Service items are already priced and don't have physical inventory
                 log.info("Skipping inventory reservation for service item - ServiceId: {}, OriginalBookingId: {}",
-                    line.getServiceId(), line.getOriginalBookingId());
+                        line.getServiceId(), line.getOriginalBookingId());
             }
         }
         so.setStatus(SalesStatus.CONFIRMED);
@@ -81,7 +83,7 @@ public class SalesBusinessService {
                 // For service items, we don't need to fulfill stock
                 // Service items don't have physical inventory
                 log.info("Skipping stock fulfillment for service item - ServiceId: {}, OriginalBookingId: {}",
-                    line.getServiceId(), line.getOriginalBookingId());
+                        line.getServiceId(), line.getOriginalBookingId());
             }
         }
         so.setStatus(SalesStatus.FULFILLED);
@@ -89,7 +91,8 @@ public class SalesBusinessService {
     }
 
     @Transactional
-    public SalesReturn createReturn(UUID soId, String reason, Map<UUID, Long> productQtyMap, Map<UUID, BigDecimal> unitCostOptional) {
+    public SalesReturn createReturn(UUID soId, String reason, Map<UUID, Long> productQtyMap,
+            Map<UUID, BigDecimal> unitCostOptional) {
         SalesOrder so = salesOrderEntityService.require(soId);
 
         // Calculate discount ratio for the entire order
@@ -111,7 +114,8 @@ public class SalesBusinessService {
 
             // Find the original line to get unit price (only for product items)
             SalesOrderLine originalLine = so.getLines().stream()
-                    .filter(line -> line.isProductItem() && line.getProduct() != null && line.getProduct().getProductId().equals(productId))
+                    .filter(line -> line.isProductItem() && line.getProduct() != null
+                            && line.getProduct().getProductId().equals(productId))
                     .findFirst()
                     .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST,
                             "Product not found in original order"));
@@ -143,7 +147,55 @@ public class SalesBusinessService {
 
         salesOrderEntityService.update(so);
 
-        SalesReturn sr = srES.create(SalesReturn.builder().reason(reason).salesOrder(so).branch(so.getBranch()).build());
+        // 4.5 Reverse customer statistics when return (decrease total_orders,
+        // total_spent, and potentially accumulated_points)
+        User customer = so.getCustomer();
+        if (customer != null) {
+            try {
+                // Calculate points to deduct (based on return amount)
+                // Formula: returnAmount / 1,000 (rounded down)
+                int pointsToDeduct = returnAmount.divide(BigDecimal.valueOf(1000), 0, RoundingMode.DOWN).intValue();
+
+                if (pointsToDeduct > 0) {
+                    Integer currentPoints = customer.getAccumulatedPoints() != null
+                            ? customer.getAccumulatedPoints()
+                            : 0;
+                    // Ensure points don't go negative
+                    int newPoints = Math.max(0, currentPoints - pointsToDeduct);
+                    customer.setAccumulatedPoints(newPoints);
+                }
+
+                // Decrease total orders count
+                Integer currentOrderCount = customer.getTotalOrders() != null
+                        ? customer.getTotalOrders()
+                        : 0;
+                // Ensure count doesn't go negative
+                customer.setTotalOrders(Math.max(0, currentOrderCount - 1));
+
+                // Decrease total spent amount
+                Double currentTotalSpent = customer.getTotalSpent() != null
+                        ? customer.getTotalSpent()
+                        : 0.0;
+                Double returnAmountDouble = returnAmount.doubleValue();
+                // Ensure total spent doesn't go negative
+                customer.setTotalSpent(Math.max(0.0, currentTotalSpent - returnAmountDouble));
+
+                // Save ALL changes
+                userES.saveUser(customer);
+
+                log.info(
+                        "Reversed customer statistics for return - Points deducted: {}, Orders: {} → {}, Spent: {} → {}",
+                        pointsToDeduct,
+                        currentOrderCount, Math.max(0, currentOrderCount - 1),
+                        currentTotalSpent, Math.max(0.0, currentTotalSpent - returnAmountDouble));
+
+            } catch (Exception e) {
+                log.error("Failed to reverse customer statistics for return: {}", e.getMessage());
+            }
+        }
+
+        SalesReturn sr = srES
+                .create(SalesReturn.builder().reason(reason).salesOrder(so).branch(so.getBranch()).build());
         productQtyMap.forEach((productId, qty) -> {
             srlES.create(SalesReturnLine.builder()
                     .salesReturn(sr)
