@@ -371,8 +371,9 @@ public class BookingManagementService {
         // Update booking
         Booking updatedBooking = bookingMapper.updateEntity(existingBooking, request);
 
-        // Xử lý thay đổi slot nếu có
-        if (request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null) {
+        // Xử lý thay đổi slot nếu có (chỉ cho slot booking, không cho walk-in booking)
+        if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null) 
+            && !existingBooking.getBookingCode().startsWith("WALK")) {
             handleSlotChange(updatedBooking, request);
         }
 
