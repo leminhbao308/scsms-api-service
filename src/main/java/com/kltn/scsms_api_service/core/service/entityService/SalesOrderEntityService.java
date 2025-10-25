@@ -5,6 +5,8 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -31,6 +33,10 @@ public class SalesOrderEntityService {
     
     public List<SalesOrder> getAll() {
         return repo.findByStatusNotOrderByCreatedDateDesc(SalesStatus.RETURNED);
+    }
+    
+    public Page<SalesOrder> getPagedOrders(Pageable pageable) {
+        return repo.findByStatusNot(SalesStatus.RETURNED, pageable);
     }
     
     public List<SalesOrder> getAllFullfills() {

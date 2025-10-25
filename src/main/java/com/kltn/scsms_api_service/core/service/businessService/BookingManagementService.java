@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -574,7 +575,21 @@ public class BookingManagementService {
             throw new RuntimeException("Could not determine unit price for service: " + itemRequest.getItemName());
         }
     }
-
+    
+    public void revertPaymentStatusToPending(Set<UUID> bookingIds) {
+        log.info("Reverting payment status to PENDING for bookings: {}", bookingIds);
+        List<Booking> bookings = bookingService.findAllByIds(bookingIds);
+        for (Booking booking : bookings) {
+            if (booking.getPaymentStatus() == Booking.PaymentStatus.PAID) {
+                booking.setPaymentStatus(Booking.PaymentStatus.PENDING);
+                bookingService.update(booking);
+                log.info("Reverted payment status to PENDING for booking: {}", booking.getBookingId());
+            } else {
+                log.info("Booking {} is not in PAID status, skipping", booking.getBookingId());
+            }
+        }
+    }
+    
     /**
      * DTO cho thống kê booking
      */

@@ -10,6 +10,7 @@ import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentMethod;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.repository.PromotionUsageRepository;
+import com.kltn.scsms_api_service.core.service.businessService.BookingManagementService;
 import com.kltn.scsms_api_service.core.service.businessService.PaymentBusinessService;
 import com.kltn.scsms_api_service.core.service.businessService.SalesBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.*;
@@ -26,6 +27,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,9 +47,10 @@ import java.util.*;
 @Slf4j
 @Tag(name = "Sales Order Management", description = "Sale order management endpoints")
 public class SalesOrdersController {
-    private final SalesReturnMapper salesReturnMapper;
     private final SalesBusinessService salesBS;
     private final PaymentBusinessService paymentBS;
+    private final BookingManagementService bookingBS;
+
     private final SalesOrderEntityService soES;
     private final SalesOrderLineEntityService solES;
     private final SalesReturnEntityService srES;
@@ -55,6 +61,7 @@ public class SalesOrdersController {
     private final PromotionService promotionES;
 
     private final SaleOrderMapper soMapper;
+    private final SalesReturnMapper salesReturnMapper;
     private final SalesReturnMapper srMapper;
 
     private final PromotionUsageRepository promotionUsageRepo;
@@ -239,6 +246,64 @@ public class SalesOrdersController {
         return ResponseBuilder.success("Sales order fulfilled", soDto);
     }
 
+    /**
+     * Cancel a sales order
+     * - Updates order status to CANCELED
+     * - Saves cancellation reason
+     * - If order contains booking service items, reverts booking payment status to
+     * PENDING
+     */
+    @PostMapping("/so/cancel/{soId}")
+    @Operation(summary = "Cancel order", description = "Cancel a sales order and revert booking payment status if applicable")
+    public ResponseEntity<ApiResponse<SaleOrderInfoDto>> cancelOrder(
+            @PathVariable UUID soId,
+            @RequestBody CancelOrderRequest req) {
+
+        // Validate cancellation reason
+        if (req.getCancellationReason() == null || req.getCancellationReason().trim().isEmpty()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Cancellation reason is required");
+        }
+
+        if (req.getCancellationReason().length() > 500) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Cancellation reason must not exceed 500 characters");
+        }
+
+        // Get order
+        SalesOrder so = soES.require(soId);
+
+        // Validate order can be canceled
+        if (so.getStatus() == SalesStatus.CANCELLED) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Order is already canceled");
+        }
+
+        if (so.getStatus() == SalesStatus.RETURNED) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Returned orders cannot be canceled");
+        }
+
+        // Update order status and reason
+        so.setStatus(SalesStatus.CANCELLED);
+        so.setCancellationReason(req.getCancellationReason().trim());
+        so = soES.update(so);
+
+        // Revert booking payment status if order contains booking service items
+        Set<UUID> bookingIds = new HashSet<>();
+        for (SalesOrderLine line : so.getLines()) {
+            if (line.getOriginalBookingId() != null) {
+                bookingIds.add(line.getOriginalBookingId());
+            }
+        }
+
+        if (!bookingIds.isEmpty()) {
+            log.info("Reverting payment status for {} bookings from canceled order {}",
+                    bookingIds.size(), soId);
+            bookingBS.revertPaymentStatusToPending(bookingIds);
+        }
+
+        SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
+
+        return ResponseBuilder.success("Sales order canceled successfully", soDto);
+    }
+
     @PostMapping("/so/return/{soId}")
     @Operation(summary = "Create return", description = "Create a return for a sales order")
     public ResponseEntity<ApiResponse<SaleReturnInfoDto>> createReturn(@PathVariable UUID soId,
@@ -289,6 +354,37 @@ public class SalesOrdersController {
                 .map(soMapper::toSaleOrderInfoDto).toList();
 
         return ResponseBuilder.success("All sales orders retrieved", sosDto);
+    }
+
+    @GetMapping("/so/paged")
+    @Operation(summary = "Get paged orders", description = "Get sales orders with pagination")
+    public ResponseEntity<ApiResponse<PagedSaleOrderResponse>> getPagedOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdDate") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection) {
+        
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") 
+            ? Sort.Direction.ASC 
+            : Sort.Direction.DESC;
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Page<SalesOrder> pagedOrders = soES.getPagedOrders(pageable);
+        
+        List<SaleOrderInfoDto> ordersDto = pagedOrders.getContent().stream()
+                .map(soMapper::toSaleOrderInfoDto)
+                .toList();
+        
+        PagedSaleOrderResponse response = PagedSaleOrderResponse.builder()
+                .content(ordersDto)
+                .page(pagedOrders.getNumber())
+                .size(pagedOrders.getSize())
+                .totalElements(pagedOrders.getTotalElements())
+                .totalPages(pagedOrders.getTotalPages())
+                .last(pagedOrders.isLast())
+                .build();
+        
+        return ResponseBuilder.success("Paged sales orders retrieved", response);
     }
 
     @GetMapping("/so/get-all-return")
@@ -519,6 +615,28 @@ public class SalesOrdersController {
     public static class CreateReturnRequest {
         private List<ReturnItem> items;
         private String reason;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CancelOrderRequest {
+
+        @JsonProperty("cancellation_reason")
+        private String cancellationReason; // Required, max 500 characters
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PagedSaleOrderResponse {
+        private List<SaleOrderInfoDto> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean last;
     }
 
     @Data
