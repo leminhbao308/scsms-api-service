@@ -2,11 +2,16 @@ spring:
   application:
     name: scsms-api-service
   profiles:
-    active: dev  # dev/prod
+    active: dev # dev/prod
   config:
     import:
       - classpath:aws.yml
       - classpath:payos.yml
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB # Max size per file
+      max-request-size: 50MB # Max size for entire request (multiple files)
 server:
   port: 8081
   servlet:
@@ -23,10 +28,10 @@ app:
     remember-me:
       expires-in: ${APP_JWT_REMEMBER_ME_EXPIRES_IN:604800000} # 7 days in milliseconds
     otp:
-        expires-in: ${APP_JWT_OTP_EXPIRES_IN:300000} # 5 minutes in milliseconds
+      expires-in: ${APP_JWT_OTP_EXPIRES_IN:300000} # 5 minutes in milliseconds
     reset-password:
-        expires-in: ${APP_JWT_RESET_PASSWORD_EXPIRES_IN:300000} # 5 minutes in milliseconds
-  
+      expires-in: ${APP_JWT_RESET_PASSWORD_EXPIRES_IN:300000} # 5 minutes in milliseconds
+
   schedule:
     # Mode: ROLLING_WINDOW (30 ngày từ hôm nay) hoặc MONTHLY (theo tháng)
     mode: ${APP_SCHEDULE_MODE:MONTHLY}
