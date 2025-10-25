@@ -6,14 +6,23 @@ import com.kltn.scsms_api_service.core.dto.productManagement.request.CreateProdu
 import com.kltn.scsms_api_service.core.dto.productManagement.request.UpdateProductRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.ProductStatusUpdateRequest;
 import com.kltn.scsms_api_service.core.dto.productManagement.request.ProductAttributeValueRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.ProductImageRequest;
+import com.kltn.scsms_api_service.core.dto.productManagement.request.ReorderProductImagesRequest;
+import com.kltn.scsms_api_service.core.dto.mediaManagement.MediaInfoDto;
+import com.kltn.scsms_api_service.core.dto.mediaManagement.request.CreateMediaRequest;
+import com.kltn.scsms_api_service.core.dto.mediaManagement.request.UpdateMediaRequest;
+import com.kltn.scsms_api_service.core.dto.mediaManagement.request.UpdateMediaMainStatusRequest;
+import com.kltn.scsms_api_service.core.entity.S3File;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.ProductType;
 import com.kltn.scsms_api_service.core.entity.ProductAttribute;
 import com.kltn.scsms_api_service.core.entity.ProductAttributeValue;
+import com.kltn.scsms_api_service.core.entity.Media;
 import com.kltn.scsms_api_service.core.service.entityService.ProductService;
 import com.kltn.scsms_api_service.core.service.entityService.ProductTypeService;
 import com.kltn.scsms_api_service.core.service.entityService.ProductAttributeService;
 import com.kltn.scsms_api_service.core.service.entityService.ProductAttributeValueService;
+import com.kltn.scsms_api_service.core.service.entityService.S3FileService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ProductMapper;
@@ -26,6 +35,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +51,8 @@ public class ProductManagementService {
     private final ProductTypeService productTypeService;
     private final ProductAttributeService productAttributeService;
     private final ProductAttributeValueService productAttributeValueService;
+    private final MediaManagementService mediaManagementService;
+    private final S3FileService s3FileService;
     private final ProductMapper productMapper;
     private final ProductAttributeValueMapper productAttributeValueMapper;
 
@@ -60,13 +72,12 @@ public class ProductManagementService {
 
         // Create pageable
         Sort sort = Sort.by(
-                filterParam.getDirection().equalsIgnoreCase("DESC") ?
-                        Sort.Direction.DESC : Sort.Direction.ASC,
-                filterParam.getSort()
-        );
+                filterParam.getDirection().equalsIgnoreCase("DESC") ? Sort.Direction.DESC : Sort.Direction.ASC,
+                filterParam.getSort());
         Pageable pageable = PageRequest.of(filterParam.getPage(), filterParam.getSize(), sort);
 
-        // Get products (simplified - in real implementation, you'd use custom repository methods)
+        // Get products (simplified - in real implementation, you'd use custom
+        // repository methods)
         Page<Product> productPage = productService.findAll(pageable);
 
         return productPage.map(productMapper::toProductInfoDto);
@@ -116,7 +127,6 @@ public class ProductManagementService {
                 .collect(Collectors.toList());
     }
 
-
     @Transactional
     public ProductInfoDto createProduct(CreateProductRequest createProductRequest) {
         log.info("Creating product: {}", createProductRequest.getProductName());
@@ -145,7 +155,8 @@ public class ProductManagementService {
         ProductType productType = null;
         if (createProductRequest.getProductTypeId() != null) {
             productType = productTypeService.findById(createProductRequest.getProductTypeId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND, "Product type not found with ID: " + createProductRequest.getProductTypeId()));
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND,
+                            "Product type not found with ID: " + createProductRequest.getProductTypeId()));
         }
 
         // Create product
@@ -158,12 +169,12 @@ public class ProductManagementService {
         }
 
         Product savedProduct = productService.save(product);
-        
+
         // Process attribute values if provided
         if (createProductRequest.getAttributeValues() != null && !createProductRequest.getAttributeValues().isEmpty()) {
             processProductAttributeValues(savedProduct, createProductRequest.getAttributeValues());
         }
-        
+
         return productMapper.toProductInfoDto(savedProduct);
     }
 
@@ -201,14 +212,15 @@ public class ProductManagementService {
         // Validate product type exists if provided
         if (updateProductRequest.getProductTypeId() != null) {
             ProductType productType = productTypeService.findById(updateProductRequest.getProductTypeId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND, "Product type not found with ID: " + updateProductRequest.getProductTypeId()));
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND,
+                            "Product type not found with ID: " + updateProductRequest.getProductTypeId()));
             existingProduct.setProductType(productType);
         }
 
         // Update product
         productMapper.updateEntityFromRequest(updateProductRequest, existingProduct);
         Product savedProduct = productService.update(existingProduct);
-        
+
         // Process attribute values if provided
         if (updateProductRequest.getAttributeValues() != null) {
             processProductAttributeValues(savedProduct, updateProductRequest.getAttributeValues());
@@ -218,42 +230,45 @@ public class ProductManagementService {
     }
 
     /**
-     * Process product attribute values - create or update attribute values for a product
+     * Process product attribute values - create or update attribute values for a
+     * product
      */
     @Transactional
-    private void processProductAttributeValues(Product product, List<ProductAttributeValueRequest> attributeValueRequests) {
-        log.debug("Processing {} attribute values for product: {}", attributeValueRequests.size(), product.getProductId());
-        
+    private void processProductAttributeValues(Product product,
+            List<ProductAttributeValueRequest> attributeValueRequests) {
+        log.debug("Processing {} attribute values for product: {}", attributeValueRequests.size(),
+                product.getProductId());
+
         for (ProductAttributeValueRequest attrValueReq : attributeValueRequests) {
             // Validate attribute exists
             ProductAttribute attribute = productAttributeService.findById(attrValueReq.getAttributeId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND, 
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.ENTITY_NOT_FOUND,
                             "Product attribute not found with ID: " + attrValueReq.getAttributeId()));
-            
+
             // Check if attribute value already exists for this product
             ProductAttributeValue existingAttrValue = productAttributeValueService
                     .getProductAttributeValue(product.getProductId(), attrValueReq.getAttributeId())
                     .orElse(null);
-            
+
             if (existingAttrValue != null) {
                 // Update existing attribute value
-                log.debug("Updating existing attribute value for product: {} and attribute: {}", 
+                log.debug("Updating existing attribute value for product: {} and attribute: {}",
                         product.getProductId(), attrValueReq.getAttributeId());
-                
+
                 existingAttrValue.setValueText(attrValueReq.getValueText());
                 existingAttrValue.setValueNumber(attrValueReq.getValueNumber());
                 productAttributeValueService.update(existingAttrValue);
             } else {
                 // Create new attribute value
-                log.debug("Creating new attribute value for product: {} and attribute: {}", 
+                log.debug("Creating new attribute value for product: {} and attribute: {}",
                         product.getProductId(), attrValueReq.getAttributeId());
-                
+
                 ProductAttributeValue newAttrValue = productAttributeValueMapper.toEntity(attrValueReq);
                 newAttrValue.setProductId(product.getProductId());
                 newAttrValue.setAttributeId(attrValueReq.getAttributeId());
                 newAttrValue.setProduct(product);
                 newAttrValue.setProductAttribute(attribute);
-                
+
                 productAttributeValueService.save(newAttrValue);
             }
         }
@@ -304,5 +319,251 @@ public class ProductManagementService {
     public long getProductCountBySupplier(UUID supplierId) {
         log.info("Getting product count by supplier ID: {}", supplierId);
         return productService.countBySupplierId(supplierId);
+    }
+
+    // ==================== Product Image Management Methods ====================
+
+    /**
+     * Get all images for a product
+     */
+    public List<MediaInfoDto> getProductImages(UUID productId) {
+        log.info("Getting images for product ID: {}", productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Get media for product
+        return mediaManagementService.getMediaByEntity(
+                Media.EntityType.PRODUCT.name(),
+                productId);
+    }
+
+    /**
+     * Upload and add a new image file to a product
+     */
+    @Transactional
+    public MediaInfoDto uploadProductImage(UUID productId, MultipartFile file, String altText, Boolean isMain) {
+        log.info("Uploading image file for product ID: {}", productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Upload file to S3
+        S3File s3File = s3FileService.uploadAndSave(
+                file,
+                "products/" + productId,
+                null, // uploadedBy - can be set to current user if available
+                "PRODUCT",
+                productId);
+
+        // If this is set as main, unset any existing main image
+        if (Boolean.TRUE.equals(isMain)) {
+            List<MediaInfoDto> existingImages = getProductImages(productId);
+            existingImages.stream()
+                    .filter(MediaInfoDto::getIsMain)
+                    .forEach(img -> {
+                        UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+                        statusRequest.setIsMain(false);
+                        mediaManagementService.updateMediaMainStatus(img.getMediaId(), statusRequest);
+                    });
+        }
+
+        // Get current max sort order
+        List<MediaInfoDto> existingImages = getProductImages(productId);
+        int nextSortOrder = existingImages.stream()
+                .mapToInt(MediaInfoDto::getSortOrder)
+                .max()
+                .orElse(-1) + 1;
+
+        // Create media request with uploaded file URL
+        CreateMediaRequest createRequest = CreateMediaRequest.builder()
+                .entityType(Media.EntityType.PRODUCT.name())
+                .entityId(productId)
+                .mediaUrl(s3File.getFileUrl())
+                .mediaType(Media.MediaType.IMAGE.name())
+                .isMain(Boolean.TRUE.equals(isMain))
+                .sortOrder(nextSortOrder)
+                .altText(altText)
+                .build();
+
+        return mediaManagementService.createMedia(createRequest);
+    }
+
+    /**
+     * Add a new image to a product
+     */
+    @Transactional
+    public MediaInfoDto addProductImage(UUID productId, ProductImageRequest imageRequest) {
+        log.info("Adding image to product ID: {}", productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // If this is set as main, unset any existing main image
+        if (Boolean.TRUE.equals(imageRequest.getIsMain())) {
+            List<MediaInfoDto> existingImages = getProductImages(productId);
+            existingImages.stream()
+                    .filter(MediaInfoDto::getIsMain)
+                    .forEach(img -> {
+                        UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+                        statusRequest.setIsMain(false);
+                        mediaManagementService.updateMediaMainStatus(img.getMediaId(), statusRequest);
+                    });
+        }
+
+        // Create media request
+        CreateMediaRequest createRequest = CreateMediaRequest.builder()
+                .entityType(Media.EntityType.PRODUCT.name())
+                .entityId(productId)
+                .mediaUrl(imageRequest.getMediaUrl())
+                .mediaType(Media.MediaType.IMAGE.name())
+                .isMain(imageRequest.getIsMain())
+                .sortOrder(imageRequest.getSortOrder())
+                .altText(imageRequest.getAltText())
+                .build();
+
+        return mediaManagementService.createMedia(createRequest);
+    }
+
+    /**
+     * Update an existing product image
+     */
+    @Transactional
+    public MediaInfoDto updateProductImage(UUID productId, UUID mediaId, ProductImageRequest imageRequest) {
+        log.info("Updating image {} for product ID: {}", mediaId, productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Verify media belongs to this product
+        MediaInfoDto existingMedia = mediaManagementService.getMediaById(mediaId);
+        if (!existingMedia.getEntityId().equals(productId) ||
+                !Media.EntityType.PRODUCT.name().equals(existingMedia.getEntityType())) {
+            throw new ClientSideException(ErrorCode.INVALID_INPUT,
+                    "Media does not belong to this product");
+        }
+
+        // Update media URL, alt text, and sort order
+        UpdateMediaRequest updateRequest = new UpdateMediaRequest();
+        updateRequest.setMediaUrl(imageRequest.getMediaUrl());
+        updateRequest.setAltText(imageRequest.getAltText());
+        updateRequest.setSortOrder(imageRequest.getSortOrder());
+
+        MediaInfoDto updatedMedia = mediaManagementService.updateMedia(mediaId, updateRequest);
+
+        // If setting as main, handle main status separately
+        if (imageRequest.getIsMain() != null &&
+                !imageRequest.getIsMain().equals(existingMedia.getIsMain())) {
+
+            if (imageRequest.getIsMain()) {
+                // Unset other main images
+                List<MediaInfoDto> existingImages = getProductImages(productId);
+                existingImages.stream()
+                        .filter(MediaInfoDto::getIsMain)
+                        .filter(img -> !img.getMediaId().equals(mediaId))
+                        .forEach(img -> {
+                            UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+                            statusRequest.setIsMain(false);
+                            mediaManagementService.updateMediaMainStatus(img.getMediaId(), statusRequest);
+                        });
+            }
+
+            // Set new main status
+            UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+            statusRequest.setIsMain(imageRequest.getIsMain());
+            updatedMedia = mediaManagementService.updateMediaMainStatus(mediaId, statusRequest);
+        }
+
+        return updatedMedia;
+    }
+
+    /**
+     * Delete a product image
+     */
+    @Transactional
+    public void deleteProductImage(UUID productId, UUID mediaId) {
+        log.info("Deleting image {} from product ID: {}", mediaId, productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Verify media belongs to this product
+        MediaInfoDto existingMedia = mediaManagementService.getMediaById(mediaId);
+        if (!existingMedia.getEntityId().equals(productId) ||
+                !Media.EntityType.PRODUCT.name().equals(existingMedia.getEntityType())) {
+            throw new ClientSideException(ErrorCode.INVALID_INPUT,
+                    "Media does not belong to this product");
+        }
+
+        // Delete media
+        mediaManagementService.deleteMedia(mediaId);
+    }
+
+    /**
+     * Set an image as the main image for a product
+     */
+    @Transactional
+    public MediaInfoDto setMainProductImage(UUID productId, UUID mediaId) {
+        log.info("Setting image {} as main for product ID: {}", mediaId, productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Verify media belongs to this product
+        MediaInfoDto existingMedia = mediaManagementService.getMediaById(mediaId);
+        if (!existingMedia.getEntityId().equals(productId) ||
+                !Media.EntityType.PRODUCT.name().equals(existingMedia.getEntityType())) {
+            throw new ClientSideException(ErrorCode.INVALID_INPUT,
+                    "Media does not belong to this product");
+        }
+
+        // Unset all other main images for this product
+        List<MediaInfoDto> existingImages = getProductImages(productId);
+        existingImages.stream()
+                .filter(MediaInfoDto::getIsMain)
+                .filter(img -> !img.getMediaId().equals(mediaId))
+                .forEach(img -> {
+                    UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+                    statusRequest.setIsMain(false);
+                    mediaManagementService.updateMediaMainStatus(img.getMediaId(), statusRequest);
+                });
+
+        // Set this image as main
+        UpdateMediaMainStatusRequest statusRequest = new UpdateMediaMainStatusRequest();
+        statusRequest.setIsMain(true);
+
+        return mediaManagementService.updateMediaMainStatus(mediaId, statusRequest);
+    }
+
+    /**
+     * Reorder product images
+     */
+    @Transactional
+    public void reorderProductImages(UUID productId, ReorderProductImagesRequest reorderRequest) {
+        log.info("Reordering images for product ID: {}", productId);
+
+        // Verify product exists
+        productService.getById(productId);
+
+        // Update sort order for each media
+        for (ReorderProductImagesRequest.MediaOrderDto mediaOrder : reorderRequest.getMediaOrders()) {
+            MediaInfoDto existingMedia = mediaManagementService.getMediaById(mediaOrder.getMediaId());
+
+            // Verify media belongs to this product
+            if (!existingMedia.getEntityId().equals(productId) ||
+                    !Media.EntityType.PRODUCT.name().equals(existingMedia.getEntityType())) {
+                throw new ClientSideException(ErrorCode.INVALID_INPUT,
+                        "Media " + mediaOrder.getMediaId() + " does not belong to this product");
+            }
+
+            // Update only sort order, keep other fields unchanged
+            UpdateMediaRequest updateRequest = new UpdateMediaRequest();
+            updateRequest.setMediaUrl(existingMedia.getMediaUrl());
+            updateRequest.setSortOrder(mediaOrder.getSortOrder());
+            updateRequest.setAltText(existingMedia.getAltText());
+            updateRequest.setMediaType(existingMedia.getMediaType());
+
+            mediaManagementService.updateMedia(mediaOrder.getMediaId(), updateRequest);
+        }
     }
 }
