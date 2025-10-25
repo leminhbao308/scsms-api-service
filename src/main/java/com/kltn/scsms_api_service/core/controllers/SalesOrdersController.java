@@ -118,18 +118,20 @@ public class SalesOrdersController {
             List<SalesOrderLine> createdLines = new ArrayList<>();
             for (CreateSOLine l : req.getLines()) {
                 Boolean isFree = (l.getIsFreeItem() != null && l.getIsFreeItem());
-                
+
                 // Log line item details
-                log.info("Processing line item - ProductId: {}, ServiceId: {}, IsServiceItem: {}, OriginalBookingId: {}, OriginalBookingCode: {}",
-                    l.getProductId(), l.getServiceId(), l.isServiceItem(), l.getOriginalBookingId(), l.getOriginalBookingCode());
-                
+                log.info(
+                        "Processing line item - ProductId: {}, ServiceId: {}, IsServiceItem: {}, OriginalBookingId: {}, OriginalBookingCode: {}",
+                        l.getProductId(), l.getServiceId(), l.isServiceItem(), l.getOriginalBookingId(),
+                        l.getOriginalBookingCode());
+
                 // Build SalesOrderLine with service item support
                 SalesOrderLine.SalesOrderLineBuilder lineBuilder = SalesOrderLine.builder()
                         .salesOrder(so)
                         .quantity(l.getQty())
                         .unitPrice(l.getUnitPrice())
                         .isFreeItem(isFree);
-                
+
                 // Set product reference only for product items (not service items)
                 if (l.isProductItem() && l.getProductId() != null) {
                     lineBuilder.product(productES.getRefByProductId(l.productId));
@@ -139,7 +141,7 @@ public class SalesOrdersController {
                     lineBuilder.product(null);
                     log.info("Service item - Product set to NULL (no product reference needed)");
                 }
-                
+
                 // Add service item fields if present
                 if (l.getServiceId() != null) {
                     lineBuilder.serviceId(l.getServiceId());
@@ -153,13 +155,14 @@ public class SalesOrdersController {
                     lineBuilder.originalBookingCode(l.getOriginalBookingCode());
                     log.info("Added booking code - BookingCode: {}", l.getOriginalBookingCode());
                 }
-                
+
                 SalesOrderLine createdLine = solES.create(lineBuilder.build());
                 createdLines.add(createdLine);
-                
+
                 // Log created line details
                 log.info("Created SalesOrderLine - Id: {}, IsServiceItem: {}, ServiceId: {}, OriginalBookingId: {}",
-                    createdLine.getId(), createdLine.isServiceItem(), createdLine.getServiceId(), createdLine.getOriginalBookingId());
+                        createdLine.getId(), createdLine.isServiceItem(), createdLine.getServiceId(),
+                        createdLine.getOriginalBookingId());
             }
             so.getLines().clear();
             so.getLines().addAll(createdLines);
@@ -316,29 +319,66 @@ public class SalesOrdersController {
      */
     private void createPromotionUsageRecords(List<UUID> promotionIds, SalesOrder order,
             User customer, List<SalesOrderLine> lines) {
+
+        if (promotionIds == null || promotionIds.isEmpty()) {
+            log.debug("No promotions to record for order {}", order.getId());
+            return;
+        }
+
+        // Calculate discount per promotion (equal split if multiple promotions)
+        BigDecimal totalDiscount = order.getTotalDiscountAmount() != null
+                ? order.getTotalDiscountAmount()
+                : BigDecimal.ZERO;
+
+        BigDecimal discountPerPromotion = promotionIds.size() > 1
+                ? totalDiscount.divide(BigDecimal.valueOf(promotionIds.size()), 4, java.math.RoundingMode.HALF_UP)
+                : totalDiscount;
+
+        // Parse promotion snapshot to get individual promotion details
+        java.util.Map<UUID, String> promotionSnapshotMap = new java.util.HashMap<>();
+        if (order.getPromotionSnapshot() != null && !order.getPromotionSnapshot().isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode promotionsArray = objectMapper
+                        .readTree(order.getPromotionSnapshot());
+
+                if (promotionsArray.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode promoNode : promotionsArray) {
+                        if (promoNode.has("promotion_id")) {
+                            UUID promoId = UUID.fromString(promoNode.get("promotion_id").asText());
+                            // Store individual promotion snapshot as JSON string
+                            promotionSnapshotMap.put(promoId, objectMapper.writeValueAsString(promoNode));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse promotion snapshot for order {}: {}", order.getId(), e.getMessage());
+            }
+        }
+
         for (UUID promotionId : promotionIds) {
             try {
                 Promotion promotion = promotionES.getReferenceById(promotionId);
 
-                // Calculate total discount from this promotion
-                // For free items, use the original unit_price from the line (before it was set
-                // to 0)
-                // Since frontend sends free items with unit_price, we can use that
-                BigDecimal discountAmount = lines.stream()
-                        .filter(line -> Boolean.TRUE.equals(line.getIsFreeItem()))
-                        .map(line -> line.getUnitPrice().multiply(BigDecimal.valueOf(line.getQuantity())))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                // Get individual promotion snapshot or null
+                String individualSnapshot = promotionSnapshotMap.get(promotionId);
 
-                // Create usage record
                 PromotionUsage usage = PromotionUsage.builder()
                         .promotion(promotion)
                         .customer(customer)
                         .orderId(order.getId())
-                        .discountAmount(discountAmount)
+                        .discountAmount(discountPerPromotion)
                         .usedAt(LocalDateTime.now())
+                        .promotionSnapshot(individualSnapshot) // Store individual promotion snapshot
+                        .orderOriginalAmount(order.getOriginalAmount())
+                        .orderFinalAmount(order.getFinalAmount())
+                        .branch(order.getBranch())
                         .build();
 
                 promotionUsageRepo.save(usage);
+
+                log.info("Created promotion usage record - Promotion: {}, Order: {}, Discount: {}",
+                        promotionId, order.getId(), discountPerPromotion);
 
             } catch (Exception e) {
                 log.warn("Failed to create promotion usage for promotion {}: {}",
@@ -381,37 +421,39 @@ public class SalesOrdersController {
         private Boolean isFreeItem = false; // true if item is free from promotion
 
         // ===== SERVICE ITEM SUPPORT =====
-        
+
         /**
          * Service ID if this line item represents a service (null for product items)
          */
         @JsonProperty("service_id")
         private UUID serviceId;
-        
+
         /**
          * Original booking ID if this service item comes from a booking
          */
         @JsonProperty("original_booking_id")
         private UUID originalBookingId;
-        
+
         /**
          * Original booking code for display purposes
          */
         @JsonProperty("original_booking_code")
         private String originalBookingCode;
-        
+
         // ===== HELPER METHODS =====
-        
+
         /**
          * Check if this line item represents a service
+         * 
          * @return true if serviceId is not null
          */
         public boolean isServiceItem() {
             return serviceId != null;
         }
-        
+
         /**
          * Check if this line item represents a product
+         * 
          * @return true if serviceId is null
          */
         public boolean isProductItem() {
