@@ -43,11 +43,12 @@ public class WalkInBookingController {
                 @RequestBody BayRecommendationRequest request,
                 @RequestParam(required = false) String queueDate) {
         try {
-            log.info("Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes", 
-                request.getBranchId(), request.getServiceDurationMinutes());
+            log.info("🔍 DEBUG: Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes, queueDate={}", 
+                request.getBranchId(), request.getServiceDurationMinutes(), queueDate);
             
             // Parse ngày nếu có
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
+            log.info("🔍 DEBUG: Parsed queue date: {}", parsedQueueDate);
             
             // Gọi service để đề xuất bay
             BayRecommendationService.BayRecommendation recommendation = bayRecommendationService.recommendBay(convertToServiceRequest(request), parsedQueueDate);
@@ -94,19 +95,22 @@ public class WalkInBookingController {
                 @PathVariable UUID bayId,
                 @RequestParam(required = false) String queueDate) {
         try {
-            log.info("Getting queue for bay: {}", bayId);
+            log.info("🔍 DEBUG: Getting bay queue for bay: {} on date: {}", bayId, queueDate);
 
             // Parse ngày nếu có
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
+            log.info("🔍 DEBUG: Parsed queue date: {}", parsedQueueDate);
             
             // Lấy thông tin hàng chờ
             List<BayQueue> bayQueues = bayQueueService.getBayQueue(bayId, parsedQueueDate);
+            log.info("🔍 DEBUG: Found {} queue entries for bay {}", bayQueues.size(), bayId);
             
             // Convert to response DTOs
             List<BookingQueueItemResponse> queueItems = bayQueues.stream()
                 .map(this::convertBayQueueToResponse)
                 .collect(Collectors.toList());
 
+            log.info("🔍 DEBUG: Converted to {} response items", queueItems.size());
             return ResponseEntity.ok(queueItems);
 
         } catch (Exception e) {

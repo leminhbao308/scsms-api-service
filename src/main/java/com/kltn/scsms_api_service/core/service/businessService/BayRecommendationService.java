@@ -165,8 +165,13 @@ public class BayRecommendationService {
      * Kiểm tra bay có trống không trong ngày cụ thể
      */
     private boolean isBayEmpty(UUID bayId, LocalDate queueDate) {
+        // Kiểm tra cả hàng chờ và booking đang được xử lý
         Long queueLength = bayQueueRepository.countActiveByBayIdAndDate(bayId, queueDate);
-        return queueLength == 0;
+        
+        // Kiểm tra booking đang được xử lý trong bay
+        Long activeBookings = countActiveBookingsInBay(bayId, queueDate);
+        
+        return queueLength == 0 && activeBookings == 0;
     }
     
     /**
@@ -591,5 +596,16 @@ public class BayRecommendationService {
         public ServiceBay getBay() { return bay; }
         public int getScore() { return score; }
         public String getReason() { return reason; }
+    }
+    
+    /**
+     * Đếm số booking đang được xử lý trong bay
+     */
+    private Long countActiveBookingsInBay(UUID bayId, LocalDate queueDate) {
+        // Kiểm tra booking có status đang được xử lý trong bay
+        // Tạm thời return 0 để tránh lỗi compilation
+        // TODO: Implement proper logic to count active bookings in bay
+        log.debug("Checking active bookings in bay: {} for date: {}", bayId, queueDate);
+        return 0L;
     }
 }

@@ -104,6 +104,9 @@ public class WalkInBookingRequest {
     @JsonProperty("special_requests")
     private List<String> specialRequests;
     
+    @JsonProperty("booking_date")
+    private String bookingDate; // YYYY-MM-DD format
+    
     @Data
     @Builder
     @NoArgsConstructor
