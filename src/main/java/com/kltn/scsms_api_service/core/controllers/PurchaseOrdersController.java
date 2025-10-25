@@ -3,7 +3,9 @@ package com.kltn.scsms_api_service.core.controllers;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.PurchaseOrderInfoDto;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.PurchaseOrderLineInfoDto;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.ConfirmImportRequestDto;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.request.CreatePORequest;
+import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.response.ExcelImportPreviewResponseDto;
 import com.kltn.scsms_api_service.core.dto.purchaseOrderManagement.response.PurchaseHistoryResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.entity.Branch;
@@ -28,6 +30,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
@@ -51,124 +54,116 @@ import java.util.stream.Collectors;
 @Tag(name = "Purchase Order Management", description = "Purchase order management endpoints")
 public class PurchaseOrdersController {
     private final PurchaseOrderLineMapper purchaseOrderLineMapper;
-    
+
     private final PurchasingBusinessService purchasingBS;
     private final PurchaseOrderEntityService poES;
     private final BranchService branchES;
-    
+
     private final PurchaseOrderMapper poMapper;
-    
+
     @PostMapping("/po/create-po")
-    @SwaggerOperation(
-        summary = "Create purchase order",
-        description = "Create a new purchase order with specified details")
+    @SwaggerOperation(summary = "Create purchase order", description = "Create a new purchase order with specified details")
     public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> createDraft(@RequestBody CreatePORequest req) {
         PurchaseOrder po = purchasingBS.createDraft(req);
-        
+
         PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(poES.require(po.getId()));
         return ResponseBuilder.success("Purchase order draft created", poDto);
     }
-    
-    
+
     @GetMapping("/po/{poId}")
-    @SwaggerOperation(
-        summary = "Get purchase order by ID",
-        description = "Retrieve purchase order details using its unique identifier")
+    @SwaggerOperation(summary = "Get purchase order by ID", description = "Retrieve purchase order details using its unique identifier")
     public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> get(@PathVariable UUID poId) {
         PurchaseOrder po = poES.require(poId);
-        
+
         PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(po);
-        
+
         return ResponseBuilder.success("Purchase order retrieved", poDto);
     }
-    
+
     @GetMapping("/po/get-all")
-    @SwaggerOperation(
-        summary = "Get all purchase orders",
-        description = "Retrieve a list of all purchase orders in the system")
+    @SwaggerOperation(summary = "Get all purchase orders", description = "Retrieve a list of all purchase orders in the system")
     public ResponseEntity<ApiResponse<List<PurchaseOrderInfoDto>>> getAll() {
         List<PurchaseOrder> pos = poES.getAll();
-        
+
         List<PurchaseOrderInfoDto> posDto = pos.stream()
-            .map(poMapper::toPurchaseOrderInfoDto).collect(Collectors.toList());
-        
+                .map(poMapper::toPurchaseOrderInfoDto).collect(Collectors.toList());
+
         return ResponseBuilder.success("All purchase orders retrieved", posDto);
     }
-    
+
     @GetMapping("po/purchase-history/{productId}")
-    @SwaggerOperation(
-        summary = "Get purchase history by product ID",
-        description = "Retrieve purchase order lines associated with a specific product")
+    @SwaggerOperation(summary = "Get purchase history by product ID", description = "Retrieve purchase order lines associated with a specific product")
     public ResponseEntity<ApiResponse<PurchaseHistoryResponse>> purchaseHistory(@PathVariable UUID productId) {
         List<PurchaseOrderLine> pols = purchasingBS.getProductPOHistory(productId);
-        List<PurchaseOrderLineInfoDto> polsDto = pols.stream().map(purchaseOrderLineMapper::toPurchaseOrderLineInfoDto).collect(Collectors.toList());
-        
+        List<PurchaseOrderLineInfoDto> polsDto = pols.stream().map(purchaseOrderLineMapper::toPurchaseOrderLineInfoDto)
+                .collect(Collectors.toList());
+
         // Get peak unit cost
         AtomicReference<BigDecimal> peakUnitCost = new AtomicReference<>(BigDecimal.ZERO);
         polsDto.stream().filter(p -> p.getUnitCost() != null)
-            .forEach(p -> {
-                if (p.getUnitCost().compareTo(peakUnitCost.get()) > 0) {
-                    peakUnitCost.set(p.getUnitCost());
-                }
-            });
-        
+                .forEach(p -> {
+                    if (p.getUnitCost().compareTo(peakUnitCost.get()) > 0) {
+                        peakUnitCost.set(p.getUnitCost());
+                    }
+                });
+
         PurchaseHistoryResponse polsResponse = PurchaseHistoryResponse.builder()
-            .lines(polsDto)
-            .peakUnitCost(peakUnitCost.get())
-            .build();
-        
+                .lines(polsDto)
+                .peakUnitCost(peakUnitCost.get())
+                .build();
+
         return ResponseBuilder.success("Purchase history retrieved", polsResponse);
     }
-    
+
     @GetMapping("/po/export-purchase-report")
-    @SwaggerOperation(
-        summary = "Export purchase order report to Excel",
-        description = "Export purchase order items report with date range and branch filters")
+    @SwaggerOperation(summary = "Export purchase order report to Excel", description = "Export purchase order items report with date range and branch filters")
     public ResponseEntity<byte[]> exportPurchaseReport(
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-        @RequestParam(required = false) UUID branchId) {
-        
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) UUID branchId) {
+
         try {
             // Get filtered purchase orders
             List<PurchaseOrder> purchaseOrders = purchasingBS.getPurchaseOrdersByDateAndBranch(
-                fromDate.atStartOfDay(),
-                toDate.atTime(23, 59, 59),
-                branchId
-            );
-            
+                    fromDate.atStartOfDay(),
+                    toDate.atTime(23, 59, 59),
+                    branchId);
+
             // Group products and sum quantities
             Map<String, ProductSummary> productMap = new LinkedHashMap<>();
-            
+
             for (PurchaseOrder po : purchaseOrders) {
                 for (PurchaseOrderLine line : po.getLines()) {
-                    String productCode = line.getProduct() != null && line.getProduct().getBarcode() != null ?
-                        line.getProduct().getBarcode() : "";
-                    
+                    String productCode = line.getProduct() != null && line.getProduct().getBarcode() != null
+                            ? line.getProduct().getBarcode()
+                            : "";
+
                     if (!productCode.isEmpty()) {
                         ProductSummary summary = productMap.getOrDefault(productCode, new ProductSummary());
                         summary.productCode = productCode;
-                        summary.productName = line.getProduct().getProductName() != null ?
-                            line.getProduct().getProductName() : "";
-                        summary.unitOfMeasure = line.getProduct().getUnitOfMeasure() != null ?
-                            line.getProduct().getUnitOfMeasure() : "";
+                        summary.productName = line.getProduct().getProductName() != null
+                                ? line.getProduct().getProductName()
+                                : "";
+                        summary.unitOfMeasure = line.getProduct().getUnitOfMeasure() != null
+                                ? line.getProduct().getUnitOfMeasure()
+                                : "";
                         summary.unitCost = line.getUnitCost() != null ? line.getUnitCost() : BigDecimal.ZERO;
                         summary.totalQuantity = summary.totalQuantity.add(
-                            line.getQuantityOrdered() != null ? BigDecimal.valueOf(line.getQuantityOrdered()) : BigDecimal.ZERO
-                        );
-                        
+                                line.getQuantityOrdered() != null ? BigDecimal.valueOf(line.getQuantityOrdered())
+                                        : BigDecimal.ZERO);
+
                         productMap.put(productCode, summary);
                     }
                 }
             }
-            
+
             // Row counter
             int rowCount = 0;
-            
+
             // Create Excel workbook
             Workbook workbook = new XSSFWorkbook();
             Sheet sheet = workbook.createSheet("Bảng kê hàng nhập");
-            
+
             // Create header style
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
@@ -182,25 +177,25 @@ public class PurchaseOrdersController {
             headerStyle.setBorderLeft(BorderStyle.THIN);
             headerStyle.setBorderRight(BorderStyle.THIN);
             headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            
+
             // Create data style
             CellStyle dataStyle = workbook.createCellStyle();
             dataStyle.setBorderBottom(BorderStyle.THIN);
             dataStyle.setBorderTop(BorderStyle.THIN);
             dataStyle.setBorderLeft(BorderStyle.THIN);
             dataStyle.setBorderRight(BorderStyle.THIN);
-            
+
             // Create number style
             CellStyle numberStyle = workbook.createCellStyle();
             numberStyle.cloneStyleFrom(dataStyle);
             DataFormat format = workbook.createDataFormat();
             numberStyle.setDataFormat(format.getFormat("#,##0"));
-            
+
             // Create currency style
             CellStyle currencyStyle = workbook.createCellStyle();
             currencyStyle.cloneStyleFrom(dataStyle);
             currencyStyle.setDataFormat(format.getFormat("#,##0"));
-            
+
             // Create title row
             Row titleRow = sheet.createRow(rowCount++);
             Cell titleCell = titleRow.createCell(0);
@@ -213,85 +208,89 @@ public class PurchaseOrdersController {
             titleStyle.setAlignment(HorizontalAlignment.CENTER);
             titleCell.setCellStyle(titleStyle);
             sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
-            
+
             // Create info rows
             Row periodRow = sheet.createRow(rowCount++);
-            periodRow.createCell(0).setCellValue("Từ ngày: " + fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
-                " - Đến ngày: " + toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            
+            periodRow.createCell(0)
+                    .setCellValue("Từ ngày: " + fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                            " - Đến ngày: " + toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+
             Row generatedRow = sheet.createRow(rowCount++);
             generatedRow.createCell(0).setCellValue("Ngày in: " +
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
-            
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+
             if (branchId != null) {
-                Branch branch = branchES.findById(branchId).orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                    "Branch not found: " + branchId));
-                
+                Branch branch = branchES.findById(branchId)
+                        .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                                "Branch not found: " + branchId));
+
                 Row branchRow = sheet.createRow(rowCount++);
                 branchRow.createCell(0).setCellValue("Chi nhánh: " + branch.getBranchName());
-                
+
                 Row branchAddressRow = sheet.createRow(rowCount++);
-                branchAddressRow.createCell(0).setCellValue("Địa chỉ: " + (branch.getAddress() != null ? branch.getAddress() : ""));
-                
+                branchAddressRow.createCell(0)
+                        .setCellValue("Địa chỉ: " + (branch.getAddress() != null ? branch.getAddress() : ""));
+
                 Row branchPhoneRow = sheet.createRow(rowCount++);
-                branchPhoneRow.createCell(0).setCellValue("SĐT: " + (branch.getPhone() != null ? branch.getPhone() : ""));
+                branchPhoneRow.createCell(0)
+                        .setCellValue("SĐT: " + (branch.getPhone() != null ? branch.getPhone() : ""));
             } else {
                 Row branchRow = sheet.createRow(rowCount++);
                 branchRow.createCell(0).setCellValue("Phạm vi: Toàn hệ thống");
             }
             rowCount++; // Empty row
-            
+
             // Create header row
             Row headerRow = sheet.createRow(rowCount++);
             String[] headers = {
-                "STT", "Mã sản phẩm", "Tên sản phẩm", "Số lượng", "Đơn vị tính", "Đơn giá", "Thành tiền"
+                    "STT", "Mã sản phẩm", "Tên sản phẩm", "Số lượng", "Đơn vị tính", "Đơn giá", "Thành tiền"
             };
-            
+
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
                 cell.setCellStyle(headerStyle);
             }
-            
+
             // Fill data
             int stt = 1;
             BigDecimal totalAmount = BigDecimal.ZERO;
-            
+
             for (ProductSummary summary : productMap.values()) {
                 Row row = sheet.createRow(rowCount++);
-                
+
                 Cell cell0 = row.createCell(0);
                 cell0.setCellValue(stt++);
                 cell0.setCellStyle(dataStyle);
-                
+
                 Cell cell1 = row.createCell(1);
                 cell1.setCellValue(summary.productCode);
                 cell1.setCellStyle(dataStyle);
-                
+
                 Cell cell2 = row.createCell(2);
                 cell2.setCellValue(summary.productName);
                 cell2.setCellStyle(dataStyle);
-                
+
                 Cell cell3 = row.createCell(3);
                 cell3.setCellValue(summary.totalQuantity.doubleValue());
                 cell3.setCellStyle(numberStyle);
-                
+
                 Cell cell4 = row.createCell(4);
                 cell4.setCellValue(summary.unitOfMeasure);
                 cell4.setCellStyle(dataStyle);
-                
+
                 Cell cell5 = row.createCell(5);
                 cell5.setCellValue(summary.unitCost.doubleValue());
                 cell5.setCellStyle(currencyStyle);
-                
+
                 BigDecimal lineTotal = summary.totalQuantity.multiply(summary.unitCost);
                 Cell cell6 = row.createCell(6);
                 cell6.setCellValue(lineTotal.doubleValue());
                 cell6.setCellStyle(currencyStyle);
-                
+
                 totalAmount = totalAmount.add(lineTotal);
             }
-            
+
             // Create total row
             Row totalRow = sheet.createRow(rowCount);
             Cell totalLabelCell = totalRow.createCell(5);
@@ -300,7 +299,7 @@ public class PurchaseOrdersController {
             totalLabelStyle.cloneStyleFrom(headerStyle);
             totalLabelStyle.setAlignment(HorizontalAlignment.RIGHT);
             totalLabelCell.setCellStyle(totalLabelStyle);
-            
+
             Cell totalAmountCell = totalRow.createCell(6);
             totalAmountCell.setCellValue(totalAmount.doubleValue());
             CellStyle totalAmountStyle = workbook.createCellStyle();
@@ -309,38 +308,38 @@ public class PurchaseOrdersController {
             totalFont.setBold(true);
             totalAmountStyle.setFont(totalFont);
             totalAmountCell.setCellStyle(totalAmountStyle);
-            
+
             // Auto-size columns
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
                 sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
             }
-            
+
             // Write to byte array
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
             workbook.close();
-            
+
             // Prepare response
             String filename = String.format("BangKeHangNhap_%s_%s_%s.xlsx",
-                fromDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
-                toDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
-            
+                    fromDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                    toDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
             httpHeaders.setContentDispositionFormData("attachment", filename);
-            
+
             return ResponseEntity.ok()
-                .headers(httpHeaders)
-                .body(outputStream.toByteArray());
-            
+                    .headers(httpHeaders)
+                    .body(outputStream.toByteArray());
+
         } catch (Exception e) {
             log.error("Error exporting purchase report", e);
             throw new RuntimeException("Error exporting purchase report: " + e.getMessage());
         }
     }
-    
+
     // Inner class to hold product summary
     private static class ProductSummary {
         String productCode = "";
@@ -348,5 +347,70 @@ public class PurchaseOrdersController {
         String unitOfMeasure = "";
         BigDecimal unitCost = BigDecimal.ZERO;
         BigDecimal totalQuantity = BigDecimal.ZERO;
+    }
+
+    // Excel Import Endpoints
+
+    @GetMapping("/po/template/download")
+    @SwaggerOperation(summary = "Download Excel template for purchase order import", description = "Download an Excel template file for importing purchase orders. Optionally pre-fill with selected products.")
+    public ResponseEntity<byte[]> downloadTemplate(
+            @RequestParam(required = false) List<UUID> productIds,
+            @RequestParam(required = false) UUID supplierId) {
+
+        try {
+            byte[] excelFile = purchasingBS.generateExcelTemplate(productIds, supplierId);
+
+            String filename = String.format("PurchaseOrder_Template_%s.xlsx",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(excelFile);
+
+        } catch (Exception e) {
+            log.error("Error downloading template", e);
+            throw new RuntimeException("Error downloading template: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/po/excel/preview")
+    @SwaggerOperation(summary = "Upload and preview Excel import file", description = "Upload an Excel file to preview and validate purchase order data before importing")
+    public ResponseEntity<ApiResponse<ExcelImportPreviewResponseDto>> previewExcelImport(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("branchId") UUID branchId) {
+
+        // Validate file
+        if (file.isEmpty()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "File is empty");
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "File must be Excel format (.xlsx or .xls)");
+        }
+
+        // Validate file size (max 5MB)
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "File size must not exceed 5MB");
+        }
+
+        ExcelImportPreviewResponseDto response = purchasingBS.previewExcelImport(file, branchId);
+
+        return ResponseBuilder.success("Preview generated successfully", response);
+    }
+
+    @PostMapping("/po/excel/import")
+    @SwaggerOperation(summary = "Confirm and execute Excel import", description = "Confirm the Excel import and create purchase order with the validated data")
+    public ResponseEntity<ApiResponse<PurchaseOrderInfoDto>> confirmExcelImport(
+            @RequestBody ConfirmImportRequestDto request) {
+
+        PurchaseOrder po = purchasingBS.confirmExcelImport(request);
+        PurchaseOrderInfoDto poDto = poMapper.toPurchaseOrderInfoDto(poES.require(po.getId()));
+
+        return ResponseBuilder.success("Purchase order imported successfully", poDto);
     }
 }

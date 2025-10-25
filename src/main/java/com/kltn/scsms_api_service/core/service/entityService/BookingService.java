@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -179,5 +180,9 @@ public class BookingService {
      */
     public List<Booking> findByPaymentStatusAndStatus(Booking.PaymentStatus paymentStatus, Booking.BookingStatus bookingStatus) {
         return bookingRepository.findByPaymentStatusAndStatus(paymentStatus, bookingStatus);
+    }
+    
+    public List<Booking> findAllByIds(Set<UUID> bookingIds) {
+        return bookingRepository.findAllById(bookingIds);
     }
 }

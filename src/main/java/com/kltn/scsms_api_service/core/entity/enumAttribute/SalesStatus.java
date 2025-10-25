@@ -10,9 +10,6 @@ public enum SalesStatus {
     // FULFILLED: Đơn bán hàng đã được hoàn tất
     FULFILLED,
     
-    // PARTIALLY_RETURNED: Đơn bán hàng đã được trả hàng một phần
-    PARTIALLY_RETURNED,
-    
     // RETURNED: Đơn bán hàng đã được trả hàng đầy đủ
     RETURNED,
     

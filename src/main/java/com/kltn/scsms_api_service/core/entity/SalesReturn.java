@@ -23,6 +23,8 @@ public class SalesReturn extends AuditEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     
+    @Column(name = "reason", length = 500)
+    private String reason;
     
     @ManyToOne(optional = false)
     @JoinColumn(name = "sales_order_id", nullable = false, foreignKey = @ForeignKey(name = "fk_sr_so"))

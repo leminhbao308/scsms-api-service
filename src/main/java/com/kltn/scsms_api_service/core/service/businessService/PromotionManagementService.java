@@ -7,10 +7,7 @@ import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.Promotion;
 import com.kltn.scsms_api_service.core.entity.PromotionLine;
-import com.kltn.scsms_api_service.core.service.entityService.BranchService;
-import com.kltn.scsms_api_service.core.service.entityService.ProductService;
-import com.kltn.scsms_api_service.core.service.entityService.PromotionLineService;
-import com.kltn.scsms_api_service.core.service.entityService.PromotionService;
+import com.kltn.scsms_api_service.core.service.entityService.*;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.PromotionLineMapper;
@@ -32,6 +29,7 @@ public class PromotionManagementService {
 
     private final PromotionService promotionService;
     private final PromotionLineService promotionLineService;
+    private final PromotionUsageService promotionUsageService;
     private final BranchService branchService;
     private final ProductService productService;
     private final com.kltn.scsms_api_service.core.repository.SalesOrderRepository salesOrderRepository;
@@ -575,15 +573,15 @@ public class PromotionManagementService {
 
     /**
      * Get promotion usage history
-     * Retrieves all sales orders that have applied promotions with filtering
+     * Retrieves promotion usage records from PromotionUsage table with filtering
      * support
      */
     public Page<com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionUsageHistoryDto> getPromotionUsageHistory(
             com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionUsageHistoryFilterParam filterParam) {
         log.info("Getting promotion usage history with filters: {}", filterParam);
 
-        // Build query using specifications
-        org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.SalesOrder> spec = buildPromotionUsageSpec(
+        // Build query using specifications on PromotionUsage table
+        org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.PromotionUsage> spec = buildPromotionUsageSpec(
                 filterParam);
 
         // Create pageable
@@ -596,33 +594,25 @@ public class PromotionManagementService {
                                 : org.springframework.data.domain.Sort.Direction.DESC,
                         mapSortField(filterParam.getSort())));
 
-        // Query database
-        Page<com.kltn.scsms_api_service.core.entity.SalesOrder> salesOrders = salesOrderRepository.findAll(spec,
+        // Query from PromotionUsage table
+        Page<com.kltn.scsms_api_service.core.entity.PromotionUsage> usages = promotionUsageService.findAll(spec,
                 pageable);
 
         // Map to DTO
-        return salesOrders.map(this::mapToPromotionUsageHistoryDto);
+        return usages.map(this::mapToPromotionUsageHistoryDto);
     }
 
     /**
      * Build specification for promotion usage history filtering
      */
-    private org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.SalesOrder> buildPromotionUsageSpec(
+    private org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.PromotionUsage> buildPromotionUsageSpec(
             com.kltn.scsms_api_service.core.dto.promotionManagement.param.PromotionUsageHistoryFilterParam filterParam) {
 
-        org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.SalesOrder> spec = (
+        org.springframework.data.jpa.domain.Specification<com.kltn.scsms_api_service.core.entity.PromotionUsage> spec = (
                 root, query, cb) -> {
-            // Only orders with discount (promotions applied)
-            return cb.and(
-                    cb.isNotNull(root.get("totalDiscountAmount")),
-                    cb.greaterThan(root.get("totalDiscountAmount"), java.math.BigDecimal.ZERO),
-                    cb.isNotNull(root.get("promotionSnapshot")));
+            // Only usages with discount amount > 0
+            return cb.greaterThan(root.get("discountAmount"), java.math.BigDecimal.ZERO);
         };
-
-        // Filter by status
-        if (filterParam.getStatus() != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), filterParam.getStatus()));
-        }
 
         // Filter by branch
         if (filterParam.getBranchId() != null) {
@@ -648,29 +638,46 @@ public class PromotionManagementService {
 
         // Filter by order ID
         if (filterParam.getOrderId() != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("id"), filterParam.getOrderId()));
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("orderId"), filterParam.getOrderId()));
         }
 
         // Filter by date range
         if (filterParam.getFromDate() != null) {
             spec = spec.and(
-                    (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdDate"), filterParam.getFromDate()));
+                    (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("usedAt"), filterParam.getFromDate()));
         }
 
         if (filterParam.getToDate() != null) {
             spec = spec
-                    .and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("createdDate"), filterParam.getToDate()));
+                    .and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("usedAt"), filterParam.getToDate()));
         }
 
-        // Filter by promotion code/name (search in promotionSnapshot JSON)
+        // Filter by promotion code (from Promotion entity)
         if (filterParam.getPromotionCode() != null && !filterParam.getPromotionCode().isBlank()) {
-            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("promotionSnapshot")),
+            spec = spec.and((root, query, cb) -> cb.like(
+                    cb.lower(root.get("promotion").get("promotionCode")),
                     "%" + filterParam.getPromotionCode().toLowerCase() + "%"));
         }
 
+        // Filter by promotion name (from Promotion entity)
         if (filterParam.getPromotionName() != null && !filterParam.getPromotionName().isBlank()) {
-            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("promotionSnapshot")),
+            spec = spec.and((root, query, cb) -> cb.like(
+                    cb.lower(root.get("promotion").get("name")),
                     "%" + filterParam.getPromotionName().toLowerCase() + "%"));
+        }
+
+        // Filter by status - need to join with SalesOrder
+        if (filterParam.getStatus() != null) {
+            spec = spec.and((root, query, cb) -> {
+                // This requires joining to SalesOrder table
+                jakarta.persistence.criteria.Subquery<UUID> subquery = query.subquery(UUID.class);
+                jakarta.persistence.criteria.Root<com.kltn.scsms_api_service.core.entity.SalesOrder> orderRoot = subquery
+                        .from(com.kltn.scsms_api_service.core.entity.SalesOrder.class);
+                subquery.select(orderRoot.get("id"))
+                        .where(cb.equal(orderRoot.get("status"), filterParam.getStatus()));
+
+                return cb.in(root.get("orderId")).value(subquery);
+            });
         }
 
         return spec;
@@ -681,66 +688,65 @@ public class PromotionManagementService {
      */
     private String mapSortField(String sortField) {
         return switch (sortField) {
-            case "usedDate" -> "createdDate";
-            case "orderAmount" -> "originalAmount";
-            case "discountAmount" -> "totalDiscountAmount";
-            case "finalAmount" -> "finalAmount";
+            case "usedDate" -> "usedAt";
+            case "orderAmount" -> "orderOriginalAmount";
+            case "discountAmount" -> "discountAmount";
+            case "finalAmount" -> "orderFinalAmount";
             case "customerName" -> "customer.fullName";
             case "branchName" -> "branch.branchName";
-            default -> "createdDate";
+            default -> "usedAt";
         };
     }
 
     /**
-     * Map SalesOrder entity to PromotionUsageHistoryDto
+     * Map PromotionUsage entity to PromotionUsageHistoryDto
      */
     private com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionUsageHistoryDto mapToPromotionUsageHistoryDto(
-            com.kltn.scsms_api_service.core.entity.SalesOrder salesOrder) {
+            com.kltn.scsms_api_service.core.entity.PromotionUsage usage) {
 
-        // Parse promotion snapshot to get promotion details
-        String promotionName = "N/A";
-        String promotionCode = "N/A";
+        // Get promotion details from entity (already loaded via foreign key)
+        String promotionName = usage.getPromotion() != null ? usage.getPromotion().getName() : "N/A";
+        String promotionCode = usage.getPromotion() != null ? usage.getPromotion().getPromotionCode() : "N/A";
         String notes = null;
 
-        if (salesOrder.getPromotionSnapshot() != null && !salesOrder.getPromotionSnapshot().isBlank()) {
+        // Parse promotion snapshot if available for additional details
+        if (usage.getPromotionSnapshot() != null && !usage.getPromotionSnapshot().isBlank()) {
             try {
-                // Parse JSON to extract promotion info
                 com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode promotionsArray = objectMapper
-                        .readTree(salesOrder.getPromotionSnapshot());
+                com.fasterxml.jackson.databind.JsonNode promoNode = objectMapper.readTree(usage.getPromotionSnapshot());
 
-                if (promotionsArray.isArray() && !promotionsArray.isEmpty()) {
-                    com.fasterxml.jackson.databind.JsonNode firstPromotion = promotionsArray.get(0);
-
-                    if (firstPromotion.has("name")) {
-                        promotionName = firstPromotion.get("name").asText();
-                    }
-                    if (firstPromotion.has("promotion_code")) {
-                        promotionCode = firstPromotion.get("promotion_code").asText();
-                    }
-
-                    // If multiple promotions, add note
-                    if (promotionsArray.size() > 1) {
-                        notes = "Áp dụng " + promotionsArray.size() + " khuyến mãi";
-                    }
+                // Override with snapshot data if available (historical accuracy)
+                if (promoNode.has("name")) {
+                    promotionName = promoNode.get("name").asText();
+                }
+                if (promoNode.has("code")) {
+                    promotionCode = promoNode.get("code").asText();
+                } else if (promoNode.has("promotion_code")) {
+                    promotionCode = promoNode.get("promotion_code").asText();
                 }
             } catch (Exception e) {
-                log.warn("Failed to parse promotion snapshot for order {}: {}", salesOrder.getId(), e.getMessage());
+                log.warn("Failed to parse promotion snapshot for usage {}: {}", usage.getUsageId(), e.getMessage());
             }
+        }
+
+        // Fetch SalesOrder to get status
+        com.kltn.scsms_api_service.core.entity.SalesOrder salesOrder = null;
+        if (usage.getOrderId() != null) {
+            salesOrder = salesOrderRepository.findById(usage.getOrderId()).orElse(null);
         }
 
         return com.kltn.scsms_api_service.core.dto.promotionManagement.PromotionUsageHistoryDto.builder()
                 .promotionName(promotionName)
                 .promotionCode(promotionCode)
-                .customerName(salesOrder.getCustomer() != null ? salesOrder.getCustomer().getFullName() : "Khách lẻ")
-                .customerPhone(salesOrder.getCustomer() != null ? salesOrder.getCustomer().getPhoneNumber() : "N/A")
-                .orderId(salesOrder.getId())
-                .orderAmount(salesOrder.getOriginalAmount())
-                .discountAmount(salesOrder.getTotalDiscountAmount())
-                .finalAmount(salesOrder.getFinalAmount())
-                .usedDate(salesOrder.getCreatedDate())
-                .branchName(salesOrder.getBranch() != null ? salesOrder.getBranch().getBranchName() : "N/A")
-                .status(salesOrder.getStatus())
+                .customerName(usage.getCustomer() != null ? usage.getCustomer().getFullName() : "Khách lẻ")
+                .customerPhone(usage.getCustomer() != null ? usage.getCustomer().getPhoneNumber() : "N/A")
+                .orderId(usage.getOrderId())
+                .orderAmount(usage.getOrderOriginalAmount())
+                .discountAmount(usage.getDiscountAmount())
+                .finalAmount(usage.getOrderFinalAmount())
+                .usedDate(usage.getUsedAt())
+                .branchName(usage.getBranch() != null ? usage.getBranch().getBranchName() : "N/A")
+                .status(salesOrder != null ? salesOrder.getStatus() : null)
                 .notes(notes)
                 .build();
     }

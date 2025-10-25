@@ -49,4 +49,8 @@ public class SaleOrderInfoDto extends AuditDto {
 
     @JsonProperty("promotion_snapshot")
     private String promotionSnapshot; // JSON array of applied promotions
+    
+    // ================ Cancelation Reason ================
+    @JsonProperty("cancellation_reason")
+    private String cancellationReason;
 }

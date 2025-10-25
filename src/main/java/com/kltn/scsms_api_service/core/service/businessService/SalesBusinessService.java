@@ -57,7 +57,7 @@ public class SalesBusinessService {
             } else if (line.isServiceItem()) {
                 // For service items, we don't need to reserve stock or resolve pricing
                 // Service items are already priced and don't have physical inventory
-                log.info("Skipping inventory reservation for service item - ServiceId: {}, OriginalBookingId: {}", 
+                log.info("Skipping inventory reservation for service item - ServiceId: {}, OriginalBookingId: {}",
                     line.getServiceId(), line.getOriginalBookingId());
             }
         }
@@ -80,7 +80,7 @@ public class SalesBusinessService {
             } else if (line.isServiceItem()) {
                 // For service items, we don't need to fulfill stock
                 // Service items don't have physical inventory
-                log.info("Skipping stock fulfillment for service item - ServiceId: {}, OriginalBookingId: {}", 
+                log.info("Skipping stock fulfillment for service item - ServiceId: {}, OriginalBookingId: {}",
                     line.getServiceId(), line.getOriginalBookingId());
             }
         }
@@ -89,7 +89,7 @@ public class SalesBusinessService {
     }
 
     @Transactional
-    public SalesReturn createReturn(UUID soId, Map<UUID, Long> productQtyMap, Map<UUID, BigDecimal> unitCostOptional) {
+    public SalesReturn createReturn(UUID soId, String reason, Map<UUID, Long> productQtyMap, Map<UUID, BigDecimal> unitCostOptional) {
         SalesOrder so = salesOrderEntityService.require(soId);
 
         // Calculate discount ratio for the entire order
@@ -143,7 +143,7 @@ public class SalesBusinessService {
 
         salesOrderEntityService.update(so);
 
-        SalesReturn sr = srES.create(SalesReturn.builder().salesOrder(so).branch(so.getBranch()).build());
+        SalesReturn sr = srES.create(SalesReturn.builder().reason(reason).salesOrder(so).branch(so.getBranch()).build());
         productQtyMap.forEach((productId, qty) -> {
             srlES.create(SalesReturnLine.builder()
                     .salesReturn(sr)

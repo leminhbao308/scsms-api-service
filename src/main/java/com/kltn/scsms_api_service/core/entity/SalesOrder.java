@@ -64,6 +64,15 @@ public class SalesOrder extends AuditEntity {
     @Column(name = "promotion_snapshot", columnDefinition = "TEXT")
     private String promotionSnapshot;
 
+    // ===== CANCELLATION TRACKING =====
+
+    /**
+     * Reason for order cancellation (required when status = CANCELED)
+     * Max length: 500 characters
+     */
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SalesOrderLine> lines = new ArrayList<>();
