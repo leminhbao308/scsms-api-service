@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 
 /**
@@ -126,6 +127,17 @@ public class WalkInBookingService {
         // Tạo booking code
         String bookingCode = generateBookingCode();
         
+        // Calculate current time for walk-in booking
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime preferredStartAt = request.getPreferredStartAt() != null ? 
+            parseDateTime(request.getPreferredStartAt()) : now;
+        LocalDateTime scheduledStartAt = request.getScheduledStartAt() != null ? 
+            parseDateTime(request.getScheduledStartAt()) : now;
+        LocalDateTime scheduledEndAt = request.getScheduledEndAt() != null ? 
+            parseDateTime(request.getScheduledEndAt()) : 
+            now.plusMinutes(request.getEstimatedDurationMinutes() != null ? 
+                request.getEstimatedDurationMinutes() : 60);
+
         Booking.BookingBuilder builder = Booking.builder()
             .bookingCode(bookingCode)
             .branch(serviceBayService.getById(request.getAssignedBayId()).getBranch())
@@ -134,7 +146,19 @@ public class WalkInBookingService {
             .priority(Booking.Priority.NORMAL)
             .totalPrice(request.getTotalPrice())
             .currency(request.getCurrency())
-            .notes(request.getNotes());
+            .depositAmount(request.getDepositAmount())
+            .notes(request.getNotes())
+            .preferredStartAt(preferredStartAt)
+            .scheduledStartAt(scheduledStartAt)
+            .scheduledEndAt(scheduledEndAt)
+            .estimatedDurationMinutes(request.getEstimatedDurationMinutes())
+            .slotStartTime(request.getSlotStartTime() != null ? 
+                LocalTime.parse(request.getSlotStartTime()) : 
+                LocalTime.now())
+            .slotEndTime(request.getSlotEndTime() != null ? 
+                LocalTime.parse(request.getSlotEndTime()) : 
+                LocalTime.now().plusMinutes(request.getEstimatedDurationMinutes() != null ? 
+                    request.getEstimatedDurationMinutes() : 60));
         
         if ("EXISTING".equals(request.getCustomerType())) {
             // Sử dụng customer và vehicle có sẵn
@@ -220,6 +244,27 @@ public class WalkInBookingService {
         return "WALK-IN-" + dateTime + "-" + randomSuffix;
     }
     
+    /**
+     * Parse datetime string to LocalDateTime
+     * Handles both ISO format with timezone and local format
+     */
+    private LocalDateTime parseDateTime(String dateTimeString) {
+        try {
+            // Try parsing as ISO format with timezone first
+            if (dateTimeString.contains("T") && (dateTimeString.endsWith("Z") || dateTimeString.contains("+"))) {
+                // Convert to LocalDateTime by removing timezone info
+                String localDateTimeString = dateTimeString.replace("Z", "").split("\\+")[0];
+                return LocalDateTime.parse(localDateTimeString);
+            } else {
+                // Direct parse for local format
+                return LocalDateTime.parse(dateTimeString);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse datetime: {}, using current time", dateTimeString);
+            return LocalDateTime.now();
+        }
+    }
+
     /**
      * Tính thời gian chờ ước tính
      */

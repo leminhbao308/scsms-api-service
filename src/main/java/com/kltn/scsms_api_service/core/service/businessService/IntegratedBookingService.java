@@ -188,15 +188,19 @@ public class IntegratedBookingService {
             vehicleProfileService.getVehicleProfileById(request.getVehicleId()) : null;
         ServiceBay serviceBay = serviceBayService.getById(request.getSelectedSlot().getBayId());
         
-        // Calculate slot times
-        LocalDateTime slotStartDateTime = LocalDateTime.of(
-            request.getSelectedSlot().getDate(), 
-            request.getSelectedSlot().getStartTime()
-        );
-        
-        LocalDateTime slotEndDateTime = slotStartDateTime.plusMinutes(
-            request.getSelectedSlot().getServiceDurationMinutes() + serviceBay.getBufferMinutes()
-        );
+        // Use provided scheduling information or calculate from slot
+        LocalDateTime preferredStartAt = request.getPreferredStartAt() != null ? 
+            parseDateTime(request.getPreferredStartAt()) : 
+            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime());
+            
+        LocalDateTime scheduledStartAt = request.getScheduledStartAt() != null ? 
+            parseDateTime(request.getScheduledStartAt()) : 
+            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime());
+            
+        LocalDateTime scheduledEndAt = request.getScheduledEndAt() != null ? 
+            parseDateTime(request.getScheduledEndAt()) : 
+            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime())
+                .plusMinutes(request.getSelectedSlot().getServiceDurationMinutes() + serviceBay.getBufferMinutes());
         
         // Create booking
         Booking booking = Booking.builder()
@@ -214,13 +218,19 @@ public class IntegratedBookingService {
             .vehicleColor(request.getVehicleColor())
             .branch(branch)
             .serviceBay(serviceBay)
-            .preferredStartAt(slotStartDateTime) // Ghi nhận slot đã chọn
-            .scheduledStartAt(slotStartDateTime)
-            .scheduledEndAt(slotEndDateTime)
-            .estimatedDurationMinutes(request.getSelectedSlot().getServiceDurationMinutes())
+            .preferredStartAt(preferredStartAt) // Use provided or calculated time
+            .scheduledStartAt(scheduledStartAt)
+            .scheduledEndAt(scheduledEndAt)
+            .estimatedDurationMinutes(request.getEstimatedDurationMinutes() != null ? 
+                request.getEstimatedDurationMinutes() : 
+                request.getSelectedSlot().getServiceDurationMinutes())
             .bufferMinutes(serviceBay.getBufferMinutes())
-            .slotStartTime(request.getSelectedSlot().getStartTime())
-            .slotEndTime(request.getSelectedSlot().getStartTime().plusMinutes(serviceBay.getSlotDurationMinutes()))
+            .slotStartTime(request.getSlotStartTime() != null ? 
+                LocalTime.parse(request.getSlotStartTime()) : 
+                request.getSelectedSlot().getStartTime())
+            .slotEndTime(request.getSlotEndTime() != null ? 
+                LocalTime.parse(request.getSlotEndTime()) : 
+                request.getSelectedSlot().getStartTime().plusMinutes(serviceBay.getSlotDurationMinutes()))
             .totalPrice(request.getTotalPrice())
             .currency(request.getCurrency())
             .depositAmount(request.getDepositAmount())
@@ -267,6 +277,27 @@ public class IntegratedBookingService {
         }
     }
     
+    /**
+     * Parse datetime string to LocalDateTime
+     * Handles both ISO format with timezone and local format
+     */
+    private LocalDateTime parseDateTime(String dateTimeString) {
+        try {
+            // Try parsing as ISO format with timezone first
+            if (dateTimeString.contains("T") && (dateTimeString.endsWith("Z") || dateTimeString.contains("+"))) {
+                // Convert to LocalDateTime by removing timezone info
+                String localDateTimeString = dateTimeString.replace("Z", "").split("\\+")[0];
+                return LocalDateTime.parse(localDateTimeString);
+            } else {
+                // Direct parse for local format
+                return LocalDateTime.parse(dateTimeString);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse datetime: {}, using current time", dateTimeString);
+            return LocalDateTime.now();
+        }
+    }
+
     /**
      * Tạo booking items với giá từ price book
      */

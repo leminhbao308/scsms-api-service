@@ -68,20 +68,20 @@ public class WalkInBookingController {
      */
     @PostMapping("/create-booking")
     @Operation(summary = "Tạo walk-in booking", description = "Tạo booking cho khách hàng walk-in")
-    public ResponseEntity<String> createWalkInBooking(
+    public ResponseEntity<WalkInBookingResponse> createWalkInBooking(
             @RequestBody WalkInBookingRequest request) {
         try {
             log.info("Creating walk-in booking: customerName={}, bayId={}", 
                 request.getCustomerName(), request.getAssignedBayId());
             
             // Gọi service để tạo booking
-            walkInBookingService.createWalkInBooking(request);
+            WalkInBookingResponse response = walkInBookingService.createWalkInBooking(request);
             
-            return ResponseEntity.ok("Walk-in booking created successfully");
+            return ResponseEntity.ok(response);
                 
         } catch (Exception e) {
             log.error("Error creating walk-in booking: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Failed to create walk-in booking: " + e.getMessage());
+            throw e; // Let global exception handler handle this
         }
     }
     

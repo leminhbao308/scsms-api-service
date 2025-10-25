@@ -80,6 +80,25 @@ public class CreateBookingWithSlotRequest {
     @JsonProperty("deposit_amount")
     private BigDecimal depositAmount;
     
+    // Scheduling information
+    @JsonProperty("estimated_duration_minutes")
+    private Integer estimatedDurationMinutes;
+    
+    @JsonProperty("preferred_start_at")
+    private String preferredStartAt; // ISO string format
+    
+    @JsonProperty("scheduled_start_at")
+    private String scheduledStartAt; // ISO string format
+    
+    @JsonProperty("scheduled_end_at")
+    private String scheduledEndAt; // ISO string format
+    
+    @JsonProperty("slot_start_time")
+    private String slotStartTime; // HH:mm format
+    
+    @JsonProperty("slot_end_time")
+    private String slotEndTime; // HH:mm format
+    
     // Additional information
     @JsonProperty("coupon_code")
     private String couponCode;
