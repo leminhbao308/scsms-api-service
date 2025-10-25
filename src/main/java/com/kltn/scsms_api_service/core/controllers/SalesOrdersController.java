@@ -363,18 +363,18 @@ public class SalesOrdersController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdDate") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
-        
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") 
-            ? Sort.Direction.ASC 
-            : Sort.Direction.DESC;
-        
+
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC")
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
         Page<SalesOrder> pagedOrders = soES.getPagedOrders(pageable);
-        
+
         List<SaleOrderInfoDto> ordersDto = pagedOrders.getContent().stream()
                 .map(soMapper::toSaleOrderInfoDto)
                 .toList();
-        
+
         PagedSaleOrderResponse response = PagedSaleOrderResponse.builder()
                 .content(ordersDto)
                 .page(pagedOrders.getNumber())
@@ -383,7 +383,7 @@ public class SalesOrdersController {
                 .totalPages(pagedOrders.getTotalPages())
                 .last(pagedOrders.isLast())
                 .build();
-        
+
         return ResponseBuilder.success("Paged sales orders retrieved", response);
     }
 
