@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.entity.BaySchedule;
 import com.kltn.scsms_api_service.core.entity.Booking;
+import com.kltn.scsms_api_service.core.service.entityService.BayQueueService;
 import com.kltn.scsms_api_service.core.service.entityService.BayScheduleService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
@@ -23,6 +24,7 @@ public class BookingWorkflowService {
     
     private final BookingService bookingService;
     private final BayScheduleService bayScheduleService;
+    private final BayQueueService bayQueueService;
     
     /**
      * Workflow: PENDING → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED
@@ -42,34 +44,36 @@ public class BookingWorkflowService {
                 "Only pending bookings can be confirmed");
         }
         
-        // Validate slot information
-        if (booking.getServiceBay() == null || booking.getSlotStartTime() == null) {
-            throw new ClientSideException(ErrorCode.MISSING_SLOT_INFO, 
-                "Booking must have slot information before confirmation");
-        }
-        
-        // Kiểm tra slot đã được book chưa (tránh double booking)
-        if (!bayScheduleService.isSlotAvailable(
-            booking.getServiceBay().getBayId(),
-            booking.getScheduledStartAt().toLocalDate(),
-            booking.getSlotStartTime())) {
-            
-            // Kiểm tra slot có thuộc về booking này không
-            List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
-            boolean slotBelongsToBooking = existingSlots.stream()
-                .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
-            
-            if (!slotBelongsToBooking) {
-                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                    "Slot is not available for booking confirmation");
+        // Validate slot information (only for slot bookings, not walk-in bookings)
+        if (!booking.getBookingCode().startsWith("WALK")) {
+            if (booking.getServiceBay() == null || booking.getSlotStartTime() == null) {
+                throw new ClientSideException(ErrorCode.MISSING_SLOT_INFO, 
+                    "Booking must have slot information before confirmation");
             }
-        } else {
-            // Chuyển slot từ AVAILABLE sang BOOKED
-            bayScheduleService.bookSlot(
+            
+            // Kiểm tra slot đã được book chưa (tránh double booking)
+            if (!bayScheduleService.isSlotAvailable(
                 booking.getServiceBay().getBayId(),
                 booking.getScheduledStartAt().toLocalDate(),
-                booking.getSlotStartTime(),
-                bookingId);
+                booking.getSlotStartTime())) {
+                
+                // Kiểm tra slot có thuộc về booking này không
+                List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
+                boolean slotBelongsToBooking = existingSlots.stream()
+                    .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
+                
+                if (!slotBelongsToBooking) {
+                    throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                        "Slot is not available for booking confirmation");
+                }
+            } else {
+                // Chuyển slot từ AVAILABLE sang BOOKED
+                bayScheduleService.bookSlot(
+                    booking.getServiceBay().getBayId(),
+                    booking.getScheduledStartAt().toLocalDate(),
+                    booking.getSlotStartTime(),
+                    bookingId);
+            }
         }
         
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
@@ -92,11 +96,13 @@ public class BookingWorkflowService {
                 "Only confirmed bookings can be checked in");
         }
         
-        // Chuyển slot sang IN_PROGRESS
-        bayScheduleService.startService(
-            booking.getServiceBay().getBayId(),
-            booking.getScheduledStartAt().toLocalDate(),
-            booking.getSlotStartTime());
+        // Chuyển slot sang IN_PROGRESS (chỉ cho slot booking, không cho walk-in booking)
+        if (!booking.getBookingCode().startsWith("WALK") && booking.getSlotStartTime() != null) {
+            bayScheduleService.startService(
+                booking.getServiceBay().getBayId(),
+                booking.getScheduledStartAt().toLocalDate(),
+                booking.getSlotStartTime());
+        }
         
         booking.setStatus(Booking.BookingStatus.CHECKED_IN);
         booking.setActualCheckInAt(LocalDateTime.now());
@@ -144,8 +150,10 @@ public class BookingWorkflowService {
         booking.completeService();
         bookingService.update(booking);
         
-        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion
-        bayScheduleService.completeAllSlotsForBooking(bookingId);
+        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion (chỉ cho slot booking)
+        if (!booking.getBookingCode().startsWith("WALK")) {
+            bayScheduleService.completeAllSlotsForBooking(bookingId);
+        }
         
         log.info("Successfully completed service for booking: {}", bookingId);
     }
@@ -168,8 +176,10 @@ public class BookingWorkflowService {
         booking.completeService(completionTime);
         bookingService.update(booking);
         
-        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion
-        bayScheduleService.completeAllSlotsForBooking(bookingId, completionTime);
+        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion (chỉ cho slot booking)
+        if (!booking.getBookingCode().startsWith("WALK")) {
+            bayScheduleService.completeAllSlotsForBooking(bookingId, completionTime);
+        }
         
         log.info("Successfully completed service for booking: {} at {}", bookingId, completionTime);
     }
@@ -188,8 +198,14 @@ public class BookingWorkflowService {
                 "Cannot cancel completed or already cancelled booking");
         }
         
-        // Giải phóng tất cả slot liên quan đến booking (để slot có thể được sử dụng lại)
-        if (booking.getServiceBay() != null && booking.getSlotStartTime() != null) {
+        // Xử lý theo loại booking
+        if (booking.getBookingCode().startsWith("WALK")) {
+            // Walk-in booking: xóa khỏi bay queue
+            log.info("Processing walk-in booking cancellation - removing from bay queue");
+            bayQueueService.removeBookingFromQueue(bookingId);
+        } else if (booking.getServiceBay() != null && booking.getSlotStartTime() != null) {
+            // Slot booking: giải phóng slot
+            log.info("Processing slot booking cancellation - releasing slots");
             bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
         }
         

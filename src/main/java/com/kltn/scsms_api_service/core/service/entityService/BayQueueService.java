@@ -286,4 +286,35 @@ public class BayQueueService {
         
         log.info("Updated estimated times for {} bookings in bay {}", queues.size(), bayId);
     }
+    
+    /**
+     * Xóa booking khỏi hàng chờ (không cần biết bayId)
+     * Sử dụng cho việc cancel booking
+     */
+    @Transactional
+    public void removeBookingFromQueue(UUID bookingId) {
+        log.info("Removing booking {} from queue (auto-detect bay)", bookingId);
+        
+        // Tìm queue entry của booking
+        Optional<BayQueue> queueEntry = bayQueueRepository.findActiveByBookingId(bookingId);
+        if (queueEntry.isEmpty()) {
+            log.info("Booking {} not found in any queue", bookingId);
+            return; // Không throw exception vì có thể booking không có trong queue
+        }
+        
+        BayQueue queue = queueEntry.get();
+        UUID bayId = queue.getBayId();
+        Integer removedPosition = queue.getQueuePosition();
+        
+        log.info("Found booking {} in bay {} at position {}", bookingId, bayId, removedPosition);
+        
+        // Deactivate queue entry
+        queue.deactivate();
+        bayQueueRepository.save(queue);
+        
+        // Cập nhật vị trí các booking khác
+        updateQueuePositionsAfterRemoval(bayId, removedPosition);
+        
+        log.info("Successfully removed booking {} from bay {} queue", bookingId, bayId);
+    }
 }

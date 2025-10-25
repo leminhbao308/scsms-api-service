@@ -124,6 +124,7 @@ public enum ErrorCode {
     SERVICE_BAY_CANNOT_BE_UPDATED("SCS-D007", "SCS-D007", "SERVICE_BAY", "Service bay cannot be updated", "error.service_bay_cannot_be_updated"),
     SERVICE_BAY_INVALID_STATUS("SCS-D008", "SCS-D008", "SERVICE_BAY", "Invalid service bay status", "error.service_bay_invalid_status"),
     SERVICE_BAY_CAPACITY_EXCEEDED("SCS-D009", "SCS-D009", "SERVICE_BAY", "Service bay capacity exceeded", "error.service_bay_capacity_exceeded"),
+    MISSING_BAY_INFO("SCS-D010", "SCS-D010", "SERVICE_BAY", "Bay information is required", "error.missing_bay_info"),
     
     // General entity errors
     ENTITY_NOT_FOUND("SCS-5001", "SCS-5001", "ENTITY", "Entity not found", "error.entity_not_found"),
