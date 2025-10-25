@@ -55,7 +55,15 @@ public class ServiceProcessTrackingManagementService {
         ServiceProcessStep serviceStep = serviceProcessStepService.getById(request.getServiceStepId());
         
         // Get bay from booking (if not provided in request)
-        UUID bayId = request.getBayId() != null ? request.getBayId() : booking.getServiceBay().getBayId();
+        UUID bayId;
+        if (request.getBayId() != null) {
+            bayId = request.getBayId();
+        } else if (booking.getServiceBay() != null) {
+            bayId = booking.getServiceBay().getBayId();
+        } else {
+            throw new ServerSideException(ErrorCode.MISSING_BAY_INFO, 
+                "Bay information is required for tracking. Please provide bayId in request.");
+        }
         ServiceBay bay = serviceBayService.getById(bayId);
         
         // Get car service ID (from request or from booking items)
