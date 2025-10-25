@@ -253,7 +253,7 @@ public class SalesOrdersController {
             }
         else {
             SalesOrder so = soES.require(soId);
-            if (!(so.getStatus() == SalesStatus.FULFILLED || so.getStatus() == SalesStatus.PARTIALLY_RETURNED)) {
+            if (!(so.getStatus() == SalesStatus.FULFILLED)) {
                 throw new ClientSideException(ErrorCode.BAD_REQUEST, "Only fulfilled orders can be returned");
             }
 
@@ -444,7 +444,7 @@ public class SalesOrdersController {
 
         /**
          * Check if this line item represents a service
-         * 
+         *
          * @return true if serviceId is not null
          */
         public boolean isServiceItem() {
@@ -453,7 +453,7 @@ public class SalesOrdersController {
 
         /**
          * Check if this line item represents a product
-         * 
+         *
          * @return true if serviceId is null
          */
         public boolean isProductItem() {
