@@ -43,4 +43,7 @@ public class VehicleProfile extends AuditEntity {
     @Column(name = "distance_traveled")
     @Builder.Default
     private Double distanceTraveled = 0.0;
+    
+    @Column(name = "vehicle_year")
+    private Integer vehicleYear;
 }

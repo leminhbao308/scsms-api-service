@@ -199,6 +199,9 @@ public class BookingManagementService {
             if (!serviceBay.isActive()) {
                 throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay is not available");
             }
+            if (!serviceBay.isAvailableForBooking()) {
+                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay does not allow booking");
+            }
 
             // Check bay availability for the scheduled time
             if (request.getScheduledStartAt() != null && request.getScheduledEndAt() != null) {

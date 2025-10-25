@@ -132,7 +132,11 @@ public class IntegratedBookingService {
         }
         
         // Validate bay
-        serviceBayService.getById(request.getSelectedSlot().getBayId());
+        ServiceBay bay = serviceBayService.getById(request.getSelectedSlot().getBayId());
+        if (!bay.isAvailableForBooking()) {
+            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                "Service bay does not allow booking");
+        }
     }
     
     /**

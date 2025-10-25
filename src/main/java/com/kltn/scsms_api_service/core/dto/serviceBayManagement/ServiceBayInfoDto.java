@@ -50,6 +50,9 @@ public class ServiceBayInfoDto {
     @JsonProperty("notes")
     private String notes;
     
+    @JsonProperty("allow_booking")
+    private Boolean allowBooking;
+    
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
     
@@ -72,6 +75,8 @@ public class ServiceBayInfoDto {
     @JsonProperty("is_closed")
     private Boolean isClosed;
     
+    @JsonProperty("is_available_for_booking")
+    private Boolean isAvailableForBooking;
     
     @JsonProperty("total_bookings")
     private Long totalBookings;

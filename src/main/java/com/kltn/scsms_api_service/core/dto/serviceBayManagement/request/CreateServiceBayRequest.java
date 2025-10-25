@@ -44,4 +44,8 @@ public class CreateServiceBayRequest {
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     @JsonProperty("notes")
     private String notes;
+    
+    @Builder.Default
+    @JsonProperty("allow_booking")
+    private Boolean allowBooking = true;
 }

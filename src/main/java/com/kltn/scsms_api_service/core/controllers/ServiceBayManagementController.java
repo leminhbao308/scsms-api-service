@@ -45,7 +45,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<Page<ServiceBayInfoDto>>> getAllServiceBays(
             @Parameter(description = "Filter parameters") ServiceBayFilterParam filterParam) {
-        log.info("Getting all service bays with filters: {}", filterParam);
         Page<ServiceBayInfoDto> bays = serviceBayManagementService.getAllServiceBays(filterParam);
         return ResponseBuilder.success(bays);
     }
@@ -56,7 +55,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<List<ServiceBayInfoDto>>> getServiceBaysDropdown(
             @Parameter(description = "Branch ID") @RequestParam(required = false) UUID branchId) {
-        log.info("Getting service bays dropdown for branch: {}", branchId);
         List<ServiceBayInfoDto> bays = serviceBayManagementService.getServiceBaysDropdown(branchId);
         return ResponseBuilder.success(bays);
     }
@@ -67,7 +65,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<ServiceBayInfoDto>> getServiceBayById(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
-        log.info("Getting service bay by ID: {}", bayId);
         ServiceBayInfoDto bay = serviceBayManagementService.getServiceBayById(bayId);
         return ResponseBuilder.success(bay);
     }
@@ -78,11 +75,9 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<List<ServiceBayInfoDto>>> getServiceBaysByBranch(
             @Parameter(description = "Branch ID") @PathVariable UUID branchId) {
-        log.info("Getting service bays for branch: {}", branchId);
         List<ServiceBayInfoDto> bays = serviceBayManagementService.getServiceBaysByBranch(branchId);
         return ResponseBuilder.success(bays);
     }
-
 
     @GetMapping("/active")
     @Operation(summary = "Get active service bays", description = "Get all active service bays")
@@ -104,7 +99,8 @@ public class ServiceBayManagementController {
             @Parameter(description = "Start time") @RequestParam String startTime,
             @Parameter(description = "End time") @RequestParam String endTime) {
         log.info("Getting available service bays for branch: {} from {} to {}", branchId, startTime, endTime);
-        List<ServiceBayInfoDto> bays = serviceBayManagementService.getAvailableServiceBays(branchId, startTime, endTime);
+        List<ServiceBayInfoDto> bays = serviceBayManagementService.getAvailableServiceBays(branchId, startTime,
+                endTime);
         return ResponseBuilder.success(bays);
     }
 
@@ -126,7 +122,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_CREATE)
     public ResponseEntity<ApiResponse<ServiceBayInfoDto>> createServiceBay(
             @Parameter(description = "Service bay creation request") @Valid @RequestBody CreateServiceBayRequest request) {
-        log.info("Creating service bay: {} for branch: {}", request.getBayName(), request.getBranchId());
         ServiceBayInfoDto bay = serviceBayManagementService.createServiceBay(request);
         return ResponseBuilder.created(bay);
     }
@@ -138,7 +133,6 @@ public class ServiceBayManagementController {
     public ResponseEntity<ApiResponse<ServiceBayInfoDto>> updateServiceBay(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId,
             @Parameter(description = "Service bay update request") @Valid @RequestBody UpdateServiceBayRequest request) {
-        log.info("Updating service bay: {}", bayId);
         ServiceBayInfoDto bay = serviceBayManagementService.updateServiceBay(bayId, request);
         return ResponseBuilder.success(bay);
     }
@@ -149,7 +143,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_DELETE)
     public ResponseEntity<ApiResponse<Void>> deleteServiceBay(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
-        log.info("Deleting service bay: {}", bayId);
         serviceBayManagementService.deleteServiceBay(bayId);
         return ResponseBuilder.success("Service bay deleted successfully");
     }
@@ -162,7 +155,6 @@ public class ServiceBayManagementController {
             @Parameter(description = "Bay ID") @PathVariable UUID bayId,
             @Parameter(description = "New status") @RequestParam ServiceBay.BayStatus status,
             @Parameter(description = "Reason") @RequestParam(required = false) String reason) {
-        log.info("Updating service bay status: {} to {}", bayId, status);
         ServiceBayInfoDto bay = serviceBayManagementService.updateServiceBayStatus(bayId, status, reason);
         return ResponseBuilder.success(bay);
     }
@@ -173,7 +165,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_UPDATE)
     public ResponseEntity<ApiResponse<ServiceBayInfoDto>> activateServiceBay(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
-        log.info("Activating service bay: {}", bayId);
         ServiceBayInfoDto bay = serviceBayManagementService.activateServiceBay(bayId);
         return ResponseBuilder.success(bay);
     }
@@ -185,7 +176,6 @@ public class ServiceBayManagementController {
     public ResponseEntity<ApiResponse<ServiceBayInfoDto>> deactivateServiceBay(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId,
             @Parameter(description = "Reason") @RequestParam String reason) {
-        log.info("Deactivating service bay: {} with reason: {}", bayId, reason);
         ServiceBayInfoDto bay = serviceBayManagementService.deactivateServiceBay(bayId, reason);
         return ResponseBuilder.success(bay);
     }
@@ -197,8 +187,6 @@ public class ServiceBayManagementController {
     public ResponseEntity<ApiResponse<Boolean>> checkBayAvailability(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId,
             @Parameter(description = "Availability request") @Valid @RequestBody BayAvailabilityRequest request) {
-        log.info("Checking availability for bay: {} from {} to {}", bayId, request.getStartTime(),
-                request.getEndTime());
         Boolean isAvailable = serviceBayManagementService.checkBayAvailability(bayId, request);
         return ResponseBuilder.success(isAvailable);
     }
@@ -209,7 +197,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<List<BookingInfoDto>>> getBayBookings(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
-        log.info("Getting bookings for bay: {}", bayId);
         List<BookingInfoDto> bookings = serviceBayManagementService.getBayBookings(bayId);
         return ResponseBuilder.success(bookings);
     }
@@ -220,7 +207,6 @@ public class ServiceBayManagementController {
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<ServiceBayStatisticsDto>> getBayStatistics(
             @Parameter(description = "Bay ID") @PathVariable UUID bayId) {
-        log.info("Getting statistics for bay: {}", bayId);
         ServiceBayStatisticsDto statistics = serviceBayManagementService.getBayStatistics(bayId);
         return ResponseBuilder.success(statistics);
     }
@@ -233,11 +219,10 @@ public class ServiceBayManagementController {
             @Parameter(description = "Branch ID") @RequestParam UUID branchId,
             @Parameter(description = "Bay name") @RequestParam String bayName,
             @Parameter(description = "Bay ID to exclude") @RequestParam(required = false) UUID bayId) {
-        log.info("Validating bay name: {} for branch: {}", bayName, branchId);
         Boolean isValid = serviceBayManagementService.validateBayName(branchId, bayName, bayId);
         return ResponseBuilder.success(isValid);
     }
-    
+
     /**
      * Lấy danh sách tất cả users (kỹ thuật viên) để chọn gán vào service bay
      */
@@ -246,7 +231,6 @@ public class ServiceBayManagementController {
     @SwaggerOperation(summary = "Get available technicians")
     // @RequirePermission(permissions = PermissionConstant.SERVICE_BAY_READ)
     public ResponseEntity<ApiResponse<List<TechnicianInfoDto>>> getAvailableTechnicians() {
-        log.info("Getting all available technicians");
         List<TechnicianInfoDto> technicians = serviceBayManagementService.getAllTechnicians();
         return ResponseBuilder.success(technicians);
     }
