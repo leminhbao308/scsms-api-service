@@ -50,7 +50,7 @@ public class UserManagementController {
     @SwaggerOperation(
         summary = "Get user by ID",
         description = "Retrieve user details by their ID.")
-    @RequirePermission(permissions = PermissionConstant.USER_READ)
+//    @RequirePermission(permissions = PermissionConstant.USER_READ)
     public ResponseEntity<ApiResponse<UserInfoDto>> getUserById(@PathVariable("userId") UUID userId) {
         log.info("Fetching user with ID: {}", userId);
         
@@ -74,7 +74,7 @@ public class UserManagementController {
     @SwaggerOperation(
         summary = "Update an existing user",
         description = "Update the details of an existing user. Inclue enabling/disabling the user.")
-    @RequirePermission(permissions = PermissionConstant.USER_UPDATE)
+//    @RequirePermission(permissions = PermissionConstant.USER_UPDATE)
     public ResponseEntity<ApiResponse<UserInfoDto>> updateUser(
         @PathVariable(value = "userId") String userId,
         @RequestBody UpdateUserRequest updateUserRequest) {

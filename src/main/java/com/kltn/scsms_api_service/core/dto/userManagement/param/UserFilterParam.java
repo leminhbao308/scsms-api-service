@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -59,12 +59,12 @@ public class UserFilterParam extends BaseFilterParam<UserFilterParam> {
     
     // User-specific date ranges
     @JsonProperty("date_of_birth_from")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime dateOfBirthFrom;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate dateOfBirthFrom;
     
     @JsonProperty("date_of_birth_to")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime dateOfBirthTo;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate dateOfBirthTo;
     
     public static UserFilterParam standardize(UserFilterParam userFilterParam) {
         return userFilterParam.standardizeFilterRequest(userFilterParam);

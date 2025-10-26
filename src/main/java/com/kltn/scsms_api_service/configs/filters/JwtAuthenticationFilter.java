@@ -161,7 +161,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.equals(API_PREFIX + ApiConstant.LOGIN_API) // Allow login
             || path.equals(API_PREFIX + ApiConstant.REFRESH_TOKEN_API) // Allow refresh
             || path.equals(API_PREFIX + ApiConstant.REGISTER_API) // Allow registration
-            || path.equals(API_PREFIX + ApiConstant.LOGOUT_API); // Allow logout
+            || path.equals(API_PREFIX + ApiConstant.LOGOUT_API) // Allow logout
+            || path.startsWith(API_PREFIX + "/otp/"); // ✅ Allow OTP endpoints
     }
     
     private void writeErrorResponse(HttpServletResponse response, String message) throws IOException {

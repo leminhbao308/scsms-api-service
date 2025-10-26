@@ -5,7 +5,7 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.Gender;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -19,7 +19,7 @@ public class UpdateUserRequest {
 
     private String phoneNumber;
 
-    private LocalDateTime dateOfBirth;
+    private LocalDate dateOfBirth;
 
     private Gender gender;
 

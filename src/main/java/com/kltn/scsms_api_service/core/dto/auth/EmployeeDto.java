@@ -9,6 +9,7 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.Gender;
 import lombok.*;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -33,8 +34,8 @@ public class EmployeeDto {
     private String phoneNumber;
     
     @JsonProperty("date_of_birth")
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime dateOfBirth;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate dateOfBirth;
     
     @JsonProperty("gender")
     private Gender gender;

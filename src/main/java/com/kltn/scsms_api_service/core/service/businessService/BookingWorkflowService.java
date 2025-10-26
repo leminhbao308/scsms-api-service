@@ -51,28 +51,40 @@ public class BookingWorkflowService {
                     "Booking must have slot information before confirmation");
             }
             
-            // Kiểm tra slot đã được book chưa (tránh double booking)
-            if (!bayScheduleService.isSlotAvailable(
-                booking.getServiceBay().getBayId(),
-                booking.getScheduledStartAt().toLocalDate(),
-                booking.getSlotStartTime())) {
-                
-                // Kiểm tra slot có thuộc về booking này không
-                List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
-                boolean slotBelongsToBooking = existingSlots.stream()
-                    .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
-                
-                if (!slotBelongsToBooking) {
-                    throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                        "Slot is not available for booking confirmation");
-                }
+            // Kiểm tra slot có thuộc về booking này không trước
+            List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
+            boolean slotBelongsToBooking = existingSlots.stream()
+                .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
+            
+            log.info("🔍 DEBUG: Checking slot for booking {} - existingSlots: {}, slotBelongsToBooking: {}, slotStartTime: {}", 
+                bookingId, existingSlots.size(), slotBelongsToBooking, booking.getSlotStartTime());
+            
+            if (slotBelongsToBooking) {
+                // Slot đã thuộc về booking này, không cần làm gì thêm
+                log.info("✅ Slot already belongs to booking: {}", bookingId);
             } else {
-                // Chuyển slot từ AVAILABLE sang BOOKED
-                bayScheduleService.bookSlot(
+                // Slot chưa thuộc về booking này, cần kiểm tra và book
+                boolean isAvailable = bayScheduleService.isSlotAvailable(
                     booking.getServiceBay().getBayId(),
                     booking.getScheduledStartAt().toLocalDate(),
-                    booking.getSlotStartTime(),
-                    bookingId);
+                    booking.getSlotStartTime());
+                
+                log.info("🔍 DEBUG: Slot availability check - bayId: {}, date: {}, startTime: {}, isAvailable: {}", 
+                    booking.getServiceBay().getBayId(), booking.getScheduledStartAt().toLocalDate(), 
+                    booking.getSlotStartTime(), isAvailable);
+                
+                if (!isAvailable) {
+                    throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
+                        "Slot is not available for booking confirmation");
+                } else {
+                    // Chuyển slot từ AVAILABLE sang BOOKED
+                    log.info("📅 Booking slot for booking: {}", bookingId);
+                    bayScheduleService.bookSlot(
+                        booking.getServiceBay().getBayId(),
+                        booking.getScheduledStartAt().toLocalDate(),
+                        booking.getSlotStartTime(),
+                        bookingId);
+                }
             }
         }
         

@@ -82,7 +82,7 @@ public class VehicleProfileManagementController {
     @SwaggerOperation(
         summary = "Create a new vehicle profile",
         description = "Add a new vehicle profile to the system with details like name and description.")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+//    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<VehicleProfileInfoDto>> createVehicleProfile(@RequestBody CreateVehicleProfileRequest request) {
         VehicleProfileInfoDto createdProfile = vehicleProfileManagementService.createVehicleProfile(request);
         

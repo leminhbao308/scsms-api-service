@@ -1,3 +1,13 @@
+speedsms:
+  api-url: ${SPEEDSMS_API_URL:https://api.speedsms.vn/index.php/sms/send}
+  access-token: ${SPEEDSMS_ACCESS_TOKEN:YdTX69bP26xzBH02jMB54xCrRs0gq5I2}
+  brandname: ${SPEEDSMS_BRANDNAME:VERIFY}
+  otp:
+    length: ${SPEEDSMS_OTP_LENGTH:6}
+    expiry-minutes: ${SPEEDSMS_OTP_EXPIRY_MINUTES:5}
+    max-attempts: ${SPEEDSMS_OTP_MAX_ATTEMPTS:3}
+    cooldown-minutes: ${SPEEDSMS_OTP_COOLDOWN_MINUTES:1}
+    
 spring:
   application:
     name: scsms-api-service
