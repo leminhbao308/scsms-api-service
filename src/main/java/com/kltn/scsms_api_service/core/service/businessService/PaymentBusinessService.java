@@ -52,7 +52,7 @@ public class PaymentBusinessService {
     public PaymentResponse initiatePayment(InitiatePaymentRequest request) {
         try {
             // 1. Validate and get sales order
-            SalesOrder salesOrder = soES.require(request.getSalesOrderId());
+            SalesOrder salesOrder = soES.requireWithDetails(request.getSalesOrderId());
             
             // Check if payment already exists
             Payment existingPayment = paymentES.findBySaleOrderId(salesOrder.getId());
@@ -95,9 +95,9 @@ public class PaymentBusinessService {
                         itemName = line.getProduct().getProductName();
                     } else if (line.isServiceItem()) {
                         // Service item - create descriptive name
-                        String serviceIdShort = line.getServiceId() != null ? 
+                        String serviceIdShort = line.getServiceId() != null ?
                             line.getServiceId().toString().substring(0, 8) : "Unknown";
-                        String bookingCode = line.getOriginalBookingCode() != null ? 
+                        String bookingCode = line.getOriginalBookingCode() != null ?
                             line.getOriginalBookingCode() : "N/A";
                         itemName = String.format("Dịch vụ %s (Booking: %s)", serviceIdShort, bookingCode);
                     } else {
@@ -241,14 +241,16 @@ public class PaymentBusinessService {
             // Update payment status
             String payosStatus = paymentInfo.getStatus();
             
-            if ("PAID".equals(payosStatus)) {
-                payment.setStatus(PaymentStatus.COMPLETED);
-                payment.setPaidAt(LocalDateTime.now());
-            } else if ("CANCELLED".equals(payosStatus)) {
-                payment.setStatus(PaymentStatus.CANCELED);
-                payment.setCancelledAt(LocalDateTime.now());
-            } else if ("EXPIRED".equals(payosStatus)) {
-                payment.setStatus(PaymentStatus.EXPIRED);
+            switch (payosStatus) {
+                case "PAID" -> {
+                    payment.setStatus(PaymentStatus.COMPLETED);
+                    payment.setPaidAt(LocalDateTime.now());
+                }
+                case "CANCELLED" -> {
+                    payment.setStatus(PaymentStatus.CANCELED);
+                    payment.setCancelledAt(LocalDateTime.now());
+                }
+                case "EXPIRED" -> payment.setStatus(PaymentStatus.EXPIRED);
             }
             
             payment = paymentES.save(payment);
@@ -369,11 +371,7 @@ public class PaymentBusinessService {
         String s = bi.toString(36); // 0-9a-z
         // đảm bảo đúng 25 ký tự
         if (s.length() < len) {
-            StringBuilder sb = new StringBuilder(len);
-            for (int i = s.length(); i < len; i++)
-                sb.append('0');
-            sb.append(s);
-            s = sb.toString();
+            s = "0".repeat(len - s.length()) + s;
         }
         return s.toUpperCase();
     }

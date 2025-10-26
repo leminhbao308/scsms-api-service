@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.dto.saleOrderManagement;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
 import com.kltn.scsms_api_service.core.dto.response.AuditDto;
 import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
@@ -49,8 +50,12 @@ public class SaleOrderInfoDto extends AuditDto {
 
     @JsonProperty("promotion_snapshot")
     private String promotionSnapshot; // JSON array of applied promotions
-    
+
     // ================ Cancelation Reason ================
     @JsonProperty("cancellation_reason")
     private String cancellationReason;
+
+    // ================ Booking Information ================
+    @JsonProperty("booking_info")
+    private BookingInfoDto bookingInfo; // Full booking information if this is a booking invoice
 }

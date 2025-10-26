@@ -11,6 +11,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -30,4 +31,18 @@ public class SaleOrderLineInfoDto extends AuditDto {
 
     @JsonProperty("is_free_item")
     private Boolean isFreeItem;
+
+    // Service item fields
+    @JsonProperty("service_id")
+    private UUID serviceId;
+
+    @JsonProperty("is_service_item")
+    private Boolean isServiceItem;
+
+    // Booking context fields
+    @JsonProperty("original_booking_id")
+    private UUID originalBookingId;
+
+    @JsonProperty("original_booking_code")
+    private String originalBookingCode;
 }

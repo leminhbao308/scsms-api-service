@@ -35,6 +35,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -182,7 +183,53 @@ public class SalesOrdersController {
             // 4. Confirm order
             so = salesBS.confirm(so.getId());
 
-            // 4. Initiate payment
+            // 4.5 Update customer statistics (loyalty points, total orders, total spent)
+            if (customer != null) {
+                try {
+                    // Update loyalty points
+                    if (req.getEarnedPoints() != null && req.getEarnedPoints() > 0) {
+                        Integer currentPoints = customer.getAccumulatedPoints() != null
+                                ? customer.getAccumulatedPoints()
+                                : 0;
+                        Integer newPoints = currentPoints + req.getEarnedPoints();
+                        customer.setAccumulatedPoints(newPoints);
+
+                        log.info("Updated loyalty points for customer {} - Previous: {}, Earned: {}, New Total: {}",
+                                customer.getUserId(), currentPoints, req.getEarnedPoints(), newPoints);
+                    }
+
+                    // Update total orders count
+                    int currentOrderCount = customer.getTotalOrders() != null
+                            ? customer.getTotalOrders()
+                            : 0;
+                    customer.setTotalOrders(currentOrderCount + 1);
+
+                    // Update total spent amount
+                    Double currentTotalSpent = customer.getTotalSpent() != null
+                            ? customer.getTotalSpent()
+                            : 0.0;
+                    Double orderAmount = req.getFinalAmount() != null
+                            ? req.getFinalAmount().doubleValue()
+                            : 0.0;
+                    customer.setTotalSpent(currentTotalSpent + orderAmount);
+
+                    // Save all changes
+                    userES.saveUser(customer);
+
+                    log.info("Updated customer statistics - UserId: {}, Orders: {} → {}, Spent: {} → {}",
+                            customer.getUserId(), currentOrderCount, currentOrderCount + 1,
+                            currentTotalSpent, currentTotalSpent + orderAmount);
+
+                } catch (Exception e) {
+                    log.error("Failed to update customer statistics for customer {}: {}",
+                            customer.getUserId(), e.getMessage());
+                    // Don't fail the entire transaction if update fails
+                }
+            } else if (req.getEarnedPoints() != null && req.getEarnedPoints() > 0) {
+                log.warn("Loyalty points ({}) not credited - customer is null or guest", req.getEarnedPoints());
+            }
+
+            // 5. Initiate payment
             PaymentResponse paymentResponse = null;
             if (req.getPaymentMethod() != null && !req.getPaymentMethod().equals(PaymentMethod.CASH)) {
                 InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
@@ -269,7 +316,7 @@ public class SalesOrdersController {
         }
 
         // Get order
-        SalesOrder so = soES.require(soId);
+        SalesOrder so = soES.requireWithDetails(soId);
 
         // Validate order can be canceled
         if (so.getStatus() == SalesStatus.CANCELLED) {
@@ -284,6 +331,55 @@ public class SalesOrdersController {
         so.setStatus(SalesStatus.CANCELLED);
         so.setCancellationReason(req.getCancellationReason().trim());
         so = soES.update(so);
+
+        // Reverse customer statistics when cancel (decrease total_orders, total_spent,
+        // and potentially accumulated_points)
+        User customer = so.getCustomer();
+        if (customer != null && so.getFinalAmount() != null) {
+            try {
+                BigDecimal cancelAmount = so.getFinalAmount();
+
+                // Calculate points to deduct (based on cancel amount)
+                // Formula: cancelAmount / 1,000 (rounded down)
+                int pointsToDeduct = cancelAmount.divide(BigDecimal.valueOf(1000), 0, RoundingMode.DOWN).intValue();
+
+                if (pointsToDeduct > 0) {
+                    int currentPoints = customer.getAccumulatedPoints() != null
+                            ? customer.getAccumulatedPoints()
+                            : 0;
+                    // Ensure points don't go negative
+                    int newPoints = Math.max(0, currentPoints - pointsToDeduct);
+                    customer.setAccumulatedPoints(newPoints);
+                }
+
+                // Decrease total orders count
+                int currentOrderCount = customer.getTotalOrders() != null
+                        ? customer.getTotalOrders()
+                        : 0;
+                // Ensure count doesn't go negative
+                customer.setTotalOrders(Math.max(0, currentOrderCount - 1));
+
+                // Decrease total spent amount
+                Double currentTotalSpent = customer.getTotalSpent() != null
+                        ? customer.getTotalSpent()
+                        : 0.0;
+                Double cancelAmountDouble = cancelAmount.doubleValue();
+                // Ensure total spent doesn't go negative
+                customer.setTotalSpent(Math.max(0.0, currentTotalSpent - cancelAmountDouble));
+
+                // Save ALL changes
+                userES.saveUser(customer);
+
+                log.info(
+                        "Reversed customer statistics for cancel - Points deducted: {}, Orders: {} → {}, Spent: {} → {}",
+                        pointsToDeduct,
+                        currentOrderCount, Math.max(0, currentOrderCount - 1),
+                        currentTotalSpent, Math.max(0.0, currentTotalSpent - cancelAmountDouble));
+
+            } catch (Exception e) {
+                log.error("Failed to reverse customer statistics for cancel: {}", e.getMessage());
+            }
+        }
 
         // Revert booking payment status if order contains booking service items
         Set<UUID> bookingIds = new HashSet<>();
@@ -317,7 +413,7 @@ public class SalesOrdersController {
                     unitCosts.put(i.getProductId(), i.getUnitCost());
             }
         else {
-            SalesOrder so = soES.require(soId);
+            SalesOrder so = soES.requireWithDetails(soId);
             if (!(so.getStatus() == SalesStatus.FULFILLED)) {
                 throw new ClientSideException(ErrorCode.BAD_REQUEST, "Only fulfilled orders can be returned");
             }
@@ -338,7 +434,7 @@ public class SalesOrdersController {
     @GetMapping("/so/{soId}")
     @Operation(summary = "Get order", description = "Get sales order by ID")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> get(@PathVariable UUID soId) {
-        SalesOrder so = soES.require(soId);
+        SalesOrder so = soES.requireWithDetails(soId);
 
         SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
 
@@ -348,10 +444,11 @@ public class SalesOrdersController {
     @GetMapping("/so/get-all")
     @Operation(summary = "Get all orders", description = "Get all sales orders")
     public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAll() {
-        List<SalesOrder> sos = soES.getAll();
+        // Use optimized query with JOIN FETCH to prevent N+1
+        List<SalesOrder> sos = soES.getAllWithDetails();
 
-        List<SaleOrderInfoDto> sosDto = sos.stream()
-                .map(soMapper::toSaleOrderInfoDto).toList();
+        // Use batch processing to fetch all bookings at once
+        List<SaleOrderInfoDto> sosDto = soMapper.toSaleOrderInfoDtoList(sos);
 
         return ResponseBuilder.success("All sales orders retrieved", sosDto);
     }
@@ -369,11 +466,12 @@ public class SalesOrdersController {
                 : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<SalesOrder> pagedOrders = soES.getPagedOrders(pageable);
 
-        List<SaleOrderInfoDto> ordersDto = pagedOrders.getContent().stream()
-                .map(soMapper::toSaleOrderInfoDto)
-                .toList();
+        // Use optimized query with JOIN FETCH to prevent N+1 queries
+        Page<SalesOrder> pagedOrders = soES.getPagedOrdersWithDetails(pageable);
+
+        // Use batch processing to fetch all bookings at once for the page
+        List<SaleOrderInfoDto> ordersDto = soMapper.toSaleOrderInfoDtoList(pagedOrders.getContent());
 
         PagedSaleOrderResponse response = PagedSaleOrderResponse.builder()
                 .content(ordersDto)
@@ -400,10 +498,11 @@ public class SalesOrdersController {
     @GetMapping("/so/get-all-fullfilled")
     @Operation(summary = "Get all fullfilled orders", description = "Get all sales orders that have been fullfilled")
     public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAllFullfills() {
-        List<SalesOrder> sos = soES.getAllFullfills();
+        // Use optimized query with JOIN FETCH to prevent N+1
+        List<SalesOrder> sos = soES.getAllFulfilledWithDetails();
 
-        List<SaleOrderInfoDto> sosDto = sos.stream()
-                .map(soMapper::toSaleOrderInfoDto).toList();
+        // Use batch processing to fetch all bookings at once
+        List<SaleOrderInfoDto> sosDto = soMapper.toSaleOrderInfoDtoList(sos);
 
         return ResponseBuilder.success("All fullfilled orders retrieved", sosDto);
     }
@@ -598,6 +697,11 @@ public class SalesOrdersController {
 
         @JsonProperty("promotion_snapshot")
         private String promotionSnapshot; // JSON array of applied promotions snapshot
+
+        // ===== LOYALTY POINTS FIELD =====
+
+        @JsonProperty("earned_points")
+        private Integer earnedPoints; // Points earned from this purchase (10,000 VNĐ = 1 point)
     }
 
     @Data
