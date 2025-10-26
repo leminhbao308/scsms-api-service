@@ -6,7 +6,9 @@ import com.kltn.scsms_api_service.core.dto.pricingManagement.PriceBookItemInfoDt
 import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreatePriceBookItemRequest;
 import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreatePriceBookRequest;
 import com.kltn.scsms_api_service.core.dto.pricingManagement.request.CreateServicePriceBookItemRequest;
+import com.kltn.scsms_api_service.core.dto.request.BatchServicePricingRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.dto.response.ServicePriceDto;
 import com.kltn.scsms_api_service.core.entity.PriceBook;
 import com.kltn.scsms_api_service.core.entity.PriceBookItem;
 import com.kltn.scsms_api_service.core.service.businessService.PricingBusinessService;
@@ -16,6 +18,7 @@ import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import com.kltn.scsms_api_service.mapper.PriceBookItemMapper;
 import com.kltn.scsms_api_service.mapper.PriceBookMapper;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -35,200 +39,235 @@ import java.util.UUID;
 @Slf4j
 @Tag(name = "Pricing Management", description = "Pricing management endpoints")
 public class PricingController {
-    
+
     private final PricingBusinessService pricingBS;
     private final PriceBookEntityService priceBookES;
     private final PriceBookItemEntityService priceBookItemES;
     private final ServiceService serviceService;
-    
+
     private final PriceBookMapper priceBookMapper;
     private final PriceBookItemMapper priceBookItemMapper;
-    
-    
+
     @PostMapping("/pricing/preview")
     public ResponseEntity<ApiResponse<PricingPreviewItemResponse>> preview(@RequestBody PricingPreviewItemRequest req) {
         return ResponseBuilder.success("Fetch price preview successfully",
-            new PricingPreviewItemResponse(
-                req.getProductId(),
-                req.getQty(),
-                pricingBS.calcLineTotal(req.getProductId(), req.getQty())));
+                new PricingPreviewItemResponse(
+                        req.getProductId(),
+                        req.getQty(),
+                        pricingBS.calcLineTotal(req.getProductId(), req.getQty())));
     }
-    
-    
+
+    /**
+     * Batch endpoint to get service prices
+     * Prevents N+1 query pattern on frontend
+     * Returns a map of service_id -> fixed_price
+     */
+    @PostMapping("/pricing/batch-service-prices")
+    @Operation(summary = "Get batch service prices", description = "Get prices for multiple services in a single API call to prevent N+1 queries")
+    public ResponseEntity<ApiResponse<Map<UUID, BigDecimal>>> getBatchServicePrices(
+            @RequestBody BatchServicePricingRequest request) {
+        log.info("Fetching batch service prices for {} services", request.getServiceIds().size());
+
+        Map<UUID, BigDecimal> prices = pricingBS.getServicePricesBatch(
+                request.getServiceIds(),
+                request.getPriceBookId());
+
+        return ResponseBuilder.success(
+                "Batch service prices retrieved successfully",
+                prices);
+    }
+
+    /**
+     * Batch endpoint to get service prices with detailed information
+     * Returns full ServicePriceDto objects with service names
+     */
+    @PostMapping("/pricing/batch-service-prices/detailed")
+    @Operation(summary = "Get detailed batch service prices", description = "Get detailed price information for multiple services including service names")
+    public ResponseEntity<ApiResponse<List<ServicePriceDto>>> getBatchServicePricesDetailed(
+            @RequestBody BatchServicePricingRequest request) {
+        log.info("Fetching detailed batch service prices for {} services", request.getServiceIds().size());
+
+        List<ServicePriceDto> prices = pricingBS.getServicePricesDetailedBatch(
+                request.getServiceIds(),
+                request.getPriceBookId());
+
+        return ResponseBuilder.success(
+                "Detailed batch service prices retrieved successfully",
+                prices);
+    }
+
     @PostMapping("/pricing/books/create")
-    public ResponseEntity<ApiResponse<PriceBookInfoDto>> createBook(@RequestBody CreatePriceBookRequest priceBookRequest) {
+    public ResponseEntity<ApiResponse<PriceBookInfoDto>> createBook(
+            @RequestBody CreatePriceBookRequest priceBookRequest) {
         PriceBook book = priceBookMapper.toEntityWithItems(priceBookRequest);
-        
+
         PriceBookInfoDto createdBook = priceBookMapper.toPriceBookInfoDto(
-            priceBookES.create(book));
-        
+                priceBookES.create(book));
+
         return ResponseBuilder.created("Create price book successfully",
-            createdBook);
+                createdBook);
     }
-    
-    
+
     @PostMapping("/pricing/books/{bookId}/create-item")
-    public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createItem(@PathVariable UUID bookId, @RequestBody CreatePriceBookItemRequest priceBookItemRequest) {
+    public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createItem(@PathVariable UUID bookId,
+            @RequestBody CreatePriceBookItemRequest priceBookItemRequest) {
         PriceBook book = priceBookES.getRefById(bookId);
-        
+
         PriceBookItem item = priceBookItemMapper.toEntity(priceBookItemRequest);
         item.setPriceBook(book);
-        
+
         PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
-            priceBookItemES.create(item));
-        
+                priceBookItemES.create(item));
+
         return ResponseBuilder.created("Create price book item successfully",
-            createdItem);
+                createdItem);
     }
-    
+
     @PostMapping("/pricing/books/update/{bookId}")
-    public ResponseEntity<ApiResponse<PriceBookInfoDto>> updateBook(@PathVariable UUID bookId, @RequestBody CreatePriceBookRequest priceBookRequest) {
+    public ResponseEntity<ApiResponse<PriceBookInfoDto>> updateBook(@PathVariable UUID bookId,
+            @RequestBody CreatePriceBookRequest priceBookRequest) {
         PriceBook book = priceBookES.require(bookId);
-        
+
         PriceBookInfoDto updatedBook = priceBookMapper.toPriceBookInfoDto(
-            priceBookES.update(book, priceBookMapper.toEntityWithItems(priceBookRequest)));
-        
+                priceBookES.update(book, priceBookMapper.toEntityWithItems(priceBookRequest)));
+
         return ResponseBuilder.success("Updated price book successfully",
-            updatedBook);
+                updatedBook);
     }
-    
-    
+
     @PostMapping("/pricing/books/{bookId}/update-item/{itemId}")
     public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> updateItem(
-        @PathVariable UUID bookId,
-        @PathVariable UUID itemId,
-        @RequestBody CreatePriceBookItemRequest priceBookItemRequest) {
+            @PathVariable UUID bookId,
+            @PathVariable UUID itemId,
+            @RequestBody CreatePriceBookItemRequest priceBookItemRequest) {
         PriceBook book = priceBookES.getRefById(bookId);
-        
+
         PriceBookItem item = priceBookItemES.require(itemId);
         item.setPriceBook(book);
-        
+
         PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
-            priceBookItemES.update(item, priceBookItemMapper.toEntity(priceBookItemRequest)));
-        
+                priceBookItemES.update(item, priceBookItemMapper.toEntity(priceBookItemRequest)));
+
         return ResponseBuilder.created("Create price book item successfully",
-            createdItem);
+                createdItem);
     }
-    
+
     @PostMapping("/pricing/preview-batch")
-    public ResponseEntity<ApiResponse<PricingPreviewBatchResponse>> previewBatch(@RequestBody PricingPreviewBatchRequest req) {
+    public ResponseEntity<ApiResponse<PricingPreviewBatchResponse>> previewBatch(
+            @RequestBody PricingPreviewBatchRequest req) {
         PricingPreviewBatchResponse result = new PricingPreviewBatchResponse();
-        
+
         // calculate each line total price
         result.setItems(req.getItems().stream().map(i -> new PricingPreviewItemResponse(
-            i.getProductId(),
-            i.getQty(),
-            pricingBS.calcLineTotal(i.getProductId(), i.getQty())
-        )).toList());
-        
+                i.getProductId(),
+                i.getQty(),
+                pricingBS.calcLineTotal(i.getProductId(), i.getQty()))).toList());
+
         // calculate grand total
         result.setGrandTotal(result.getItems().stream()
-            .map(PricingPreviewItemResponse::getTotalPrice)
-            .reduce(BigDecimal.ZERO, BigDecimal::add));
+                .map(PricingPreviewItemResponse::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         return ResponseBuilder.success("Fetch batch price preview successfully", result);
     }
-    
+
     @GetMapping("/pricing/books/{bookId}")
     public ResponseEntity<ApiResponse<PriceBookInfoDto>> getBook(@PathVariable UUID bookId) {
         PriceBook book = priceBookES.require(bookId);
         return ResponseBuilder.success("Fetch price book successfully",
-            priceBookMapper.toPriceBookInfoDto(book));
+                priceBookMapper.toPriceBookInfoDto(book));
     }
-    
+
     @GetMapping("/pricing/books/active")
     public ResponseEntity<ApiResponse<List<PriceBookInfoDto>>> getActiveBooks(
-        @RequestParam(required = false) String from,
-        @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
         List<PriceBook> books = priceBookES.getActivePriceBooksInRange(
-            from != null ? java.time.LocalDateTime.parse(from) : null,
-            to != null ? java.time.LocalDateTime.parse(to) : null);
-        
+                from != null ? java.time.LocalDateTime.parse(from) : null,
+                to != null ? java.time.LocalDateTime.parse(to) : null);
+
         List<PriceBookInfoDto> bookDtos = books.stream()
-            .map(priceBookMapper::toPriceBookInfoDto).toList();
-        
+                .map(priceBookMapper::toPriceBookInfoDto).toList();
+
         return ResponseBuilder.success("Fetch active price books successfully",
-            bookDtos);
+                bookDtos);
     }
-    
+
     @GetMapping("/pricing/books/get-all")
     public ResponseEntity<ApiResponse<List<PriceBookInfoDto>>> getAllBooks() {
         List<PriceBook> books = priceBookES.getPriceBooksInRange(
-            null,
-            null);
-        
+                null,
+                null);
+
         List<PriceBookInfoDto> bookDtos = books.stream()
-            .map(priceBookMapper::toPriceBookInfoDto).toList();
-        
+                .map(priceBookMapper::toPriceBookInfoDto).toList();
+
         return ResponseBuilder.success("Fetch all price books successfully",
-            bookDtos);
+                bookDtos);
     }
-    
-    
-    
+
     // ========== PRICE BOOK ITEM MANAGEMENT ==========
-    
+
     @PostMapping("/pricing/books/{bookId}/create-service-item")
     public ResponseEntity<ApiResponse<PriceBookItemInfoDto>> createServiceItem(
             @PathVariable UUID bookId,
             @RequestBody CreateServicePriceBookItemRequest request) {
         log.info("Creating service price book item for book: {}, service: {}", bookId, request.getServiceId());
-        
+
         PriceBook book = priceBookES.require(bookId);
-        
+
         // Load existing Service entity from database
         com.kltn.scsms_api_service.core.entity.Service service = serviceService.getById(request.getServiceId());
-        
+
         PriceBookItem item = PriceBookItem.builder()
-            .priceBook(book)
-            .service(service)
-            .policyType(request.getPolicyType())
-            .fixedPrice(request.getFixedPrice())
-            .markupPercent(request.getMarkupPercent())
-            .build();
-        
+                .priceBook(book)
+                .service(service)
+                .policyType(request.getPolicyType())
+                .fixedPrice(request.getFixedPrice())
+                .markupPercent(request.getMarkupPercent())
+                .build();
+
         PriceBookItemInfoDto createdItem = priceBookItemMapper.toPriceBookItemInfoDto(
-            priceBookItemES.create(item));
-        
+                priceBookItemES.create(item));
+
         return ResponseBuilder.created("Create service price book item successfully", createdItem);
     }
-    
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PricingPreviewBatchRequest {
         private List<PricingPreviewItemRequest> items;
     }
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PricingPreviewItemRequest {
         @JsonProperty("product_id")
         private UUID productId;
-        
+
         private Long qty;
     }
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PricingPreviewItemResponse {
         @JsonProperty("product_id")
         private UUID productId;
-        
+
         private Long qty;
-        
+
         @JsonProperty("total_price")
         private BigDecimal totalPrice;
     }
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PricingPreviewBatchResponse {
         private List<PricingPreviewItemResponse> items;
-        
+
         @JsonProperty("grand_total")
         private BigDecimal grandTotal;
     }

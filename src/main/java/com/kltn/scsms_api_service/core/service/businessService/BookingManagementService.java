@@ -85,10 +85,11 @@ public class BookingManagementService {
 
     /**
      * Lấy booking theo ID
+     * Uses optimized query to prevent N+1 queries
      */
     public BookingInfoDto getBookingById(UUID bookingId) {
         log.info("Getting booking by ID: {}", bookingId);
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         return bookingInfoService.toBookingInfoDto(booking);
     }
 
@@ -201,7 +202,8 @@ public class BookingManagementService {
                 throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay is not available");
             }
             if (!serviceBay.isAvailableForBooking()) {
-                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay does not allow booking");
+                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                        "Service bay does not allow booking");
             }
 
             // Check bay availability for the scheduled time
@@ -326,7 +328,7 @@ public class BookingManagementService {
     public BookingInfoDto updateBooking(UUID bookingId, UpdateBookingRequest request) {
         log.info("Updating booking: {}", bookingId);
 
-        Booking existingBooking = bookingService.getById(bookingId);
+        Booking existingBooking = bookingService.getByIdWithDetails(bookingId);
 
         // Check if booking can be updated
         if (existingBooking.isCompleted() || existingBooking.isCancelled()) {
@@ -372,8 +374,8 @@ public class BookingManagementService {
         Booking updatedBooking = bookingMapper.updateEntity(existingBooking, request);
 
         // Xử lý thay đổi slot nếu có (chỉ cho slot booking, không cho walk-in booking)
-        if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null) 
-            && !existingBooking.getBookingCode().startsWith("WALK")) {
+        if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null)
+                && !existingBooking.getBookingCode().startsWith("WALK")) {
             handleSlotChange(updatedBooking, request);
         }
 
@@ -389,7 +391,7 @@ public class BookingManagementService {
     public void deleteBooking(UUID bookingId) {
         log.info("Deleting booking: {}", bookingId);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         // Check if booking can be deleted
         if (booking.isActive()) {
@@ -410,7 +412,7 @@ public class BookingManagementService {
     public void cancelBooking(UUID bookingId, String reason, String cancelledBy) {
         log.info("Cancelling booking: {} with reason: {}", bookingId, reason);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         // Check if booking can be cancelled
         if (booking.isCompleted() || booking.isCancelled()) {
@@ -433,7 +435,7 @@ public class BookingManagementService {
     public void confirmBooking(UUID bookingId) {
         log.info("Confirming booking: {}", bookingId);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         if (booking.getStatus() != Booking.BookingStatus.PENDING) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_CONFIRMED,
@@ -451,7 +453,7 @@ public class BookingManagementService {
     public void checkInBooking(UUID bookingId) {
         log.info("Checking in booking: {}", bookingId);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         if (booking.getStatus() != Booking.BookingStatus.CONFIRMED) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_CHECKED_IN,
@@ -469,7 +471,7 @@ public class BookingManagementService {
     public void startService(UUID bookingId) {
         log.info("Starting service for booking: {}", bookingId);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         if (booking.getStatus() != Booking.BookingStatus.CHECKED_IN) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_STARTED,
@@ -487,7 +489,7 @@ public class BookingManagementService {
     public void completeService(UUID bookingId) {
         log.info("Completing service for booking: {}", bookingId);
 
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         if (booking.getStatus() != Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_COMPLETED,
@@ -576,7 +578,7 @@ public class BookingManagementService {
             throw new RuntimeException("Could not determine unit price for service: " + itemRequest.getItemName());
         }
     }
-    
+
     public void revertPaymentStatusToPending(Set<UUID> bookingIds) {
         log.info("Reverting payment status to PENDING for bookings: {}", bookingIds);
         List<Booking> bookings = bookingService.findAllByIds(bookingIds);
@@ -590,7 +592,7 @@ public class BookingManagementService {
             }
         }
     }
-    
+
     /**
      * DTO cho thống kê booking
      */
@@ -630,7 +632,7 @@ public class BookingManagementService {
         log.info("Marking booking as paid: {}", bookingId);
 
         // Lấy booking từ database
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
 
         // Kiểm tra trạng thái booking
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
@@ -678,7 +680,7 @@ public class BookingManagementService {
                 bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
 
         // 1. Lấy booking hiện tại
-        Booking existingBooking = bookingService.getById(bookingId);
+        Booking existingBooking = bookingService.getByIdWithDetails(bookingId);
 
         // 2. Kiểm tra booking có thể thay đổi slot không
         if (existingBooking.isCompleted() || existingBooking.isCancelled()) {

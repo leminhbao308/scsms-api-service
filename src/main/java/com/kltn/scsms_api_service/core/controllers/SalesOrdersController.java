@@ -199,7 +199,7 @@ public class SalesOrdersController {
                     }
 
                     // Update total orders count
-                    Integer currentOrderCount = customer.getTotalOrders() != null
+                    int currentOrderCount = customer.getTotalOrders() != null
                             ? customer.getTotalOrders()
                             : 0;
                     customer.setTotalOrders(currentOrderCount + 1);
@@ -316,7 +316,7 @@ public class SalesOrdersController {
         }
 
         // Get order
-        SalesOrder so = soES.require(soId);
+        SalesOrder so = soES.requireWithDetails(soId);
 
         // Validate order can be canceled
         if (so.getStatus() == SalesStatus.CANCELLED) {
@@ -413,7 +413,7 @@ public class SalesOrdersController {
                     unitCosts.put(i.getProductId(), i.getUnitCost());
             }
         else {
-            SalesOrder so = soES.require(soId);
+            SalesOrder so = soES.requireWithDetails(soId);
             if (!(so.getStatus() == SalesStatus.FULFILLED)) {
                 throw new ClientSideException(ErrorCode.BAD_REQUEST, "Only fulfilled orders can be returned");
             }
@@ -434,7 +434,7 @@ public class SalesOrdersController {
     @GetMapping("/so/{soId}")
     @Operation(summary = "Get order", description = "Get sales order by ID")
     public ResponseEntity<ApiResponse<SaleOrderInfoDto>> get(@PathVariable UUID soId) {
-        SalesOrder so = soES.require(soId);
+        SalesOrder so = soES.requireWithDetails(soId);
 
         SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
 
@@ -444,10 +444,11 @@ public class SalesOrdersController {
     @GetMapping("/so/get-all")
     @Operation(summary = "Get all orders", description = "Get all sales orders")
     public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAll() {
-        List<SalesOrder> sos = soES.getAll();
+        // Use optimized query with JOIN FETCH to prevent N+1
+        List<SalesOrder> sos = soES.getAllWithDetails();
 
-        List<SaleOrderInfoDto> sosDto = sos.stream()
-                .map(soMapper::toSaleOrderInfoDto).toList();
+        // Use batch processing to fetch all bookings at once
+        List<SaleOrderInfoDto> sosDto = soMapper.toSaleOrderInfoDtoList(sos);
 
         return ResponseBuilder.success("All sales orders retrieved", sosDto);
     }
@@ -465,11 +466,12 @@ public class SalesOrdersController {
                 : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<SalesOrder> pagedOrders = soES.getPagedOrders(pageable);
 
-        List<SaleOrderInfoDto> ordersDto = pagedOrders.getContent().stream()
-                .map(soMapper::toSaleOrderInfoDto)
-                .toList();
+        // Use optimized query with JOIN FETCH to prevent N+1 queries
+        Page<SalesOrder> pagedOrders = soES.getPagedOrdersWithDetails(pageable);
+
+        // Use batch processing to fetch all bookings at once for the page
+        List<SaleOrderInfoDto> ordersDto = soMapper.toSaleOrderInfoDtoList(pagedOrders.getContent());
 
         PagedSaleOrderResponse response = PagedSaleOrderResponse.builder()
                 .content(ordersDto)
@@ -496,10 +498,11 @@ public class SalesOrdersController {
     @GetMapping("/so/get-all-fullfilled")
     @Operation(summary = "Get all fullfilled orders", description = "Get all sales orders that have been fullfilled")
     public ResponseEntity<ApiResponse<List<SaleOrderInfoDto>>> getAllFullfills() {
-        List<SalesOrder> sos = soES.getAllFullfills();
+        // Use optimized query with JOIN FETCH to prevent N+1
+        List<SalesOrder> sos = soES.getAllFulfilledWithDetails();
 
-        List<SaleOrderInfoDto> sosDto = sos.stream()
-                .map(soMapper::toSaleOrderInfoDto).toList();
+        // Use batch processing to fetch all bookings at once
+        List<SaleOrderInfoDto> sosDto = soMapper.toSaleOrderInfoDtoList(sos);
 
         return ResponseBuilder.success("All fullfilled orders retrieved", sosDto);
     }

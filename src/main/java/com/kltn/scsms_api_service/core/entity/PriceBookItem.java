@@ -87,8 +87,6 @@ public class PriceBookItem extends AuditEntity {
     /**
      * Validate rằng chỉ có một trong hai relationship được set
      */
-    @PrePersist
-    @PreUpdate
     public void validate() {
         int count = 0;
         if (product != null)
@@ -100,7 +98,19 @@ public class PriceBookItem extends AuditEntity {
             throw new IllegalStateException("PriceBookItem must have exactly one of: product or service");
         }
     }
-
+    
+    @Override
+    protected void onCreate() {
+        validate();
+        super.onCreate();
+    }
+    
+    @Override
+    protected void onUpdate() {
+        validate();
+        super.onUpdate();
+    }
+    
     /**
      * Enum định nghĩa loại item
      */

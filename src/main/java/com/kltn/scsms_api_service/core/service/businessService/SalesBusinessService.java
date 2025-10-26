@@ -41,7 +41,7 @@ public class SalesBusinessService {
 
     @Transactional
     public SalesOrder confirm(UUID soId) {
-        SalesOrder so = salesOrderEntityService.require(soId);
+        SalesOrder so = salesOrderEntityService.requireWithDetails(soId);
         // price resolution + reservation
         for (SalesOrderLine line : solES.byOrder(so.getId())) {
             // Only process product items (skip service items)
@@ -69,7 +69,7 @@ public class SalesBusinessService {
 
     @Transactional
     public SalesOrder fulfill(UUID soId) {
-        SalesOrder so = salesOrderEntityService.require(soId);
+        SalesOrder so = salesOrderEntityService.requireWithDetails(soId);
         for (SalesOrderLine line : solES.byOrder(so.getId())) {
             // Only process product items (skip service items)
             if (line.isProductItem() && line.getProduct() != null) {
@@ -93,7 +93,7 @@ public class SalesBusinessService {
     @Transactional
     public SalesReturn createReturn(UUID soId, String reason, Map<UUID, Long> productQtyMap,
             Map<UUID, BigDecimal> unitCostOptional) {
-        SalesOrder so = salesOrderEntityService.require(soId);
+        SalesOrder so = salesOrderEntityService.requireWithDetails(soId);
 
         // Calculate discount ratio for the entire order
         // This ratio represents what percentage of original price the customer actually
@@ -157,7 +157,7 @@ public class SalesBusinessService {
                 int pointsToDeduct = returnAmount.divide(BigDecimal.valueOf(1000), 0, RoundingMode.DOWN).intValue();
 
                 if (pointsToDeduct > 0) {
-                    Integer currentPoints = customer.getAccumulatedPoints() != null
+                    int currentPoints = customer.getAccumulatedPoints() != null
                             ? customer.getAccumulatedPoints()
                             : 0;
                     // Ensure points don't go negative
@@ -166,7 +166,7 @@ public class SalesBusinessService {
                 }
 
                 // Decrease total orders count
-                Integer currentOrderCount = customer.getTotalOrders() != null
+                int currentOrderCount = customer.getTotalOrders() != null
                         ? customer.getTotalOrders()
                         : 0;
                 // Ensure count doesn't go negative
