@@ -459,6 +459,7 @@ public class ApiConstant {
 
         public static List<String> PROTECTED_PATHS(String apiPrefix) {
                 return List.of(
+                                apiPrefix + CHANGE_PASSWORD_API,
                                 apiPrefix + VERIFY_TOKEN_API,
                                 apiPrefix + GET_ALL_USERS_API,
                                 apiPrefix + GET_USER_BY_ID_API,

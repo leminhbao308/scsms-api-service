@@ -1,6 +1,9 @@
 package com.kltn.scsms_api_service.exception;
 
-import lombok.extern.slf4j.Slf4j;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -9,13 +12,26 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
+import io.jsonwebtoken.ExpiredJwtException;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    
+    /**
+     * Error Response DTO
+     */
+    @lombok.Data
+    @lombok.Builder
+    public static class ErrorResponse {
+        private Instant timestamp;
+        private int status;
+        private String error;
+        private String message;
+        private String path;
+        private String errorCode;
+    }
     
     /**
      * Handle ClientSideException (4xx errors)
@@ -120,6 +136,31 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * Handle expired JWT token exceptions
+     */
+    @ExceptionHandler(ExpiredJwtException.class)
+    public ResponseEntity<ErrorResponse> handleExpiredJwtException(
+        ExpiredJwtException ex, WebRequest request) {
+        
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(status.value())
+            .error(status.getReasonPhrase())
+            .message("Token has expired. Please refresh your token or login again.")
+            .path(getRequestPath(request))
+            .errorCode("TOKEN_EXPIRED")
+            .build();
+        
+        // Log at WARN level, not ERROR, as this is expected behavior
+        log.warn("Token expired - Path: {}, Message: {}",
+            getRequestPath(request), ex.getMessage());
+        
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+    
+    /**
      * Handle all other uncaught exceptions
      */
     @ExceptionHandler(Exception.class)
@@ -178,19 +219,5 @@ public class GlobalExceptionHandler {
     private String getRequestPath(WebRequest request) {
         String path = request.getDescription(false);
         return path.replace("uri=", "");
-    }
-    
-    /**
-     * Error Response DTO
-     */
-    @lombok.Data
-    @lombok.Builder
-    public static class ErrorResponse {
-        private Instant timestamp;
-        private int status;
-        private String error;
-        private String message;
-        private String path;
-        private String errorCode;
     }
 }
