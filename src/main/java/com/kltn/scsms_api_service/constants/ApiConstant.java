@@ -1,8 +1,8 @@
 package com.kltn.scsms_api_service.constants;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 
 public class ApiConstant {
 
@@ -495,6 +495,7 @@ public class ApiConstant {
                                 apiPrefix + UPDATE_VEHICLE_MODEL_API,
                                 apiPrefix + DELETE_VEHICLE_MODEL_API,
                                 apiPrefix + GET_ALL_VEHICLE_PROFILES_API,
+                                apiPrefix + GET_ALL_VEHICLE_PROFILES_BY_OWNER_ID_API,
                                 apiPrefix + GET_VEHICLE_PROFILE_BY_ID_API,
                                 apiPrefix + CREATE_VEHICLE_PROFILE_API,
                                 apiPrefix + UPDATE_VEHICLE_PROFILE_API,

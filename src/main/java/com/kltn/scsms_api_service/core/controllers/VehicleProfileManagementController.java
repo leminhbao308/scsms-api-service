@@ -37,7 +37,7 @@ public class VehicleProfileManagementController {
     @SwaggerOperation(
         summary = "Get all vehicle profiles",
         description = "Retrieve a paginated list of all vehicle profiles that can be filtered ")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+//    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
     public ResponseEntity<ApiResponse<PaginatedResponse<VehicleProfileInfoDto>>> getAllVehicleProfile(@ModelAttribute VehicleProfileFilterParam vehicleProfileFilterParam) {
         log.info("Fetching all vehicle profiles with filters: {}", vehicleProfileFilterParam);
         
@@ -69,7 +69,7 @@ public class VehicleProfileManagementController {
     @SwaggerOperation(
         summary = "Get vehicle profile by ID",
         description = "Retrieve detailed information about a specific vehicle profile by its unique identifier.")
-    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
+//    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
     public ResponseEntity<ApiResponse<VehicleProfileInfoDto>> getVehicleProfileById(@PathVariable("profileId") String profileId) {
         log.info("Fetching vehicle profile with ID: {}", profileId);
         
@@ -94,7 +94,7 @@ public class VehicleProfileManagementController {
     @SwaggerOperation(
         summary = "Update an existing vehicle profile",
         description = "Modify the details of an existing vehicle profile by its ID.")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+//    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<VehicleProfileInfoDto>> updateVehicleProfile(
         @PathVariable("profileId") String profileId,
         @RequestBody UpdateVehicleProfileRequest request) {
@@ -109,7 +109,7 @@ public class VehicleProfileManagementController {
     @SwaggerOperation(
         summary = "Delete a vehicle profile",
         description = "Remove a vehicle profile from the system by its ID.")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+//    @RequireRole(roles = {"ADMIN", "MANAGER"})
     public ResponseEntity<ApiResponse<Void>> deleteVehicleProfile(@PathVariable("profileId") String profileId) {
         log.info("Deleting vehicle profile with ID: {}", profileId);
         vehicleProfileManagementService.deleteVehicleProfile(UUID.fromString(profileId));
