@@ -7,9 +7,11 @@ import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.auth.response.AuthCustomerResponse;
 import com.kltn.scsms_api_service.core.dto.auth.response.AuthEmployeeResponse;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
+import com.kltn.scsms_api_service.core.dto.request.ForgotPasswordRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.entity.Role;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.TokenType;
@@ -23,12 +25,14 @@ import com.kltn.scsms_api_service.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -42,8 +46,28 @@ public class AuthService {
     private final RoleService roleService;
     
     public ApiResponse<?> login(@Valid LoginRequest request) {
-        User user = userService.findByEmail(request.getEmail())
-            .orElseThrow(() -> new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email or password"));
+        // Validate that either email or phoneNumber is provided
+        if ((request.getEmail() == null || request.getEmail().trim().isEmpty()) &&
+            (request.getPhoneNumber() == null || request.getPhoneNumber().trim().isEmpty())) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email or phone number is required");
+        }
+        
+        // Find user by email or phone number
+        User user = null;
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
+            user = userService.findByPhoneNumber(request.getPhoneNumber())
+                .orElse(null);
+        }
+        
+        // If not found by phone number, try email
+        if (user == null && request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            user = userService.findByEmail(request.getEmail())
+                .orElse(null);
+        }
+        
+        if (user == null) {
+            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email/phone number or password");
+        }
         
         if (!user.getIsActive() || user.getIsDeleted())
             throw new ClientSideException(ErrorCode.UNAUTHORIZED, "User account is inactive or deleted");
@@ -59,7 +83,7 @@ public class AuthService {
             
             return buildAuthResponse(tokens, user);
         } else {
-            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email or password");
+            throw new ClientSideException(ErrorCode.UNAUTHORIZED, "Invalid email/phone number or password");
         }
     }
     
@@ -112,6 +136,36 @@ public class AuthService {
         userService.saveUser(user);
     }
     
+    /**
+     * Forgot password - reset password using phone number and new password
+     */
+    public void forgotPassword(@Valid ForgotPasswordRequest request) {
+        String phoneNumber = request.getPhoneNumber();
+        String newPassword = request.getNewPassword();
+        
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Phone number is required");
+        }
+        
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "New password is required");
+        }
+        
+        // Find user by phone number
+        User user = userService.findByPhoneNumber(phoneNumber)
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "User not found with this phone number"));
+        
+        if (!user.getIsActive() || user.getIsDeleted()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Account is inactive or deleted");
+        }
+        
+        // Update password
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userService.saveUser(user);
+        
+        log.info("Password reset successfully for phone number: {}", phoneNumber);
+    }
+    
     private String extractTokenFromHeader(String authHeader) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
@@ -120,20 +174,29 @@ public class AuthService {
     }
     
     public ApiResponse<?> register(RegisterRequest registerRequest) {
-        // Validate email not already in use
-        if (userService.findByEmail(registerRequest.getEmail()).isPresent()) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + registerRequest.getEmail() + " is already in use.");
+        // Validate email not already in use (only if email is provided)
+        if (registerRequest.getEmail() != null && !registerRequest.getEmail().trim().isEmpty()) {
+            if (userService.findByEmail(registerRequest.getEmail()).isPresent()) {
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Email " + registerRequest.getEmail() + " is already in use.");
+            }
         }
         
         // Always assign CUSTOMER role for new registrations
-        roleService.getRoleByRoleCode("CUSTOMER")
+        Role customerRole = roleService.getRoleByRoleCode("CUSTOMER")
             .orElseThrow(() -> new ClientSideException(ErrorCode.BAD_REQUEST, "Default role CUSTOMER does not exist."));
         
         // Encode password
-        passwordEncoder.encode(registerRequest.getPassword());
+        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword());
         
         // Create new user
         User newUser = userMapper.toEntity(registerRequest);
+        
+        // Set password (encoded)
+        newUser.setPassword(encodedPassword);
+        
+        // Set role (required)
+        newUser.setRole(customerRole);
+        
         // Customer specific fields
         newUser.setUserType(UserType.CUSTOMER);
         newUser.setCustomerRank(CustomerRank.BRONZE);

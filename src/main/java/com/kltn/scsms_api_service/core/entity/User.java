@@ -30,7 +30,7 @@ public class User extends AuditEntity {
     @Column(name = "google_id", unique = true)
     private String googleId;
 
-    @Column(name = "email", unique = true, nullable = false)
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(name = "password", nullable = false, length = Integer.MAX_VALUE)

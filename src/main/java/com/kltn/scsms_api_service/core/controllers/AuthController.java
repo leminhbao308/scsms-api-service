@@ -5,6 +5,7 @@ import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.dto.auth.request.LoginRequest;
 import com.kltn.scsms_api_service.core.dto.auth.request.RegisterRequest;
 import com.kltn.scsms_api_service.core.dto.request.ChangePasswordRequest;
+import com.kltn.scsms_api_service.core.dto.request.ForgotPasswordRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -31,15 +32,17 @@ public class AuthController {
     private final AuthService authService;
     
     /**
-     * User login with email and password
+     * User login with email/phone number and password
      */
     @PostMapping(ApiConstant.LOGIN_API)
     @SwaggerOperation(
         summary = "Perform user login",
-        description = "Authenticate user and return access token, refresh token and user info")
+        description = "Authenticate user using email or phone number with password, return access token, refresh token and user info")
     public ResponseEntity<ApiResponse<?>> login(@RequestBody LoginRequest request) {
         
-        log.info("Login attempt for email: {}", request.getEmail());
+        String loginIdentifier = request.getPhoneNumber() != null ? 
+            "phone: " + request.getPhoneNumber() : "email: " + request.getEmail();
+        log.info("Login attempt for {}", loginIdentifier);
         
         ApiResponse<?> response = authService.login(request);
         
@@ -119,6 +122,28 @@ public class AuthController {
         ApiResponse<?> response = authService.register(request);
         
         return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Forgot password - reset password using phone number and new password
+     */
+    @PostMapping(ApiConstant.FORGOT_PASSWORD_API)
+    @SwaggerOperation(
+        summary = "Forgot password",
+        description = "Reset password using phone number and new password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+        @RequestBody ForgotPasswordRequest request) {
+        
+        log.info("Forgot password request for phone number: {}", request.getPhoneNumber());
+        
+        authService.forgotPassword(request);
+        
+        return ResponseEntity.ok(
+            ApiResponse.<Void>builder()
+                .success(true)
+                .message("Password has been reset successfully")
+                .build()
+        );
     }
 
 //    /**
