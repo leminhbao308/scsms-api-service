@@ -12,12 +12,15 @@ import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
 import com.kltn.scsms_api_service.core.dto.userManagement.request.UpdateUserRequest;
 import com.kltn.scsms_api_service.core.service.businessService.UserManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -92,5 +95,18 @@ public class UserManagementController {
         log.info("Deleting user with ID: {}", userId);
         userManagementService.deleteUser(UUID.fromString(userId));
         return ResponseBuilder.success("User deleted successfully");
+    }
+    
+    @PostMapping(ApiConstant.UPLOAD_USER_AVATAR_API)
+    @Operation(
+        summary = "Upload user avatar",
+        description = "Upload and update avatar image for a user. Only image files are allowed, max size 5MB.")
+    @SwaggerOperation(summary = "Upload user avatar")
+    public ResponseEntity<ApiResponse<UserInfoDto>> uploadUserAvatar(
+            @Parameter(description = "User ID") @PathVariable("userId") UUID userId,
+            @Parameter(description = "Avatar image file") @RequestParam("file") MultipartFile file) {
+        log.info("Uploading avatar for user ID: {}", userId);
+        UserInfoDto updatedUser = userManagementService.uploadUserAvatar(userId, file);
+        return ResponseBuilder.success("Avatar uploaded successfully", updatedUser);
     }
 }

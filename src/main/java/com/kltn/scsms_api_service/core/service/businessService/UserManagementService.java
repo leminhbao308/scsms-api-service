@@ -11,12 +11,16 @@ import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.core.service.entityService.PermissionService;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.core.service.entityService.S3FileService;
+import com.kltn.scsms_api_service.core.entity.S3File;
 import com.kltn.scsms_api_service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +36,7 @@ public class UserManagementService {
     private final UserService userService;
     private final RoleService roleService;
     private final PermissionService permissionService;
+    private final S3FileService s3FileService;
     
     public Page<UserInfoDto> getAllUsers(UserFilterParam userFilterParam) {
         
@@ -158,5 +163,71 @@ public class UserManagementService {
             new ClientSideException(ErrorCode.NOT_FOUND, "User with ID " + userId + " not found."));
         
         return userMapper.toUserInfoDto(user);
+    }
+    
+    /**
+     * Upload and update user avatar
+     */
+    @Transactional
+    public UserInfoDto uploadUserAvatar(UUID userId, MultipartFile file) {
+        log.info("Uploading avatar for user ID: {}", userId);
+        
+        // Verify user exists
+        User user = userService.findById(userId)
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
+                "User not found with ID: " + userId));
+        
+        // Validate file
+        if (file == null || file.isEmpty()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "File is required");
+        }
+        
+        // Validate file type (only images)
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                "Only image files are allowed. Received content type: " + contentType);
+        }
+        
+        // Validate file size (max 5MB)
+        long maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.getSize() > maxSize) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                "File size exceeds maximum limit of 5MB. Current size: " + (file.getSize() / 1024) + "KB");
+        }
+        
+        try {
+            // Upload file to S3
+            S3File s3File = s3FileService.uploadAndSave(
+                file,
+                "users/" + userId,
+                userId, // uploadedBy
+                "USER",
+                userId
+            );
+            
+            // Update user avatar URL
+            user.setAvatarUrl(s3File.getFileUrl());
+            User updatedUser = userService.saveUser(user);
+            
+            log.info("Successfully uploaded avatar for user ID: {}. New avatar URL: {}", 
+                userId, s3File.getFileUrl());
+            
+            // TODO: Optional - Delete old avatar from S3 if exists
+            // if (oldAvatarUrl != null && !oldAvatarUrl.isEmpty()) {
+            //     try {
+            //         s3FileService.deleteFileByUrl(oldAvatarUrl);
+            //     } catch (Exception e) {
+            //         log.warn("Failed to delete old avatar from S3: {}", oldAvatarUrl, e);
+            //     }
+            // }
+            
+            return userMapper.toUserInfoDto(updatedUser);
+            
+        } catch (Exception e) {
+            log.error("Error uploading avatar for user ID: {}", userId, e);
+            throw new ClientSideException(ErrorCode.SYSTEM_ERROR, 
+                "Failed to upload avatar: " + e.getMessage());
+        }
     }
 }

@@ -32,6 +32,7 @@ public class ApiConstant {
         public static final String RESET_USER_PASSWORD_API = USER_MANAGEMENT_PREFIX + "/{userId}/reset-password";
         public static final String ACTIVATE_USER_API = USER_MANAGEMENT_PREFIX + "/{userId}/activate";
         public static final String DEACTIVATE_USER_API = USER_MANAGEMENT_PREFIX + "/{userId}/deactivate";
+        public static final String UPLOAD_USER_AVATAR_API = USER_MANAGEMENT_PREFIX + "/{userId}/avatar/upload";
 
         // Role management module endpoints
         public static final String ROLE_MANAGEMENT_PREFIX = "/roles";
