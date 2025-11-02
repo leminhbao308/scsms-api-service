@@ -328,12 +328,11 @@ public class Booking extends AuditEntity {
     
     /**
      * Tính tổng thời gian dự kiến (phút)
+     * Không cộng buffer vào estimated duration
      */
     public Integer getTotalEstimatedDuration() {
-        if (estimatedDurationMinutes != null) {
-            return estimatedDurationMinutes + (bufferMinutes != null ? bufferMinutes : 0);
-        }
-        return null;
+        // Không cộng buffer, chỉ trả về estimatedDurationMinutes
+        return estimatedDurationMinutes;
     }
     
     /**
@@ -409,10 +408,12 @@ public class Booking extends AuditEntity {
     
     /**
      * Lấy thời gian slot dự kiến
+     * Không cộng buffer vào estimated duration
      */
     public java.time.LocalTime getEstimatedSlotEndTime() {
         if (slotStartTime != null && estimatedDurationMinutes != null) {
-            return slotStartTime.plusMinutes(estimatedDurationMinutes + (bufferMinutes != null ? bufferMinutes : 0));
+            // Không cộng buffer, chỉ tính theo estimatedDurationMinutes
+            return slotStartTime.plusMinutes(estimatedDurationMinutes);
         }
         return null;
     }

@@ -197,10 +197,11 @@ public class IntegratedBookingService {
             parseDateTime(request.getScheduledStartAt()) : 
             LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime());
             
+        // Không cộng buffer vào estimated duration
         LocalDateTime scheduledEndAt = request.getScheduledEndAt() != null ? 
             parseDateTime(request.getScheduledEndAt()) : 
             LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime())
-                .plusMinutes(request.getSelectedSlot().getServiceDurationMinutes() + serviceBay.getBufferMinutes());
+                .plusMinutes(request.getSelectedSlot().getServiceDurationMinutes());
         
         // Create booking
         Booking booking = Booking.builder()

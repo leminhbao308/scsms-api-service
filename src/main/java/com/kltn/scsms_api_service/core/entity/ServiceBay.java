@@ -285,9 +285,11 @@ public class ServiceBay extends AuditEntity {
 
     /**
      * Tính thời gian kết thúc dự kiến cho slot
+     * Không cộng buffer vào estimated duration
      */
     public java.time.LocalTime calculateSlotEndTime(java.time.LocalTime startTime, int serviceDurationMinutes) {
-        return startTime.plusMinutes(serviceDurationMinutes + bufferMinutes);
+        // Không cộng buffer, chỉ tính theo serviceDurationMinutes
+        return startTime.plusMinutes(serviceDurationMinutes);
     }
 
     /**

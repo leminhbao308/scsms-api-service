@@ -362,10 +362,11 @@ public class BookingScheduleService {
     
     /**
      * Tính thời gian kết thúc dự kiến
+     * Không cộng buffer vào estimated duration
      */
     private LocalTime calculateEstimatedEndTime(LocalTime startTime, Integer serviceDurationMinutes, Integer bufferMinutes) {
-        int totalMinutes = serviceDurationMinutes + (bufferMinutes != null ? bufferMinutes : 0);
-        return startTime.plusMinutes(totalMinutes);
+        // Không sử dụng bufferMinutes, chỉ tính theo serviceDurationMinutes
+        return startTime.plusMinutes(serviceDurationMinutes);
     }
     
     /**
@@ -373,10 +374,11 @@ public class BookingScheduleService {
      */
     private void updateBookingWithSlotInfo(Booking booking, ServiceBay bay, BookSlotRequest request) {
         booking.setSlotStartTime(request.getStartTime());
+        // Không cộng buffer vào estimated duration
         booking.setSlotEndTime(calculateEstimatedEndTime(
             request.getStartTime(), 
             request.getServiceDurationMinutes(), 
-            bay.getBufferMinutes()));
+            null)); // Không truyền bufferMinutes
         
         // Cập nhật scheduled times
         LocalDateTime scheduledStart = LocalDateTime.of(request.getDate(), request.getStartTime());
