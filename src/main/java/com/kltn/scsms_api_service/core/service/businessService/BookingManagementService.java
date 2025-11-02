@@ -95,10 +95,11 @@ public class BookingManagementService {
 
     /**
      * Lấy booking theo mã booking
+     * Uses optimized query to prevent N+1 queries
      */
     public BookingInfoDto getBookingByCode(String bookingCode) {
         log.info("Getting booking by code: {}", bookingCode);
-        Booking booking = bookingService.getByBookingCode(bookingCode);
+        Booking booking = bookingService.getByBookingCodeWithDetails(bookingCode);
         return bookingInfoService.toBookingInfoDto(booking);
     }
 
@@ -372,6 +373,21 @@ public class BookingManagementService {
 
         // Update booking
         Booking updatedBooking = bookingMapper.updateEntity(existingBooking, request);
+
+        // Handle branch change if branch_id is provided and different from current branch
+        if (request.getBranchId() != null) {
+            UUID newBranchId = request.getBranchId();
+            UUID currentBranchId = existingBooking.getBranch() != null ? existingBooking.getBranch().getBranchId() : null;
+            
+            // Only update branch if it's different (handle null currentBranchId)
+            if (currentBranchId == null || !newBranchId.equals(currentBranchId)) {
+                log.info("Updating branch for booking {} from {} to {}", bookingId, currentBranchId, newBranchId);
+                Branch newBranch = branchService.findById(newBranchId)
+                        .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                                "Branch not found with ID: " + newBranchId));
+                updatedBooking.setBranch(newBranch);
+            }
+        }
 
         // Xử lý thay đổi slot nếu có (chỉ cho slot booking, không cho walk-in booking)
         if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null)
@@ -702,6 +718,20 @@ public class BookingManagementService {
 
         // 4. Lấy service bay mới
         ServiceBay newServiceBay = serviceBayService.getById(request.getNewBayId());
+        
+        // 4.1. Ensure branch matches the bay's branch
+        if (newServiceBay.getBranch() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Service bay must have an associated branch");
+        }
+        UUID newBayBranchId = newServiceBay.getBranch().getBranchId();
+        if (existingBooking.getBranch() == null || !newBayBranchId.equals(existingBooking.getBranch().getBranchId())) {
+            log.info("Bay belongs to different branch, updating branch to match bay's branch");
+            Branch bayBranch = branchService.findById(newBayBranchId)
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                            "Branch not found for service bay: " + newBayBranchId));
+            existingBooking.setBranch(bayBranch);
+        }
 
         // 5. Tính thời gian kết thúc dự kiến
         LocalDateTime newSlotStartDateTime = LocalDateTime.of(request.getNewSlotDate(), request.getNewSlotStartTime());
@@ -760,11 +790,22 @@ public class BookingManagementService {
 
         // 1. Validate slot mới
         UUID newBayId = request.getServiceBayId() != null ? request.getServiceBayId()
-                : booking.getServiceBay().getBayId();
+                : booking.getServiceBay() != null ? booking.getServiceBay().getBayId() : null;
+        
+        if (newBayId == null) {
+            log.warn("No bay ID provided for slot change, skipping");
+            return;
+        }
+        
         LocalDate newSlotDate = request.getSlotDate() != null ? request.getSlotDate()
-                : booking.getScheduledStartAt().toLocalDate();
+                : booking.getScheduledStartAt() != null ? booking.getScheduledStartAt().toLocalDate() : null;
         LocalTime newSlotStartTime = request.getSlotStartTime() != null ? request.getSlotStartTime()
                 : booking.getSlotStartTime();
+
+        if (newSlotDate == null || newSlotStartTime == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Slot date and start time are required for slot change");
+        }
 
         if (!bayScheduleService.isSlotAvailable(newBayId, newSlotDate, newSlotStartTime)) {
             throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE,
@@ -773,8 +814,24 @@ public class BookingManagementService {
 
         // 2. Lấy service bay mới
         ServiceBay newServiceBay = serviceBayService.getById(newBayId);
+        
+        // 3. Ensure branch matches the bay's branch
+        // If branch was changed in request, it should already be set
+        // But we need to make sure the bay belongs to the current branch
+        if (newServiceBay.getBranch() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Service bay must have an associated branch");
+        }
+        UUID newBayBranchId = newServiceBay.getBranch().getBranchId();
+        if (booking.getBranch() == null || !newBayBranchId.equals(booking.getBranch().getBranchId())) {
+            log.info("Bay belongs to different branch, updating branch to match bay's branch");
+            Branch bayBranch = branchService.findById(newBayBranchId)
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                            "Branch not found for service bay: " + newBayBranchId));
+            booking.setBranch(bayBranch);
+        }
 
-        // 3. Tính thời gian kết thúc dự kiến
+        // 4. Tính thời gian kết thúc dự kiến
         LocalDateTime newSlotStartDateTime = LocalDateTime.of(newSlotDate, newSlotStartTime);
         int serviceDurationMinutes = request.getEstimatedDurationMinutes() != null
                 ? request.getEstimatedDurationMinutes()
@@ -782,26 +839,36 @@ public class BookingManagementService {
         LocalDateTime newSlotEndDateTime = newSlotStartDateTime.plusMinutes(
                 serviceDurationMinutes + newServiceBay.getBufferMinutes());
 
-        // 4. Giải phóng slot cũ nếu có thay đổi
-        boolean slotChanged = !newBayId.equals(booking.getServiceBay().getBayId()) ||
-                !newSlotDate.equals(booking.getScheduledStartAt().toLocalDate()) ||
+        // 5. Giải phóng slot cũ nếu có thay đổi
+        boolean slotChanged = booking.getServiceBay() == null || 
+                !newBayId.equals(booking.getServiceBay().getBayId()) ||
+                (booking.getScheduledStartAt() != null && !newSlotDate.equals(booking.getScheduledStartAt().toLocalDate())) ||
                 !newSlotStartTime.equals(booking.getSlotStartTime());
 
         if (slotChanged) {
             bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
             log.info("Released old slots for booking: {}", booking.getBookingId());
 
-            // 5. Cập nhật thông tin slot trong booking
+            // 6. Cập nhật thông tin slot trong booking
             booking.setServiceBay(newServiceBay);
             booking.setSlotStartTime(newSlotStartTime);
             booking.setScheduledStartAt(newSlotStartDateTime);
             booking.setScheduledEndAt(newSlotEndDateTime);
             booking.setPreferredStartAt(newSlotStartDateTime);
+            
+            // Ensure branch matches the bay's branch (reuse the branch check from above)
+            // Branch should already be set from step 3, but double-check here
+            if (booking.getBranch() == null || !newBayBranchId.equals(booking.getBranch().getBranchId())) {
+                Branch bayBranch = branchService.findById(newBayBranchId)
+                        .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                                "Branch not found for service bay: " + newBayBranchId));
+                booking.setBranch(bayBranch);
+            }
 
-            // 6. Đặt slot mới
+            // 7. Đặt slot mới
             bayScheduleService.bookSlot(newBayId, newSlotDate, newSlotStartTime, booking.getBookingId());
 
-            // 7. Block các slot phụ nếu cần
+            // 8. Block các slot phụ nếu cần
             // Chỉ tính dựa trên service duration, không cộng bufferMinutes
             int slotsNeeded = (int) Math.ceil((double) serviceDurationMinutes / newServiceBay.getSlotDurationMinutes());
 

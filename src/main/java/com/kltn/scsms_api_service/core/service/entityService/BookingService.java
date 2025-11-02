@@ -48,8 +48,25 @@ public class BookingService {
                         () -> new ClientSideException(ErrorCode.NOT_FOUND, "Booking not found with ID: " + bookingId));
     }
 
+    /**
+     * Get booking by booking code (basic, may cause lazy loading)
+     * @param bookingCode booking code
+     * @return Booking entity
+     * @deprecated Use getByBookingCodeWithDetails() for better performance
+     */
     public Booking getByBookingCode(String bookingCode) {
         return bookingRepository.findByBookingCode(bookingCode)
+                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                        "Booking not found with code: " + bookingCode));
+    }
+    
+    /**
+     * Get booking by booking code with all details (optimized to prevent N+1 queries)
+     * Eagerly fetches: branch, serviceBay, serviceBay.branch, items
+     * Use this method when you need full booking details to avoid N+1 queries
+     */
+    public Booking getByBookingCodeWithDetails(String bookingCode) {
+        return bookingRepository.findByBookingCodeWithDetails(bookingCode)
                 .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
                         "Booking not found with code: " + bookingCode));
     }

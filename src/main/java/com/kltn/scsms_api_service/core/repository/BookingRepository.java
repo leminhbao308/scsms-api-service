@@ -21,6 +21,22 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         * Tìm booking theo mã booking
         */
        Optional<Booking> findByBookingCode(String bookingCode);
+       
+       /**
+        * Find booking by code with all related entities eagerly fetched
+        * Prevents N+1 queries by using JOIN FETCH for:
+        * - branch: branch information of the booking
+        * - serviceBay: service bay information
+        * - serviceBay.branch: branch information of the service bay
+        * - bookingItems: items/services in the booking
+        */
+       @Query("SELECT DISTINCT b FROM Booking b " +
+                     "LEFT JOIN FETCH b.branch " +
+                     "LEFT JOIN FETCH b.serviceBay sb " +
+                     "LEFT JOIN FETCH sb.branch " +
+                     "LEFT JOIN FETCH b.bookingItems " +
+                     "WHERE b.bookingCode = :bookingCode")
+       Optional<Booking> findByBookingCodeWithDetails(@Param("bookingCode") String bookingCode);
 
        /**
         * Tìm booking theo khách hàng
@@ -231,14 +247,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
        /**
         * Find booking by ID with all related entities eagerly fetched
         * Prevents N+1 queries by using JOIN FETCH for:
+        * - branch: branch information of the booking
         * - serviceBay: service bay information
+        * - serviceBay.branch: branch information of the service bay
         * - bookingItems: items/services in the booking
         * - assignments: staff assignments (optional, can be removed if not needed in
         * DTO)
         * This reduces queries from ~5 per booking to 1-2 queries
         */
        @Query("SELECT DISTINCT b FROM Booking b " +
-                     "LEFT JOIN FETCH b.serviceBay " +
+                     "LEFT JOIN FETCH b.branch " +
+                     "LEFT JOIN FETCH b.serviceBay sb " +
+                     "LEFT JOIN FETCH sb.branch " +
                      "LEFT JOIN FETCH b.bookingItems " +
                      "WHERE b.bookingId = :bookingId")
        Optional<Booking> findByIdWithDetails(@Param("bookingId") UUID bookingId);
