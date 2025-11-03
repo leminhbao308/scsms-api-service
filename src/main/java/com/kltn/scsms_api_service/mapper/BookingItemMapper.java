@@ -14,6 +14,7 @@ public interface BookingItemMapper {
      * Convert BookingItem entity to BookingItemInfoDto
      */
     @Mapping(target = "bookingId", source = "booking.bookingId")
+    @Mapping(target = "serviceId", source = "itemId") // CRITICAL: Map itemId to serviceId for frontend
     @Mapping(target = "subtotalAmount", expression = "java(entity.getSubtotalAmount())")
     @Mapping(target = "actualDurationMinutes", expression = "java(entity.getActualDurationMinutes())")
     @Mapping(target = "isCompleted", expression = "java(entity.isCompleted())")

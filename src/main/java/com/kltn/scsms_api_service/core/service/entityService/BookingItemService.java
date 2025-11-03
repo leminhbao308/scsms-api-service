@@ -118,6 +118,16 @@ public class BookingItemService {
         log.debug("Cleared persistence context");
     }
     
+    /**
+     * Flush persistence context để đảm bảo các thay đổi được lưu vào DB
+     * Sử dụng trước khi reload entity để đảm bảo các items mới được query từ DB
+     */
+    @Transactional
+    public void flush() {
+        entityManager.flush();
+        log.debug("Flushed persistence context to database");
+    }
+    
     public List<BookingItem> findByItemType(BookingItem.ItemType itemType) {
         return bookingItemRepository.findByItemTypeOrderByCreatedDateDesc(itemType);
     }

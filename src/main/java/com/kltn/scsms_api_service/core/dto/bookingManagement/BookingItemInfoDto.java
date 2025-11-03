@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.dto.bookingManagement;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kltn.scsms_api_service.core.entity.BookingItem;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,12 +20,21 @@ import java.util.UUID;
 @AllArgsConstructor
 public class BookingItemInfoDto {
 
+    @JsonProperty("booking_item_id")
     private UUID bookingItemId;
     private UUID bookingId;
 
     // Item information
     private BookingItem.ItemType itemType;
     private UUID itemId;
+    
+    /**
+     * Service ID - mapped from itemId for frontend compatibility
+     * This is the service_id field that frontend expects
+     */
+    @JsonProperty("service_id")
+    private UUID serviceId;
+    
     private String itemName;
     private String itemUrl;
     private String itemDescription;

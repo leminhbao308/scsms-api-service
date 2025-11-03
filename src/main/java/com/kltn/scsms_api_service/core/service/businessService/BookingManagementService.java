@@ -294,6 +294,17 @@ public class BookingManagementService {
                 // Set booking reference
                 bookingItem.setBooking(savedBooking);
 
+                // CRITICAL: Set itemId from serviceId (mapper doesn't map this automatically)
+                // This is the fix for the null service_id bug
+                if (itemRequest.getServiceId() != null) {
+                    bookingItem.setItemId(itemRequest.getServiceId());
+                    bookingItem.setItemType(BookingItem.ItemType.SERVICE);
+                    log.info("Set itemId={} and itemType=SERVICE for booking item", itemRequest.getServiceId());
+                } else {
+                    throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                            "serviceId is required for booking item: " + itemRequest.getItemName());
+                }
+
                 // Set default values
                 bookingItem.setItemStatus(BookingItem.ItemStatus.PENDING);
                 bookingItem.setIsActive(true);
@@ -304,12 +315,12 @@ public class BookingManagementService {
                 bookingItem.setUnitPrice(unitPrice);
                 log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
 
-                // Calculate total amount (KHÔNG cộng tax, chỉ lấy giá dịch vụ trừ discount)
+                // Calculate total amount (services are always quantity 1)
                 BigDecimal subtotal = bookingItem.getUnitPrice(); // Services are always quantity 1
                 BigDecimal totalAmount = subtotal
                         .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount()
-                                : BigDecimal.ZERO);
-                // KHÔNG cộng tax vào total amount - chỉ lấy giá dịch vụ
+                                : BigDecimal.ZERO)
+                        .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
                 bookingItem.setTotalAmount(totalAmount);
 
                 // Save booking item
@@ -400,38 +411,7 @@ public class BookingManagementService {
 
         // Xử lý cập nhật booking items (dịch vụ) nếu có
         if (request.getBookingItems() != null) {
-            boolean itemsWereDeleted = updateBookingItems(bookingId, request.getBookingItems(), existingBooking);
-            
-            // QUAN TRỌNG: Nếu đã xóa items, cần reload lại updatedBooking
-            // để tránh stale references đến items đã xóa trong collection
-            if (itemsWereDeleted) {
-                // Clear persistence context để đảm bảo không còn stale references
-                bookingItemService.clearPersistenceContext();
-                // Reload updatedBooking với collection mới nhất (không còn items đã xóa)
-                updatedBooking = bookingService.getByIdWithDetails(bookingId);
-                // Áp dụng lại tất cả các thay đổi từ request vào booking đã reload
-                updatedBooking = bookingMapper.updateEntity(updatedBooking, request);
-                
-                // Cập nhật branch nếu có thay đổi
-                if (request.getBranchId() != null) {
-                    UUID newBranchId = request.getBranchId();
-                    UUID currentBranchId = updatedBooking.getBranch() != null ? updatedBooking.getBranch().getBranchId() : null;
-                    if (currentBranchId == null || !newBranchId.equals(currentBranchId)) {
-                        Branch newBranch = branchService.findById(newBranchId)
-                                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                                        "Branch not found with ID: " + newBranchId));
-                        updatedBooking.setBranch(newBranch);
-                    }
-                }
-                
-                // Xử lý lại slot change nếu có (vì booking đã reload)
-                if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null)
-                        && !updatedBooking.getBookingCode().startsWith("WALK")) {
-                    handleSlotChange(updatedBooking, request);
-                }
-                
-                log.info("Reloaded updatedBooking after deleting items to avoid stale references");
-            }
+            updateBookingItems(bookingId, request.getBookingItems(), existingBooking);
         }
 
         Booking savedBooking = bookingService.update(updatedBooking);
@@ -965,98 +945,42 @@ public class BookingManagementService {
     /**
      * Xử lý cập nhật booking items (dịch vụ)
      * Hỗ trợ operation DELETE để xóa items một cách explicit
-     * @return true nếu đã xóa items (cần reload Booking entity)
      */
     @Transactional
-    private boolean updateBookingItems(UUID bookingId, List<CreateBookingItemRequest> newBookingItems, Booking existingBooking) {
+    private void updateBookingItems(UUID bookingId, List<CreateBookingItemRequest> newBookingItems, Booking existingBooking) {
         log.info("Updating booking items for booking: {}", bookingId);
 
         // 1. Lấy danh sách booking items hiện tại
         List<BookingItem> existingItems = bookingItemService.findByBooking(bookingId);
-        log.info("Current booking has {} items before update", existingItems.size());
-        
-        // Kiểm tra duplicate service_id (không nên xảy ra)
-        Map<UUID, Long> serviceIdCounts = existingItems.stream()
-                .collect(Collectors.groupingBy(BookingItem::getItemId, Collectors.counting()));
-        serviceIdCounts.entrySet().stream()
-                .filter(entry -> entry.getValue() > 1)
-                .forEach(entry -> log.warn("WARNING: Multiple items with same serviceId {} found: {} items", 
-                        entry.getKey(), entry.getValue()));
         
         // 2. Tạo map để tìm nhanh: bookingItemId -> BookingItem và serviceId -> BookingItem
-        // Lưu ý: Nếu có nhiều items cùng serviceId, chỉ giữ item đầu tiên (không nên xảy ra trong thực tế)
         Map<UUID, BookingItem> existingItemsByIdMap = existingItems.stream()
-                .collect(Collectors.toMap(
-                        BookingItem::getBookingItemId, 
-                        item -> item,
-                        (existing, replacement) -> existing // Giữ item đầu tiên nếu trùng
-                ));
+                .collect(Collectors.toMap(BookingItem::getBookingItemId, item -> item));
         Map<UUID, BookingItem> existingItemsByServiceIdMap = existingItems.stream()
-                .collect(Collectors.toMap(
-                        BookingItem::getItemId, 
-                        item -> item,
-                        (existing, replacement) -> {
-                            log.warn("Duplicate serviceId found, keeping first item: {}", existing.getBookingItemId());
-                            return existing; // Giữ item đầu tiên nếu trùng
-                        }
-                ));
+                .collect(Collectors.toMap(BookingItem::getItemId, item -> item));
 
         // 3. Xử lý các items có operation DELETE trước
-        // QUAN TRỌNG: Xóa items khỏi Booking collection TRƯỚC khi xóa bằng native query
-        // để tránh lỗi detached entity khi flush
-        int deletedCount = 0;
-        List<UUID> deletedItemIds = new java.util.ArrayList<>();
         for (CreateBookingItemRequest itemRequest : newBookingItems) {
             if (itemRequest.getOperation() == CreateBookingItemRequest.ItemOperation.DELETE) {
-                UUID deletedId = findItemIdToDelete(itemRequest, existingItemsByIdMap, existingItemsByServiceIdMap);
-                if (deletedId != null) {
-                    deletedItemIds.add(deletedId);
-                    deletedCount++;
-                }
+                handleDeleteItem(itemRequest, bookingId, existingItemsByIdMap, existingItemsByServiceIdMap);
             }
-        }
-        
-        // Xóa items bằng native query TRƯỚC
-        boolean itemsWereDeleted = false;
-        if (deletedCount > 0) {
-            log.info("Deleting {} items from database using native query", deletedCount);
-            for (UUID deletedId : deletedItemIds) {
-                bookingItemService.hardDeleteWithoutStatusCheck(deletedId);
-            }
-            itemsWereDeleted = true;
-            log.info("Deleted {} items from database", deletedCount);
         }
 
         // 4. Xử lý các items cần thêm hoặc cập nhật (không có operation DELETE)
         for (CreateBookingItemRequest itemRequest : newBookingItems) {
             if (itemRequest.getOperation() != CreateBookingItemRequest.ItemOperation.DELETE) {
-                BookingItem processedItem = handleAddOrUpdateItem(itemRequest, existingBooking, existingItemsByServiceIdMap);
-                // Cập nhật map sau khi thêm item mới để tránh duplicate
-                if (processedItem != null && processedItem.getBookingItemId() != null) {
-                    existingItemsByServiceIdMap.put(processedItem.getItemId(), processedItem);
-                }
+                handleAddOrUpdateItem(itemRequest, existingBooking, existingItemsByServiceIdMap);
             }
         }
 
         // 5. Tính lại tổng giá và thời gian ước tính
-        // Sử dụng findByBookingWithClear để đảm bảo lấy dữ liệu mới nhất từ DB
         recalculateBookingTotals(existingBooking);
-        
-        // 6. Log số lượng items sau khi xử lý để debug
-        List<BookingItem> finalItems = bookingItemService.findByBookingWithClear(bookingId);
-        log.info("Booking has {} items after update", finalItems.size());
-        finalItems.forEach(item -> log.debug("Item: {} - serviceId: {}", 
-                item.getBookingItemId(), item.getItemId()));
-        
-        // Trả về true nếu đã xóa items (cần reload Booking entity)
-        return itemsWereDeleted;
     }
 
     /**
-     * Tìm ID của item cần xóa (không thực hiện xóa ở đây)
-     * @return UUID của item cần xóa (null nếu không tìm thấy)
+     * Xử lý xóa item theo operation DELETE
      */
-    private UUID findItemIdToDelete(CreateBookingItemRequest itemRequest,
+    private void handleDeleteItem(CreateBookingItemRequest itemRequest, UUID bookingId,
                                    Map<UUID, BookingItem> existingItemsByIdMap,
                                    Map<UUID, BookingItem> existingItemsByServiceIdMap) {
         BookingItem itemToDelete = null;
@@ -1082,27 +1006,25 @@ public class BookingManagementService {
                     "Cannot delete booking item: must provide either booking_item_id or service_id");
         }
 
-        UUID deletedItemId = itemToDelete.getBookingItemId();
-        log.info("Found booking item to delete: {} (serviceId: {})", 
-                deletedItemId, itemToDelete.getItemId());
+        // Xóa hoàn toàn item
+        log.info("Hard deleting booking item: {} (serviceId: {}) due to DELETE operation", 
+                itemToDelete.getBookingItemId(), itemToDelete.getItemId());
+        bookingItemService.hardDeleteWithoutStatusCheck(itemToDelete.getBookingItemId());
 
         // Xóa khỏi map để tránh xử lý lại
-        existingItemsByIdMap.remove(deletedItemId);
+        existingItemsByIdMap.remove(itemToDelete.getBookingItemId());
         existingItemsByServiceIdMap.remove(itemToDelete.getItemId());
-
-        return deletedItemId;
     }
 
     /**
      * Xử lý thêm mới hoặc cập nhật item
-     * @return BookingItem đã được xử lý (null nếu bỏ qua)
      */
-    private BookingItem handleAddOrUpdateItem(CreateBookingItemRequest itemRequest, Booking existingBooking,
+    private void handleAddOrUpdateItem(CreateBookingItemRequest itemRequest, Booking existingBooking,
                                        Map<UUID, BookingItem> existingItemsByServiceIdMap) {
         UUID serviceId = itemRequest.getServiceId();
         if (serviceId == null) {
             log.warn("Skipping booking item with null serviceId: {}", itemRequest.getItemName());
-            return null;
+            return;
         }
 
         BookingItem existingItem = existingItemsByServiceIdMap.get(serviceId);
@@ -1110,10 +1032,9 @@ public class BookingManagementService {
         if (existingItem != null) {
             // Item đã tồn tại - CẬP NHẬT
             updateExistingBookingItem(existingItem, itemRequest);
-            return existingItem;
         } else {
             // Item mới - THÊM MỚI
-            return createNewBookingItem(existingBooking, itemRequest);
+            createNewBookingItem(existingBooking, itemRequest);
         }
     }
 
@@ -1140,12 +1061,8 @@ public class BookingManagementService {
             existingItem.setItemDescription(newItemRequest.getItemDescription());
         }
 
-        // Tính lại total amount (KHÔNG cộng tax, chỉ lấy giá dịch vụ trừ discount)
-        BigDecimal subtotal = existingItem.getUnitPrice();
-        BigDecimal newTotalAmount = subtotal
-                .subtract(existingItem.getDiscountAmount() != null ? existingItem.getDiscountAmount() : BigDecimal.ZERO);
-        // KHÔNG cộng tax vào total amount - chỉ lấy giá dịch vụ
-        existingItem.setTotalAmount(newTotalAmount);
+        // Tính lại total amount
+        existingItem.updateTotalAmount();
         bookingItemService.update(existingItem);
 
         log.info("Updated booking item: {}, new totalAmount: {}", 
@@ -1154,9 +1071,8 @@ public class BookingManagementService {
 
     /**
      * Tạo booking item mới
-     * @return BookingItem đã được tạo
      */
-    private BookingItem createNewBookingItem(Booking booking, CreateBookingItemRequest itemRequest) {
+    private void createNewBookingItem(Booking booking, CreateBookingItemRequest itemRequest) {
         log.info("Creating new booking item for service: {} (serviceId: {})", 
                 itemRequest.getItemName(), itemRequest.getServiceId());
 
@@ -1170,6 +1086,17 @@ public class BookingManagementService {
         // Convert request to entity
         BookingItem bookingItem = bookingItemMapper.toEntity(itemRequest);
         bookingItem.setBooking(booking);
+
+        // CRITICAL: Set itemId from serviceId (mapper doesn't map this automatically)
+        // This is the fix for the null service_id bug
+        if (itemRequest.getServiceId() != null) {
+            bookingItem.setItemId(itemRequest.getServiceId());
+            bookingItem.setItemType(BookingItem.ItemType.SERVICE);
+            log.info("Set itemId={} and itemType=SERVICE for booking item", itemRequest.getServiceId());
+        } else {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "serviceId is required for booking item: " + itemRequest.getItemName());
+        }
 
         // Set default values
         bookingItem.setItemStatus(BookingItem.ItemStatus.PENDING);
@@ -1188,18 +1115,17 @@ public class BookingManagementService {
         bookingItem.setUnitPrice(unitPrice);
         log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
 
-        // Tính total amount (KHÔNG cộng tax, chỉ lấy giá dịch vụ trừ discount)
+        // Tính total amount
         BigDecimal subtotal = bookingItem.getUnitPrice(); // Services are always quantity 1
         BigDecimal totalAmount = subtotal
-                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO);
-        // KHÔNG cộng tax vào total amount - chỉ lấy giá dịch vụ
+                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO)
+                .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
         bookingItem.setTotalAmount(totalAmount);
 
         // Save booking item
-        BookingItem savedItem = bookingItemService.save(bookingItem);
+        bookingItemService.save(bookingItem);
         log.info("Created new booking item: {} with totalAmount: {}", 
-                savedItem.getBookingItemId(), savedItem.getTotalAmount());
-        return savedItem;
+                bookingItem.getBookingItemId(), bookingItem.getTotalAmount());
     }
 
     /**
@@ -1207,10 +1133,9 @@ public class BookingManagementService {
      */
     private void recalculateBookingTotals(Booking booking) {
         log.info("Recalculating totals for booking: {}", booking.getBookingId());
-        
+
         // Lấy danh sách items hiện tại (không bao gồm items đã bị xóa)
-        // Sử dụng findByBookingWithClear để clear persistence context và lấy dữ liệu mới nhất từ DB
-        List<BookingItem> activeItems = bookingItemService.findByBookingWithClear(booking.getBookingId());
+        List<BookingItem> activeItems = bookingItemService.findByBooking(booking.getBookingId());
 
         // Tính tổng giá
         BigDecimal totalPrice = activeItems.stream()
