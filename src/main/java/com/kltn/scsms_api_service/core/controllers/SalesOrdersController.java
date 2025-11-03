@@ -78,6 +78,13 @@ public class SalesOrdersController {
                 .branch(branchES.getRefById(req.getBranchId()))
                 .customer(customer)
                 .status(SalesStatus.DRAFT)
+                .shippingFullName(req.getShippingFullName())
+                .shippingPhone(req.getShippingPhone())
+                .shippingAddress(req.getShippingAddress())
+                .shippingWard(req.getShippingWard())
+                .shippingDistrict(req.getShippingDistrict())
+                .shippingCity(req.getShippingCity())
+                .shippingNotes(req.getShippingNotes())
                 .build();
         so = salesBS.createDraft(so);
 
@@ -119,6 +126,13 @@ public class SalesOrdersController {
                     .finalAmount(req.getFinalAmount())
                     .discountPercentage(req.getDiscountPercentage())
                     .promotionSnapshot(req.getPromotionSnapshot())
+                    .shippingFullName(req.getShippingFullName())
+                    .shippingPhone(req.getShippingPhone())
+                    .shippingAddress(req.getShippingAddress())
+                    .shippingWard(req.getShippingWard())
+                    .shippingDistrict(req.getShippingDistrict())
+                    .shippingCity(req.getShippingCity())
+                    .shippingNotes(req.getShippingNotes())
                     .build();
             so = salesBS.createDraft(so);
 
@@ -454,12 +468,13 @@ public class SalesOrdersController {
     }
 
     @GetMapping("/so/paged")
-    @Operation(summary = "Get paged orders", description = "Get sales orders with pagination")
+    @Operation(summary = "Get paged orders", description = "Get sales orders with pagination, optionally filtered by userId")
     public ResponseEntity<ApiResponse<PagedSaleOrderResponse>> getPagedOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdDate") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDirection) {
+            @RequestParam(defaultValue = "DESC") String sortDirection,
+            @RequestParam(required = false) String userId) {
 
         Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC")
                 ? Sort.Direction.ASC
@@ -467,10 +482,11 @@ public class SalesOrdersController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        // Use optimized query with JOIN FETCH to prevent N+1 queries
-        Page<SalesOrder> pagedOrders = soES.getPagedOrdersWithDetails(pageable);
+        // Use optimized three-step query: IDs → Orders → Attribute Values
+        // Pass userId to filter by customer (null = all orders for admin)
+        Page<SalesOrder> pagedOrders = soES.getPagedOrdersWithDetails(pageable, userId);
 
-        // Use batch processing to fetch all bookings at once for the page
+        // Map to DTOs (all lazy collections already initialized)
         List<SaleOrderInfoDto> ordersDto = soMapper.toSaleOrderInfoDtoList(pagedOrders.getContent());
 
         PagedSaleOrderResponse response = PagedSaleOrderResponse.builder()
@@ -595,6 +611,29 @@ public class SalesOrdersController {
         private UUID customerId; // optional
 
         private List<CreateSOLine> lines;
+
+        // ===== SHIPPING ADDRESS FIELDS =====
+
+        @JsonProperty("shipping_full_name")
+        private String shippingFullName;
+
+        @JsonProperty("shipping_phone")
+        private String shippingPhone;
+
+        @JsonProperty("shipping_address")
+        private String shippingAddress;
+
+        @JsonProperty("shipping_ward")
+        private String shippingWard;
+
+        @JsonProperty("shipping_district")
+        private String shippingDistrict;
+
+        @JsonProperty("shipping_city")
+        private String shippingCity;
+
+        @JsonProperty("shipping_notes")
+        private String shippingNotes;
     }
 
     @Data
@@ -702,6 +741,29 @@ public class SalesOrdersController {
 
         @JsonProperty("earned_points")
         private Integer earnedPoints; // Points earned from this purchase (10,000 VNĐ = 1 point)
+
+        // ===== SHIPPING ADDRESS FIELDS =====
+
+        @JsonProperty("shipping_full_name")
+        private String shippingFullName;
+
+        @JsonProperty("shipping_phone")
+        private String shippingPhone;
+
+        @JsonProperty("shipping_address")
+        private String shippingAddress;
+
+        @JsonProperty("shipping_ward")
+        private String shippingWard;
+
+        @JsonProperty("shipping_district")
+        private String shippingDistrict;
+
+        @JsonProperty("shipping_city")
+        private String shippingCity;
+
+        @JsonProperty("shipping_notes")
+        private String shippingNotes;
     }
 
     @Data

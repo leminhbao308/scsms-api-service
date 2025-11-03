@@ -55,6 +55,28 @@ public class SaleOrderInfoDto extends AuditDto {
     @JsonProperty("cancellation_reason")
     private String cancellationReason;
 
+    // ================ Shipping Address ================
+    @JsonProperty("shipping_full_name")
+    private String shippingFullName;
+
+    @JsonProperty("shipping_phone")
+    private String shippingPhone;
+
+    @JsonProperty("shipping_address")
+    private String shippingAddress;
+
+    @JsonProperty("shipping_ward")
+    private String shippingWard;
+
+    @JsonProperty("shipping_district")
+    private String shippingDistrict;
+
+    @JsonProperty("shipping_city")
+    private String shippingCity;
+
+    @JsonProperty("shipping_notes")
+    private String shippingNotes;
+
     // ================ Booking Information ================
     @JsonProperty("booking_info")
     private BookingInfoDto bookingInfo; // Full booking information if this is a booking invoice
