@@ -73,6 +73,9 @@ public abstract class BookingMapper {
     
     /**
      * Update Booking entity from UpdateBookingRequest
+     * Note: scheduled_start_at, scheduled_end_at, and preferred_start_at are ignored here
+     * because they should be calculated from slot_date + slot_start_time in handleSlotChange
+     * to avoid timezone issues when updating slot bookings
      */
     @Mapping(target = "bookingId", ignore = true)
     @Mapping(target = "customer", ignore = true)
@@ -89,6 +92,9 @@ public abstract class BookingMapper {
     @Mapping(target = "earlyCompletionMinutes", ignore = true)
     @Mapping(target = "slotStartTime", ignore = true)
     @Mapping(target = "slotEndTime", ignore = true)
+    @Mapping(target = "scheduledStartAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
+    @Mapping(target = "scheduledEndAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
+    @Mapping(target = "preferredStartAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
     @Mapping(target = "cancellationReason", ignore = true)
     @Mapping(target = "cancelledAt", ignore = true)
     @Mapping(target = "cancelledBy", ignore = true)

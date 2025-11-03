@@ -338,7 +338,9 @@ public class BookingManagementService {
         }
 
         // Validate bay availability if time is being updated
-        if (request.getScheduledStartAt() != null || request.getScheduledEndAt() != null) {
+        // Skip this validation if we have slot_date and slot_start_time, because handleSlotChange will validate slot availability
+        boolean hasSlotInfo = request.getSlotDate() != null && request.getSlotStartTime() != null;
+        if (!hasSlotInfo && (request.getScheduledStartAt() != null || request.getScheduledEndAt() != null)) {
             UUID bayId = existingBooking.getServiceBay() != null ? existingBooking.getServiceBay().getBayId() : null;
             LocalDateTime startTime = request.getScheduledStartAt() != null ? request.getScheduledStartAt()
                     : existingBooking.getScheduledStartAt();
