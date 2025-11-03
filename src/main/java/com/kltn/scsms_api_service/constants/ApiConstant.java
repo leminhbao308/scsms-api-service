@@ -247,10 +247,14 @@ public class ApiConstant {
         public static final String REORDER_PRODUCT_IMAGES_API = PRODUCT_MANAGEMENT_PREFIX
                         + "/{productId}/images/reorder";
 
+        // Service Media management endpoints
+        public static final String UPLOAD_SERVICE_MEDIA_API = MEDIA_MANAGEMENT_PREFIX + "/upload/service/{serviceId}";
+
         // Service management module endpoints
         public static final String SERVICE_MANAGEMENT_PREFIX = "/services";
         public static final String GET_ALL_SERVICES_API = SERVICE_MANAGEMENT_PREFIX + "/get-all";
         public static final String GET_SERVICE_BY_ID_API = SERVICE_MANAGEMENT_PREFIX + "/{serviceId}";
+        public static final String GET_SERVICE_BY_URL_API = SERVICE_MANAGEMENT_PREFIX + "/url/{serviceUrl}";
         public static final String GET_SERVICES_BY_CATEGORY_API = SERVICE_MANAGEMENT_PREFIX + "/category/{categoryId}";
         public static final String GET_SERVICES_BY_TYPE_API = SERVICE_MANAGEMENT_PREFIX + "/type/{serviceTypeId}";
         public static final String GET_SERVICES_BY_SKILL_LEVEL_API = SERVICE_MANAGEMENT_PREFIX

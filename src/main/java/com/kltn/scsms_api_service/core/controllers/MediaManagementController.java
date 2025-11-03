@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -118,7 +119,7 @@ public class MediaManagementController {
     // @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<MediaInfoDto>> createMedia(
             @Valid @RequestBody CreateMediaRequest createRequest) {
-        log.info("Creating new media for entity: {} - {}", 
+        log.info("Creating new media for entity: {} - {}",
                 createRequest.getEntityType(), createRequest.getEntityId());
 
         MediaInfoDto createdMedia = mediaManagementService.createMedia(createRequest);
@@ -183,7 +184,7 @@ public class MediaManagementController {
     // @RequireRole(roles = {"ADMIN", "MANAGER", "INV_MGR"})
     public ResponseEntity<ApiResponse<Void>> bulkUpdateMediaOrder(
             @Valid @RequestBody BulkUpdateMediaOrderRequest bulkRequest) {
-        log.info("Bulk updating media order for entity: {} - {}", 
+        log.info("Bulk updating media order for entity: {} - {}",
                 bulkRequest.getEntityType(), bulkRequest.getEntityId());
 
         mediaManagementService.bulkUpdateMediaSortOrders(bulkRequest);
@@ -215,9 +216,31 @@ public class MediaManagementController {
     public ResponseEntity<ApiResponse<MediaManagementService.MediaStatsDto>> getMediaStatistics() {
         log.info("Fetching media statistics");
 
-        MediaManagementService.MediaStatsDto statistics = 
-            mediaManagementService.getMediaStatistics();
+        MediaManagementService.MediaStatsDto statistics = mediaManagementService.getMediaStatistics();
 
         return ResponseBuilder.success("Media statistics fetched successfully", statistics);
+    }
+
+    /**
+     * Upload service media/image file
+     * Handles file upload for services, stores file, and creates media record
+     */
+    @PostMapping(ApiConstant.UPLOAD_SERVICE_MEDIA_API)
+    @SwaggerOperation(summary = "Upload service image", description = "Upload an image file for a service")
+    public ResponseEntity<ApiResponse<MediaInfoDto>> uploadServiceImage(
+            @PathVariable("serviceId") String serviceId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "alt_text", required = false) String altText,
+            @RequestParam(value = "is_main", required = false, defaultValue = "false") Boolean isMain) {
+        log.info("Uploading image for service ID: {}", serviceId);
+
+        try {
+            MediaInfoDto uploadedMedia = mediaManagementService.uploadServiceImage(
+                    UUID.fromString(serviceId), file, altText, isMain);
+            return ResponseBuilder.created("Service image uploaded successfully", uploadedMedia);
+        } catch (Exception e) {
+            log.error("Error uploading service image: {}", e.getMessage(), e);
+            return ResponseBuilder.internalServerError("Failed to upload service image: " + e.getMessage());
+        }
     }
 }

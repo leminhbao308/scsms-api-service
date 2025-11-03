@@ -18,6 +18,7 @@ import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceProcessStepService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceProductService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceTypeService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.ServiceMapper;
@@ -51,6 +52,7 @@ public class ServiceManagementService {
     private final ServiceProcessStepService serviceProcessStepService;
     private final ServiceProductService serviceProductService;
     private final ProductService productService;
+    private final ServiceTypeService serviceTypeService;
     private final ServiceMapper serviceMapper;
     private final ServiceProductMapper serviceProductMapper;
     private final ServiceProcessMapper serviceProcessMapper;
@@ -89,8 +91,9 @@ public class ServiceManagementService {
     }
 
     public ServiceInfoDto getServiceByUrl(String serviceUrl) {
+        log.info("Getting service by URL: {}", serviceUrl);
         Service service = serviceService.getByServiceUrl(serviceUrl);
-        return serviceMapper.toServiceInfoDto(service);
+        return enrichServiceWithDetails(service);
     }
 
     public List<ServiceInfoDto> getServicesByCategory(UUID categoryId) {
@@ -339,13 +342,19 @@ public class ServiceManagementService {
     }
 
     // ========== HELPER METHODS ==========
-    
+
     /**
      * Enrich service with full details (products and process)
      */
     private ServiceInfoDto enrichServiceWithDetails(Service service) {
         ServiceInfoDto dto = serviceMapper.toServiceInfoDto(service);
-        
+
+        // Load service type name
+        if (service.getServiceTypeId() != null) {
+            serviceTypeService.findById(service.getServiceTypeId())
+                    .ifPresent(serviceType -> dto.setServiceTypeName(serviceType.getName()));
+        }
+
         // Load service products
         log.info("Loading service products for service ID: {}", service.getServiceId());
         List<ServiceProduct> serviceProducts = serviceProductService.findByServiceIdWithProduct(service.getServiceId());
@@ -354,7 +363,7 @@ public class ServiceManagementService {
                 .map(serviceProductMapper::toServiceProductInfoDto)
                 .collect(Collectors.toList());
         dto.setServiceProducts(serviceProductDtos);
-        
+
         // Load service process if exists
         if (service.getServiceProcess() != null) {
             log.info("Loading service process with steps for process ID: {}", service.getServiceProcess().getId());
@@ -373,13 +382,14 @@ public class ServiceManagementService {
                 log.info("First step DTO: {}", processDto.getProcessSteps().get(0));
             }
             dto.setServiceProcess(processDto);
-            log.info("Set service process to DTO. DTO process steps count: {}", 
-                    dto.getServiceProcess() != null && dto.getServiceProcess().getProcessSteps() != null ? 
-                    dto.getServiceProcess().getProcessSteps().size() : 0);
+            log.info("Set service process to DTO. DTO process steps count: {}",
+                    dto.getServiceProcess() != null && dto.getServiceProcess().getProcessSteps() != null
+                            ? dto.getServiceProcess().getProcessSteps().size()
+                            : 0);
         } else {
             log.info("No service process found for service: {}", service.getServiceName());
         }
-        
+
         return dto;
     }
 
@@ -457,25 +467,25 @@ public class ServiceManagementService {
     /**
      * Cập nhật process steps
      */
-    private void updateProcessSteps(ServiceProcess serviceProcess, 
+    private void updateProcessSteps(ServiceProcess serviceProcess,
             List<com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.UpdateServiceProcessStepRequest> stepRequests) {
         log.info("Processing {} process steps for process: {}", stepRequests.size(), serviceProcess.getCode());
-        
+
         // Lấy danh sách steps hiện tại
         List<ServiceProcessStep> existingSteps = serviceProcessStepService.findByProcessId(serviceProcess.getId());
         log.info("Found {} existing steps for process: {}", existingSteps.size(), serviceProcess.getCode());
-        
+
         // Tạo map để track steps cần cập nhật
         Map<UUID, ServiceProcessStep> existingStepsMap = existingSteps.stream()
                 .collect(Collectors.toMap(ServiceProcessStep::getId, step -> step));
-        
+
         // Xử lý từng step request
         for (com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.UpdateServiceProcessStepRequest stepRequest : stepRequests) {
             if (stepRequest.getId() != null && existingStepsMap.containsKey(stepRequest.getId())) {
                 // Cập nhật step hiện tại
                 ServiceProcessStep existingStep = existingStepsMap.get(stepRequest.getId());
                 log.info("Updating existing step: {} (ID: {})", existingStep.getName(), existingStep.getId());
-                
+
                 // Cập nhật thông tin step
                 if (stepRequest.getStepOrder() != null) {
                     existingStep.setStepOrder(stepRequest.getStepOrder());
@@ -493,7 +503,7 @@ public class ServiceManagementService {
                 if (stepRequest.getIsActive() != null) {
                     existingStep.setIsActive(stepRequest.getIsActive());
                 }
-                
+
                 serviceProcessStepService.update(existingStep);
                 log.info("Updated step: {} with order: {}", existingStep.getName(), existingStep.getStepOrder());
             } else {
@@ -509,23 +519,25 @@ public class ServiceManagementService {
                         .isDeleted(false)
                         .build();
                 ServiceProcessStep savedStep = serviceProcessStepService.save(newStep);
-                log.info("Created new step: {} (ID: {}) with order: {}", savedStep.getName(), savedStep.getId(), savedStep.getStepOrder());
+                log.info("Created new step: {} (ID: {}) with order: {}", savedStep.getName(), savedStep.getId(),
+                        savedStep.getStepOrder());
             }
         }
-        
+
         // Xóa các steps không còn trong request (nếu cần)
         Set<UUID> requestStepIds = stepRequests.stream()
                 .map(com.kltn.scsms_api_service.core.dto.serviceProcessManagement.request.UpdateServiceProcessStepRequest::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        
+
         for (ServiceProcessStep existingStep : existingSteps) {
             if (!requestStepIds.contains(existingStep.getId())) {
-                log.info("Hard deleting step not in request: {} (ID: {})", existingStep.getName(), existingStep.getId());
+                log.info("Hard deleting step not in request: {} (ID: {})", existingStep.getName(),
+                        existingStep.getId());
                 serviceProcessStepService.deleteById(existingStep.getId());
             }
         }
-        
+
         log.info("Completed updating process steps for process: {}", serviceProcess.getCode());
     }
 
