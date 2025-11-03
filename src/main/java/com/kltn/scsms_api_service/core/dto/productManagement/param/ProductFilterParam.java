@@ -12,7 +12,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class ProductFilterParam extends BaseFilterParam<ProductFilterParam> {
-    
+
     // Basic filters
     private UUID productTypeId;
     private UUID supplierId;
@@ -20,29 +20,29 @@ public class ProductFilterParam extends BaseFilterParam<ProductFilterParam> {
     private String model;
     private String sku;
     private String barcode;
-    
-    
+
     // Boolean filters
     private Boolean isFeatured;
+    private Boolean isReward;
     private Boolean isActive;
-    
+
     // Search filters
     private String search;
     private String productName;
     private String description;
-    
+
     // Date filters
     private LocalDateTime createdDateFrom;
     private LocalDateTime createdDateTo;
     private LocalDateTime modifiedDateFrom;
     private LocalDateTime modifiedDateTo;
-    
+
     // Sort options
     @Builder.Default
     private String sort = "productName";
     @Builder.Default
     private String direction = "ASC";
-    
+
     @Override
     protected void standardizeSpecificFields(ProductFilterParam filterParam) {
         // Standardize search
@@ -68,7 +68,7 @@ public class ProductFilterParam extends BaseFilterParam<ProductFilterParam> {
             filterParam.setBarcode(filterParam.getBarcode().trim());
         }
     }
-    
+
     @Override
     protected String getDefaultSortField() {
         return "productName";

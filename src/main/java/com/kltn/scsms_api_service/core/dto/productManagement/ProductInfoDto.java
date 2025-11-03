@@ -48,6 +48,9 @@ public class ProductInfoDto extends AuditDto {
     @JsonProperty("is_featured")
     private Boolean isFeatured;
 
+    @JsonProperty("is_reward")
+    private Boolean isReward;
+
     // Note: isActive is inherited from AuditDto with @JsonProperty("is_active")
 
     // Product Attribute Values
