@@ -37,4 +37,27 @@ public class CreateBookingItemRequest {
     
     @JsonProperty("tax_amount")
     private BigDecimal taxAmount;
+    
+    /**
+     * Operation type cho update booking items
+     * - DELETE: Xóa item này khỏi booking (cần có booking_item_id hoặc service_id)
+     * - null hoặc không có: Thêm mới hoặc cập nhật item (tùy theo item đã tồn tại hay chưa)
+     */
+    @JsonProperty("operation")
+    private ItemOperation operation;
+    
+    /**
+     * Booking item ID - chỉ cần khi operation = DELETE
+     * Nếu không có, sẽ tìm theo service_id
+     */
+    @JsonProperty("booking_item_id")
+    private UUID bookingItemId;
+    
+    /**
+     * Enum cho các operations trên booking item
+     */
+    public enum ItemOperation {
+        DELETE  // Xóa item khỏi booking
+        // Có thể mở rộng thêm: UPDATE, REPLACE, etc.
+    }
 }

@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.repository;
 
 import com.kltn.scsms_api_service.core.entity.BookingItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -118,4 +119,11 @@ public interface BookingItemRepository extends JpaRepository<BookingItem, UUID> 
      * Xóa booking items theo booking
      */
     void deleteByBooking_BookingId(UUID bookingId);
+    
+    /**
+     * Xóa booking item bằng native query (xóa trực tiếp trong DB, tránh Hibernate cache)
+     */
+    @Modifying
+    @Query(value = "DELETE FROM dev.booking_items WHERE booking_item_id = :bookingItemId", nativeQuery = true)
+    int deleteByIdNative(@Param("bookingItemId") UUID bookingItemId);
 }

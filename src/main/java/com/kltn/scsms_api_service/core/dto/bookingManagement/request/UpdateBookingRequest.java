@@ -92,4 +92,8 @@ public class UpdateBookingRequest {
     private String notes;
     @JsonProperty("special_requests")
     private List<String> specialRequests;
+    
+    // Booking items (dịch vụ)
+    @JsonProperty("booking_items")
+    private List<CreateBookingItemRequest> bookingItems;
 }

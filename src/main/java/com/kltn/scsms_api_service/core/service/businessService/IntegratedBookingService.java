@@ -317,11 +317,11 @@ public class IntegratedBookingService {
             
             BigDecimal unitPrice = bookingPricingService.calculateBookingItemPrice(tempBookingItem, null);
             
-            // Calculate total amount
+            // Calculate total amount (KHÔNG cộng tax, chỉ lấy giá dịch vụ trừ discount)
             BigDecimal subtotal = unitPrice; // Services are always quantity 1
             BigDecimal totalAmount = subtotal
-                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO)
-                .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
+                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO);
+            // KHÔNG cộng tax vào total amount - chỉ lấy giá dịch vụ
             
             // Convert to BookingItem entity
             BookingItem bookingItem = BookingItem.builder()
