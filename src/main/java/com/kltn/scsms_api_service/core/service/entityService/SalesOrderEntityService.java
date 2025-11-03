@@ -100,7 +100,7 @@ public class SalesOrderEntityService {
      */
     @Transactional(readOnly = true)
     public Page<SalesOrder> getPagedOrdersWithDetails(Pageable pageable, String userId) {
-        log.info("🔍 [SalesOrderService] Fetching paged orders (userId: {}, page: {}, size: {})",
+        log.info("[SalesOrderService] Fetching paged orders (userId: {}, page: {}, size: {})",
                 userId, pageable.getPageNumber(), pageable.getPageSize());
 
         // Step 1: Get page of IDs (lightweight, fast pagination)
@@ -109,17 +109,17 @@ public class SalesOrderEntityService {
             if (userId != null && !userId.isEmpty()) {
                 // Filter by user/customer ID
                 UUID userUUID = UUID.fromString(userId);
-                log.info("📋 [SalesOrderService] Filtering orders for userId: {}", userId);
+                log.info("[SalesOrderService] Filtering orders for userId: {}", userId);
                 idsPage = repo.findPagedIdsByCustomer(userUUID, SalesStatus.RETURNED, pageable);
-                log.info("✅ [SalesOrderService] Found {} order IDs for customer", idsPage.getContent().size());
+                log.info("[SalesOrderService] Found {} order IDs for customer", idsPage.getContent().size());
             } else {
                 // Get all orders (admin view)
-                log.info("📋 [SalesOrderService] Fetching all orders (no user filter)");
+                log.info("[SalesOrderService] Fetching all orders (no user filter)");
                 idsPage = repo.findPagedIds(SalesStatus.RETURNED, pageable);
-                log.info("✅ [SalesOrderService] Found {} order IDs total", idsPage.getContent().size());
+                log.info("[SalesOrderService] Found {} order IDs total", idsPage.getContent().size());
             }
         } catch (Exception e) {
-            log.error("❌ [SalesOrderService] Error fetching order IDs: {}", e.getMessage(), e);
+            log.error("[SalesOrderService] Error fetching order IDs: {}", e.getMessage(), e);
             throw e;
         }
 
@@ -128,13 +128,13 @@ public class SalesOrderEntityService {
         }
 
         // Step 2: Fetch full orders with JOIN FETCH for these IDs
-        log.info("📦 [SalesOrderService] Step 2: Fetching full orders with details...");
+        log.info("[SalesOrderService] Step 2: Fetching full orders with details...");
         List<SalesOrder> orders;
         try {
             orders = repo.findByIdInWithDetails(idsPage.getContent());
-            log.info("✅ [SalesOrderService] Fetched {} orders with basic details", orders.size());
+            log.info("[SalesOrderService] Fetched {} orders with basic details", orders.size());
         } catch (Exception e) {
-            log.error("❌ [SalesOrderService] Error fetching orders with details: {}", e.getMessage(), e);
+            log.error("[SalesOrderService] Error fetching orders with details: {}", e.getMessage(), e);
             throw e;
         }
 
