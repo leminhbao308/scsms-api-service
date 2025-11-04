@@ -73,6 +73,50 @@ public class SalesOrder extends AuditEntity {
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
+    // ===== SHIPPING ADDRESS =====
+
+    /**
+     * Full name of the recipient
+     */
+    @Column(name = "shipping_full_name", length = 255)
+    private String shippingFullName;
+
+    /**
+     * Phone number of the recipient
+     */
+    @Column(name = "shipping_phone", length = 20)
+    private String shippingPhone;
+
+    /**
+     * Detailed address (street, house number)
+     */
+    @Column(name = "shipping_address", length = 500)
+    private String shippingAddress;
+
+    /**
+     * Ward/Commune
+     */
+    @Column(name = "shipping_ward", length = 100)
+    private String shippingWard;
+
+    /**
+     * District
+     */
+    @Column(name = "shipping_district", length = 100)
+    private String shippingDistrict;
+
+    /**
+     * City/Province
+     */
+    @Column(name = "shipping_city", length = 100)
+    private String shippingCity;
+
+    /**
+     * Additional notes for delivery
+     */
+    @Column(name = "shipping_notes", columnDefinition = "TEXT")
+    private String shippingNotes;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SalesOrderLine> lines = new ArrayList<>();

@@ -33,7 +33,7 @@ public class CenterManagementController {
     private final CenterManagementService centerManagementService;
     
     @GetMapping("/get-all")
-    @RequireRole(roles = {"ADMIN", "MANAGER"})
+    @RequireRole(roles = {"ADMIN", "MANAGER", "CUSTOMER"})
     @SwaggerOperation(summary = "Get all centers with filtering and pagination")
     @Operation(summary = "Get all centers with filtering and pagination",
                description = "Retrieve a paginated list of centers with optional filtering")

@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping
+@RequestMapping(ApiConstant.SERVICE_MANAGEMENT_PREFIX)
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Service Management", description = "APIs for managing services")
@@ -36,7 +36,7 @@ public class ServiceManagementController {
 
     private final ServiceManagementService serviceManagementService;
 
-    @GetMapping(ApiConstant.GET_ALL_SERVICES_API)
+    @GetMapping("/get-all")
     @Operation(summary = "Get all services", description = "Retrieve all services with optional filtering and pagination")
     @SwaggerOperation(summary = "Get all services")
     // @RequirePermission(permissions = {"SERVICE_READ"})
@@ -56,7 +56,7 @@ public class ServiceManagementController {
         }
     }
 
-    @GetMapping(ApiConstant.GET_SERVICE_BY_ID_API)
+    @GetMapping("/{serviceId}")
     @Operation(summary = "Get service by ID", description = "Retrieve a specific service by its ID")
     @SwaggerOperation(summary = "Get service by ID")
     // @RequirePermission(permissions = {"SERVICE_READ"})
@@ -78,7 +78,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(service);
     }
 
-    @GetMapping(ApiConstant.GET_SERVICES_BY_CATEGORY_API)
+    @GetMapping("/category/{categoryId}")
     @Operation(summary = "Get services by category", description = "Retrieve all services in a specific category")
     @SwaggerOperation(summary = "Get services by category")
     // @RequirePermission(permissions = {"SERVICE_READ"})

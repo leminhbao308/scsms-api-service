@@ -33,10 +33,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -68,7 +71,7 @@ public class ProductManagementService {
         log.info("Getting all products with filter: {}", filterParam);
 
         // Standardize filter
-        filterParam = filterParam.standardizeFilterRequest(filterParam);
+        filterParam.standardizeFilterRequest(filterParam);
 
         // Create pageable
         Sort sort = Sort.by(
@@ -76,11 +79,57 @@ public class ProductManagementService {
                 filterParam.getSort());
         Pageable pageable = PageRequest.of(filterParam.getPage(), filterParam.getSize(), sort);
 
-        // Get products (simplified - in real implementation, you'd use custom
-        // repository methods)
-        Page<Product> productPage = productService.findAll(pageable);
+        // Build specification from filter params
+        Specification<Product> spec = buildProductSpecification(filterParam);
+
+        // Get products with specification
+        Page<Product> productPage = productService.findAll(spec, pageable);
 
         return productPage.map(productMapper::toProductInfoDto);
+    }
+
+    private Specification<Product> buildProductSpecification(ProductFilterParam filterParam) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Always exclude deleted products
+            predicates.add(criteriaBuilder.equal(root.get("isDeleted"), false));
+
+            // Filter by is_active
+            if (filterParam.getIsActive() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isActive"), filterParam.getIsActive()));
+            }
+
+            // Filter by is_reward
+            if (filterParam.getIsReward() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isReward"), filterParam.getIsReward()));
+            }
+
+            // Filter by is_featured
+            if (filterParam.getIsFeatured() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isFeatured"), filterParam.getIsFeatured()));
+            }
+
+            // Filter by product type
+            if (filterParam.getProductTypeId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("productType").get("productTypeId"),
+                        filterParam.getProductTypeId()));
+            }
+
+            // Filter by supplier
+            if (filterParam.getSupplierId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("supplierId"), filterParam.getSupplierId()));
+            }
+
+            // Filter by brand
+            if (filterParam.getBrand() != null && !filterParam.getBrand().trim().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("brand")),
+                        "%" + filterParam.getBrand().toLowerCase() + "%"));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     public ProductInfoDto getProductById(UUID productId) {
@@ -167,6 +216,9 @@ public class ProductManagementService {
         if (product.getIsFeatured() == null) {
             product.setIsFeatured(false);
         }
+        if (product.getIsReward() == null) {
+            product.setIsReward(false);
+        }
 
         Product savedProduct = productService.save(product);
 
@@ -234,7 +286,7 @@ public class ProductManagementService {
      * product
      */
     @Transactional
-    private void processProductAttributeValues(Product product,
+    protected void processProductAttributeValues(Product product,
             List<ProductAttributeValueRequest> attributeValueRequests) {
         log.debug("Processing {} attribute values for product: {}", attributeValueRequests.size(),
                 product.getProductId());
