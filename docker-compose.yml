@@ -1,0 +1,121 @@
+version: "3.8"
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    # Giải thích: Dùng image PostgreSQL có sẵn từ Docker Hub
+    container_name: scsms-postgres
+    environment:
+      POSTGRES_DB: scsms
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+      # Giải thích: Map port 5432 của container ra port 5432 của host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Giải thích: Persistent storage (data không mất khi xóa container)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Giải thích: Kiểm tra database đã sẵn sàng chưa
+    networks:
+      - scsms-network
+    restart: unless-stopped
+
+  # ============================================
+  # Redis Cache
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: scsms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    # Giải thích: Bật persistent data cho Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+    networks:
+      - scsms-network
+    restart: unless-stopped
+
+  # ============================================
+  # Spring Boot Application
+  # ============================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Giải thích: Build image từ Dockerfile trong thư mục hiện tại
+    container_name: scsms-api
+    env_file:
+      - .env
+      # Giải thích: Load biến môi trường từ file .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      # Giải thích: "postgres" là tên service ở trên
+      # Docker tự động resolve DNS trong cùng network
+      DB_PORT: 5432
+      DB_NAME: scsms
+      DB_USERNAME: admin
+      DB_PASSWORD: admin
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-your-secret-key}
+      APP_JWT_PUBLIC: ${APP_JWT_PUBLIC:-your-public-key}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # AWS Configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-scsms-s3-service}
+      # PayOS Configuration
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Giải thích: App chỉ start SAU KHI postgres và redis đã healthy
+      # Tránh lỗi connection refused
+    networks:
+      - scsms-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/api/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+      # Giải thích: Kiểm tra sức khỏe của ứng dụng Spring Boot
+
+# ============================================
+# VOLUMES - Persistent Storage
+# ============================================
+volumes:
+  postgres_data:
+    # Giải thích: Named volume để lưu database data
+  redis_data:
+    # Giải thích: Named volume để lưu Redis data
+
+# ============================================
+# NETWORKS - Container Communication
+# ============================================
+networks:
+  scsms-network:
+    driver: bridge
+    # Giải thích: Bridge network
+    # Containers trong cùng network có thể giao tiếp qua tên service
