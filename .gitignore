@@ -38,6 +38,3 @@ logs/
 .env
 .env.local
 .env.*.local
-
-/src/main/resources/aws.yml
-/src/main/resources/payos.yml

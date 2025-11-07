@@ -1,33 +1,4 @@
-version: "3.8"
-
 services:
-  # ============================================
-  # PostgreSQL Database
-  # ============================================
-  postgres:
-    image: postgres:16-alpine
-    # Giải thích: Dùng image PostgreSQL có sẵn từ Docker Hub
-    container_name: scsms-postgres
-    environment:
-      POSTGRES_DB: scsms
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-    ports:
-      - "5432:5432"
-      # Giải thích: Map port 5432 của container ra port 5432 của host
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Giải thích: Persistent storage (data không mất khi xóa container)
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      # Giải thích: Kiểm tra database đã sẵn sàng chưa
-    networks:
-      - scsms-network
-    restart: unless-stopped
-
   # ============================================
   # Redis Cache
   # ============================================
@@ -61,9 +32,9 @@ services:
       # Giải thích: Load biến môi trường từ file .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_HOST: postgres
-      # Giải thích: "postgres" là tên service ở trên
-      # Docker tự động resolve DNS trong cùng network
+      DB_HOST: 118.69.188.126
+      # Giải thích: Sử dụng PostgreSQL remote server
+      # Lưu ý: Đảm bảo server PostgreSQL cho phép kết nối từ Docker container
       DB_PORT: 5432
       DB_NAME: scsms
       DB_USERNAME: admin
@@ -85,12 +56,10 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
-      # Giải thích: App chỉ start SAU KHI postgres và redis đã healthy
-      # Tránh lỗi connection refused
+      # Giải thích: App chỉ start SAU KHI redis đã healthy
+      # PostgreSQL remote không cần depends_on vì không phải Docker service
     networks:
       - scsms-network
     restart: unless-stopped
@@ -106,8 +75,6 @@ services:
 # VOLUMES - Persistent Storage
 # ============================================
 volumes:
-  postgres_data:
-    # Giải thích: Named volume để lưu database data
   redis_data:
     # Giải thích: Named volume để lưu Redis data
 

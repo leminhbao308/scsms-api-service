@@ -3,15 +3,15 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:scsms}?currentSchema=public
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:scsms}?currentSchema=dev
     username: ${DB_USERNAME:admin}
     password: ${DB_PASSWORD:admin}
   jpa:
     hibernate:
-      ddl-auto: validate  # Safer for production
+      ddl-auto: update  # Auto create/update tables (use 'validate' after initial setup)
     properties:
       hibernate:
-        default_schema: public
+        default_schema: dev
         format_sql: false
         show_sql: false
     show-sql: false
