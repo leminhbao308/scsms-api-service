@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.configs.security;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +13,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
     
@@ -21,8 +24,15 @@ public class CorsConfig implements WebMvcConfigurer {
     
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
+        // Trim và loại bỏ khoảng trắng
+        String[] origins = Arrays.stream(allowedOriginPatterns.split(","))
+                .map(String::trim)
+                .toArray(String[]::new);
+        
+        log.info("CORS Configuration - Allowed Origin Patterns: {}", Arrays.toString(origins));
+        
         registry.addMapping("/**")
-            .allowedOriginPatterns(allowedOriginPatterns.split(","))
+            .allowedOriginPatterns(origins)
             .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(true)
@@ -33,8 +43,13 @@ public class CorsConfig implements WebMvcConfigurer {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Cho phép các origin patterns từ config
-        List<String> origins = Arrays.asList(allowedOriginPatterns.split(","));
+        // Cho phép các origin patterns từ config - trim và loại bỏ khoảng trắng
+        List<String> origins = Arrays.stream(allowedOriginPatterns.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+        
+        log.info("CORS Configuration Source - Allowed Origin Patterns: {}", origins);
+        
         configuration.setAllowedOriginPatterns(origins);
         
         // Cho phép các HTTP methods

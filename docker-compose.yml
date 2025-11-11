@@ -43,7 +43,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       APP_JWT_SECRET: ${APP_JWT_SECRET:-your-secret-key}
       APP_JWT_PUBLIC: ${APP_JWT_PUBLIC:-your-public-key}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://18.136.156.98:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://18.136.156.98:3000,http://hoangnam.info.vn,https://hoangnam.info.vn}
       # AWS Configuration
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
