@@ -462,6 +462,37 @@ public class ApiConstant {
         public static final String GET_TECHNICIAN_WORK_TIME_API = SERVICE_PROCESS_TRACKING_MANAGEMENT_PREFIX
                         + "/technician/{technicianId}/work-time";
 
+        // Booking Management module endpoints
+        public static final String BOOKING_MANAGEMENT_PREFIX = "/bookings";
+        public static final String GET_ALL_BOOKINGS_API = BOOKING_MANAGEMENT_PREFIX;
+        public static final String GET_BOOKING_BY_ID_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}";
+        public static final String GET_BOOKINGS_BY_CUSTOMER_API = "/customers/{customerId}/bookings";
+        public static final String GET_BOOKINGS_BY_BRANCH_API = "/branches/{branchId}/bookings";
+        public static final String GET_BOOKINGS_BY_BRANCH_AND_DATE_API = "/branches/{branchId}/bookings/date/{bookingDate}";
+        public static final String GET_BOOKINGS_BY_STATUS_API = BOOKING_MANAGEMENT_PREFIX + "/status/{status}";
+        public static final String GET_BOOKING_STATISTICS_API = "/branches/{branchId}/bookings/statistics/date/{date}";
+        public static final String CREATE_BOOKING_WITH_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX + "/create-with-schedule";
+        public static final String UPDATE_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/update";
+        public static final String CHANGE_BOOKING_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/change-slot";
+        public static final String DELETE_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/delete";
+        public static final String CANCEL_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/cancel";
+        public static final String CONFIRM_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/confirm";
+        public static final String CHECK_IN_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/check-in";
+        public static final String START_BOOKING_SERVICE_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/start";
+        public static final String COMPLETE_BOOKING_SERVICE_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/complete";
+        public static final String GET_BOOKINGS_PENDING_PAYMENT_API = BOOKING_MANAGEMENT_PREFIX + "/pending-payment";
+        public static final String MARK_BOOKING_AS_PAID_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/mark-paid";
+
+        // Walk-in Booking module endpoints
+        public static final String WALK_IN_BOOKING_PREFIX = "/walk-in";
+        public static final String RECOMMEND_BAY_API = WALK_IN_BOOKING_PREFIX + "/recommend-bay";
+        public static final String CREATE_WALK_IN_BOOKING_API = WALK_IN_BOOKING_PREFIX + "/create-booking";
+        public static final String GET_BAY_QUEUE_API = WALK_IN_BOOKING_PREFIX + "/bay-queue/{bayId}";
+
+        // Booking Schedule module endpoints
+        public static final String BOOKING_SCHEDULE_PREFIX = "/booking-schedule";
+        public static final String GET_AVAILABLE_TIME_RANGES_API = BOOKING_SCHEDULE_PREFIX + "/available-time-ranges";
+
         public static List<String> PROTECTED_PATHS(String apiPrefix) {
                 return List.of(
                                 apiPrefix + CHANGE_PASSWORD_API,
@@ -732,6 +763,31 @@ public class ApiConstant {
                                 apiPrefix + ADD_SERVICE_PROCESS_TRACKING_EVIDENCE_API,
                                 apiPrefix + GET_SERVICE_PROCESS_TRACKING_STATISTICS_API,
                                 apiPrefix + GET_TECHNICIAN_EFFICIENCY_API,
-                                apiPrefix + GET_TECHNICIAN_WORK_TIME_API);
+                                apiPrefix + GET_TECHNICIAN_WORK_TIME_API,
+                                // Booking Management APIs
+                                apiPrefix + GET_ALL_BOOKINGS_API,
+                                apiPrefix + GET_BOOKING_BY_ID_API,
+                                apiPrefix + GET_BOOKINGS_BY_CUSTOMER_API,
+                                apiPrefix + GET_BOOKINGS_BY_BRANCH_API,
+                                apiPrefix + GET_BOOKINGS_BY_BRANCH_AND_DATE_API,
+                                apiPrefix + GET_BOOKINGS_BY_STATUS_API,
+                                apiPrefix + GET_BOOKING_STATISTICS_API,
+                                apiPrefix + CREATE_BOOKING_WITH_SCHEDULE_API,
+                                apiPrefix + UPDATE_BOOKING_API,
+                                apiPrefix + CHANGE_BOOKING_SCHEDULE_API,
+                                apiPrefix + DELETE_BOOKING_API,
+                                apiPrefix + CANCEL_BOOKING_API,
+                                apiPrefix + CONFIRM_BOOKING_API,
+                                apiPrefix + CHECK_IN_BOOKING_API,
+                                apiPrefix + START_BOOKING_SERVICE_API,
+                                apiPrefix + COMPLETE_BOOKING_SERVICE_API,
+                                apiPrefix + GET_BOOKINGS_PENDING_PAYMENT_API,
+                                apiPrefix + MARK_BOOKING_AS_PAID_API,
+                                // Walk-in Booking APIs
+                                apiPrefix + RECOMMEND_BAY_API,
+                                apiPrefix + CREATE_WALK_IN_BOOKING_API,
+                                apiPrefix + GET_BAY_QUEUE_API,
+                                // Booking Schedule APIs
+                                apiPrefix + GET_AVAILABLE_TIME_RANGES_API);
         }
 }

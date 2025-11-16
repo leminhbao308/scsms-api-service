@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -24,49 +23,36 @@ public class BookingItemInfoDto {
     private UUID bookingItemId;
     private UUID bookingId;
 
-    // Item information
-    private BookingItem.ItemType itemType;
-    private UUID itemId;
-    
-    /**
-     * Service ID - mapped from itemId for frontend compatibility
-     * This is the service_id field that frontend expects
-     */
+    // Service information
     @JsonProperty("service_id")
     private UUID serviceId;
     
-    private String itemName;
-    private String itemUrl;
-    private String itemDescription;
+    @JsonProperty("service_name")
+    private String serviceName;
+    
+    @JsonProperty("service_description")
+    private String serviceDescription;
 
     // Pricing information
+    @JsonProperty("unit_price")
     private BigDecimal unitPrice;
-    private Integer quantity;
-    private BigDecimal subtotalAmount;
-    private BigDecimal discountAmount;
-    private BigDecimal taxAmount;
-    private BigDecimal totalAmount;
 
     // Duration information
+    @JsonProperty("duration_minutes")
     private Integer durationMinutes;
-    private Long actualDurationMinutes;
 
-    // Status and timing
+    // Status
+    @JsonProperty("item_status")
     private BookingItem.ItemStatus itemStatus;
-    private LocalDateTime actualStartAt;
-    private LocalDateTime actualEndAt;
 
     // Additional information
     private String notes;
+    @JsonProperty("display_order")
     private Integer displayOrder;
 
-    // Audit information
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private String createdBy;
-    private String modifiedBy;
-
     // Computed fields
+    @JsonProperty("is_completed")
     private Boolean isCompleted;
+    @JsonProperty("is_in_progress")
     private Boolean isInProgress;
 }

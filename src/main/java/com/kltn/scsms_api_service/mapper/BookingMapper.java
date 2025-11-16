@@ -1,7 +1,6 @@
 package com.kltn.scsms_api_service.mapper;
 
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
-import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingItemRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBookingRequest;
 import com.kltn.scsms_api_service.core.entity.Booking;
@@ -27,9 +26,6 @@ public abstract class BookingMapper {
     @Mapping(target = "bayId", source = "serviceBay.bayId")
     @Mapping(target = "bayName", source = "serviceBay.bayName")
     @Mapping(target = "bookingItems", source = "bookingItems")
-    @Mapping(target = "slotId", ignore = true) // Will be populated by custom method
-    @Mapping(target = "slotDurationMinutes", source = "serviceBay.slotDurationMinutes")
-    @Mapping(target = "slotStatus", ignore = true) // Will be populated by custom method
     @Mapping(target = "isActive", expression = "java(entity.isActive())")
     @Mapping(target = "isCancelled", expression = "java(entity.isCancelled())")
     @Mapping(target = "isCompleted", expression = "java(entity.isCompleted())")
@@ -42,40 +38,10 @@ public abstract class BookingMapper {
     public abstract BookingInfoDto toBookingInfoDto(Booking entity);
     
     /**
-     * Convert CreateBookingRequest to Booking entity
-     */
-    @Mapping(target = "bookingId", ignore = true)
-    @Mapping(target = "customer", ignore = true)
-    @Mapping(target = "vehicle", ignore = true)
-    @Mapping(target = "branch", ignore = true)
-    @Mapping(target = "serviceBay", ignore = true)
-    @Mapping(target = "bookingItems", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
-    @Mapping(target = "payments", ignore = true)
-    @Mapping(target = "actualCheckInAt", ignore = true)
-    @Mapping(target = "actualStartAt", ignore = true)
-    @Mapping(target = "actualEndAt", ignore = true)
-    @Mapping(target = "actualCompletionTime", ignore = true)
-    @Mapping(target = "earlyCompletionMinutes", ignore = true)
-    @Mapping(target = "slotStartTime", ignore = true)
-    @Mapping(target = "slotEndTime", ignore = true)
-    @Mapping(target = "cancellationReason", ignore = true)
-    @Mapping(target = "cancelledAt", ignore = true)
-    @Mapping(target = "cancelledBy", ignore = true)
-    @Mapping(target = "createdDate", ignore = true)
-    @Mapping(target = "modifiedDate", ignore = true)
-    @Mapping(target = "isActive", ignore = true)
-    @Mapping(target = "isDeleted", ignore = true)
-    @Mapping(target = "createdBy", ignore = true)
-    @Mapping(target = "modifiedBy", ignore = true)
-    @Mapping(target = "version", ignore = true)
-    public abstract Booking toEntity(CreateBookingRequest request);
-    
-    /**
      * Update Booking entity from UpdateBookingRequest
      * Note: scheduled_start_at, scheduled_end_at, and preferred_start_at are ignored here
-     * because they should be calculated from slot_date + slot_start_time in handleSlotChange
-     * to avoid timezone issues when updating slot bookings
+     * because they should be calculated from schedule_date + schedule_start_time in handleScheduleChange
+     * to avoid timezone issues when updating scheduled bookings
      */
     @Mapping(target = "bookingId", ignore = true)
     @Mapping(target = "customer", ignore = true)
@@ -83,15 +49,11 @@ public abstract class BookingMapper {
     @Mapping(target = "branch", ignore = true)
     @Mapping(target = "serviceBay", ignore = true)
     @Mapping(target = "bookingItems", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
-    @Mapping(target = "payments", ignore = true)
     @Mapping(target = "actualCheckInAt", ignore = true)
     @Mapping(target = "actualStartAt", ignore = true)
     @Mapping(target = "actualEndAt", ignore = true)
     @Mapping(target = "actualCompletionTime", ignore = true)
-    @Mapping(target = "earlyCompletionMinutes", ignore = true)
-    @Mapping(target = "slotStartTime", ignore = true)
-    @Mapping(target = "slotEndTime", ignore = true)
+    @Mapping(target = "bookingType", ignore = true)
     @Mapping(target = "scheduledStartAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
     @Mapping(target = "scheduledEndAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
     @Mapping(target = "preferredStartAt", ignore = true) // Ignore - calculated from slot_date + slot_start_time
@@ -108,7 +70,6 @@ public abstract class BookingMapper {
     /**
      * Convert BookingItem entity to CreateBookingItemRequest
      */
-    @Mapping(target = "serviceId", source = "itemId")
     public abstract CreateBookingItemRequest toCreateBookingItemRequest(BookingItem bookingItem);
     
     /**

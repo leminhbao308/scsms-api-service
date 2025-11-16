@@ -13,14 +13,20 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Request DTO để tạo booking mới với slot được chọn sẵn
+ * Request DTO để tạo scheduled booking mới với scheduling information được chọn sẵn
  * Tích hợp tất cả thông tin trong một API call
+ * 
+ * LƯU Ý:
+ * - API này tự động set bookingType = SCHEDULED, không cần gửi từ frontend
+ * - Các field đã bị xóa: depositAmount, couponCode, specialRequests, priority, bufferMinutes
+ * - Scheduling information được truyền qua nested object selectedSchedule (bay, date, time, duration)
+ * - Không còn tạo slot entity, chỉ validate conflict với bookings hiện có
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateBookingWithSlotRequest {
+public class CreateBookingWithScheduleRequest {
     
     // Customer information
     @JsonProperty("customer_id")
@@ -61,9 +67,10 @@ public class CreateBookingWithSlotRequest {
     @JsonProperty("branch_id")
     private UUID branchId;
     
-    // Slot information - REQUIRED for this integrated API
-    @JsonProperty("selected_slot")
-    private SlotSelectionRequest selectedSlot;
+    // Scheduling information - REQUIRED for this integrated API
+    // Contains: bay, date, start time, and service duration
+    @JsonProperty("selected_schedule")
+    private ScheduleSelectionRequest selectedSchedule;
     
     // Service information
     @JsonProperty("booking_items")
@@ -76,9 +83,6 @@ public class CreateBookingWithSlotRequest {
     @Builder.Default
     @JsonProperty("currency")
     private String currency = "VND";
-    
-    @JsonProperty("deposit_amount")
-    private BigDecimal depositAmount;
     
     // Scheduling information
     @JsonProperty("estimated_duration_minutes")
@@ -93,30 +97,19 @@ public class CreateBookingWithSlotRequest {
     @JsonProperty("scheduled_end_at")
     private String scheduledEndAt; // ISO string format
     
-    @JsonProperty("slot_start_time")
-    private String slotStartTime; // HH:mm format
-    
-    @JsonProperty("slot_end_time")
-    private String slotEndTime; // HH:mm format
-    
     // Additional information
-    @JsonProperty("coupon_code")
-    private String couponCode;
-    
     @JsonProperty("notes")
     private String notes;
     
-    @JsonProperty("special_requests")
-    private List<String> specialRequests;
-    
     /**
-     * Nested DTO for slot selection
+     * Nested DTO for scheduling information
+     * Contains bay, date, start time, and service duration to calculate scheduledStartAt/scheduledEndAt
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SlotSelectionRequest {
+    public static class ScheduleSelectionRequest {
         
         @JsonProperty("bay_id")
         private UUID bayId;
@@ -131,3 +124,4 @@ public class CreateBookingWithSlotRequest {
         private Integer serviceDurationMinutes;
     }
 }
+

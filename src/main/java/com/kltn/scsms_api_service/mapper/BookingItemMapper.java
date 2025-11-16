@@ -14,13 +14,8 @@ public interface BookingItemMapper {
      * Convert BookingItem entity to BookingItemInfoDto
      */
     @Mapping(target = "bookingId", source = "booking.bookingId")
-    @Mapping(target = "serviceId", source = "itemId") // CRITICAL: Map itemId to serviceId for frontend
-    @Mapping(target = "subtotalAmount", expression = "java(entity.getSubtotalAmount())")
-    @Mapping(target = "actualDurationMinutes", expression = "java(entity.getActualDurationMinutes())")
     @Mapping(target = "isCompleted", expression = "java(entity.isCompleted())")
     @Mapping(target = "isInProgress", expression = "java(entity.isInProgress())")
-    @Mapping(target = "createdAt", source = "createdDate")
-    @Mapping(target = "updatedAt", source = "modifiedDate")
     BookingItemInfoDto toBookingItemInfoDto(BookingItem entity);
     
     /**
@@ -28,10 +23,7 @@ public interface BookingItemMapper {
      */
     @Mapping(target = "bookingItemId", ignore = true)
     @Mapping(target = "booking", ignore = true)
-    @Mapping(target = "totalAmount", ignore = true)
     @Mapping(target = "itemStatus", ignore = true)
-    @Mapping(target = "actualStartAt", ignore = true)
-    @Mapping(target = "actualEndAt", ignore = true)
     @Mapping(target = "createdDate", ignore = true)
     @Mapping(target = "modifiedDate", ignore = true)
     @Mapping(target = "isActive", ignore = true)

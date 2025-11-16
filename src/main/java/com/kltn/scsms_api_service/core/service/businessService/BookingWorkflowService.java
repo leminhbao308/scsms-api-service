@@ -1,9 +1,6 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
-import com.kltn.scsms_api_service.core.entity.BaySchedule;
 import com.kltn.scsms_api_service.core.entity.Booking;
-import com.kltn.scsms_api_service.core.service.entityService.BayQueueService;
-import com.kltn.scsms_api_service.core.service.entityService.BayScheduleService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
@@ -13,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,8 +19,6 @@ import java.util.UUID;
 public class BookingWorkflowService {
     
     private final BookingService bookingService;
-    private final BayScheduleService bayScheduleService;
-    private final BayQueueService bayQueueService;
     
     /**
      * Workflow: PENDING → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED
@@ -37,55 +31,26 @@ public class BookingWorkflowService {
     public void confirmBooking(UUID bookingId) {
         log.info("Confirming booking: {}", bookingId);
         
-        Booking booking = bookingService.getById(bookingId);
+        // Use getByIdWithDetails() to avoid lazy loading when accessing serviceBay
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.PENDING) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
                 "Only pending bookings can be confirmed");
         }
         
-        // Validate slot information (only for slot bookings, not walk-in bookings)
-        if (!booking.getBookingCode().startsWith("WALK")) {
-            if (booking.getServiceBay() == null || booking.getSlotStartTime() == null) {
+        // Validate slot information (only for scheduled bookings, not walk-in bookings)
+        if (booking.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.SCHEDULED) {
+            if (booking.getServiceBay() == null || booking.getScheduledStartAt() == null || booking.getScheduledEndAt() == null) {
                 throw new ClientSideException(ErrorCode.MISSING_SLOT_INFO, 
-                    "Booking must have slot information before confirmation");
+                    "Scheduled booking must have bay and scheduled time information before confirmation");
             }
             
-            // Kiểm tra slot có thuộc về booking này không trước
-            List<BaySchedule> existingSlots = bayScheduleService.getSchedulesByBooking(bookingId);
-            boolean slotBelongsToBooking = existingSlots.stream()
-                .anyMatch(slot -> slot.getStartTime().equals(booking.getSlotStartTime()));
-            
-            log.info("🔍 DEBUG: Checking slot for booking {} - existingSlots: {}, slotBelongsToBooking: {}, slotStartTime: {}", 
-                bookingId, existingSlots.size(), slotBelongsToBooking, booking.getSlotStartTime());
-            
-            if (slotBelongsToBooking) {
-                // Slot đã thuộc về booking này, không cần làm gì thêm
-                log.info("✅ Slot already belongs to booking: {}", bookingId);
-            } else {
-                // Slot chưa thuộc về booking này, cần kiểm tra và book
-                boolean isAvailable = bayScheduleService.isSlotAvailable(
-                    booking.getServiceBay().getBayId(),
-                    booking.getScheduledStartAt().toLocalDate(),
-                    booking.getSlotStartTime());
-                
-                log.info("🔍 DEBUG: Slot availability check - bayId: {}, date: {}, startTime: {}, isAvailable: {}", 
-                    booking.getServiceBay().getBayId(), booking.getScheduledStartAt().toLocalDate(), 
-                    booking.getSlotStartTime(), isAvailable);
-                
-                if (!isAvailable) {
-                    throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                        "Slot is not available for booking confirmation");
-                } else {
-                    // Chuyển slot từ AVAILABLE sang BOOKED
-                    log.info("📅 Booking slot for booking: {}", bookingId);
-                    bayScheduleService.bookSlot(
-                        booking.getServiceBay().getBayId(),
-                        booking.getScheduledStartAt().toLocalDate(),
-                        booking.getSlotStartTime(),
-                        bookingId);
-                }
-            }
+            // Validate không có conflict với booking khác
+            // Logic này đã được xử lý khi tạo booking, chỉ cần validate lại
+            log.info("Validating scheduled booking: {} - bay: {}, time: {} - {}", 
+                bookingId, booking.getServiceBay().getBayId(), 
+                booking.getScheduledStartAt(), booking.getScheduledEndAt());
         }
         
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
@@ -101,20 +66,15 @@ public class BookingWorkflowService {
     public void checkInBooking(UUID bookingId) {
         log.info("Checking in booking: {}", bookingId);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.CONFIRMED) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
                 "Only confirmed bookings can be checked in");
         }
         
-        // Chuyển slot sang IN_PROGRESS (chỉ cho slot booking, không cho walk-in booking)
-        if (!booking.getBookingCode().startsWith("WALK") && booking.getSlotStartTime() != null) {
-            bayScheduleService.startService(
-                booking.getServiceBay().getBayId(),
-                booking.getScheduledStartAt().toLocalDate(),
-                booking.getSlotStartTime());
-        }
+        // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
+        // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
         
         booking.setStatus(Booking.BookingStatus.CHECKED_IN);
         booking.setActualCheckInAt(LocalDateTime.now());
@@ -130,7 +90,7 @@ public class BookingWorkflowService {
     public void startService(UUID bookingId) {
         log.info("Starting service for booking: {}", bookingId);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.CHECKED_IN) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
@@ -151,7 +111,7 @@ public class BookingWorkflowService {
     public void completeService(UUID bookingId) {
         log.info("Completing service for booking: {}", bookingId);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
@@ -162,10 +122,8 @@ public class BookingWorkflowService {
         booking.completeService();
         bookingService.update(booking);
         
-        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion (chỉ cho slot booking)
-        if (!booking.getBookingCode().startsWith("WALK")) {
-            bayScheduleService.completeAllSlotsForBooking(bookingId);
-        }
+        // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
+        // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
         
         log.info("Successfully completed service for booking: {}", bookingId);
     }
@@ -177,7 +135,7 @@ public class BookingWorkflowService {
     public void completeService(UUID bookingId, LocalDateTime completionTime) {
         log.info("Completing service for booking: {} at {}", bookingId, completionTime);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
@@ -188,10 +146,8 @@ public class BookingWorkflowService {
         booking.completeService(completionTime);
         bookingService.update(booking);
         
-        // Hoàn thành TẤT CẢ slot của booking và xử lý early completion (chỉ cho slot booking)
-        if (!booking.getBookingCode().startsWith("WALK")) {
-            bayScheduleService.completeAllSlotsForBooking(bookingId, completionTime);
-        }
+        // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
+        // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
         
         log.info("Successfully completed service for booking: {} at {}", bookingId, completionTime);
     }
@@ -203,7 +159,8 @@ public class BookingWorkflowService {
     public void cancelBooking(UUID bookingId, String reason, String cancelledBy) {
         log.info("Cancelling booking: {} with reason: {}", bookingId, reason);
         
-        Booking booking = bookingService.getById(bookingId);
+        // Use getByIdWithDetails() to avoid lazy loading when accessing bookingType
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.isCompleted() || booking.isCancelled()) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
@@ -211,15 +168,9 @@ public class BookingWorkflowService {
         }
         
         // Xử lý theo loại booking
-        if (booking.getBookingCode().startsWith("WALK")) {
-            // Walk-in booking: xóa khỏi bay queue
-            log.info("Processing walk-in booking cancellation - removing from bay queue");
-            bayQueueService.removeBookingFromQueue(bookingId);
-        } else if (booking.getServiceBay() != null && booking.getSlotStartTime() != null) {
-            // Slot booking: giải phóng slot
-            log.info("Processing slot booking cancellation - releasing slots");
-            bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
-        }
+        // WALK_IN và SCHEDULED bookings đều được xử lý trực tiếp trong Booking entity
+        // Không cần xử lý riêng cho từng loại
+        log.info("Processing booking cancellation for type: {}", booking.getBookingType());
         
         // Hủy booking
         booking.cancelBooking(reason, cancelledBy);
@@ -235,7 +186,7 @@ public class BookingWorkflowService {
     public void pauseService(UUID bookingId, String reason) {
         log.info("Pausing service for booking: {} with reason: {}", bookingId, reason);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 
@@ -258,7 +209,7 @@ public class BookingWorkflowService {
     public void resumeService(UUID bookingId) {
         log.info("Resuming service for booking: {}", bookingId);
         
-        Booking booking = bookingService.getById(bookingId);
+        Booking booking = bookingService.getByIdWithDetails(bookingId);
         
         if (booking.getStatus() != Booking.BookingStatus.PAUSED) {
             throw new ClientSideException(ErrorCode.INVALID_BOOKING_STATUS, 

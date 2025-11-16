@@ -74,23 +74,23 @@ public class BookingPricingService {
         UUID priceBookId = priceBook != null ? priceBook.getId() : null;
 
         try {
-            // Lấy giá service từ bảng giá (services are always quantity 1)
+            // Lấy giá service từ bảng giá
             unitPrice = getServicePriceFromPriceBook(itemRequest.getServiceId(), priceBookId);
             
             // Nếu không có trong bảng giá, throw exception
             if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) == 0) {
                 log.error("No price found in price book for service: {}", itemRequest.getServiceId());
-                throw new RuntimeException("No price found for service: " + itemRequest.getItemName());
+                throw new RuntimeException("No price found for service: " + itemRequest.getServiceName());
             }
                 
         } catch (Exception e) {
             log.error("Error calculating price for service {}: {}", itemRequest.getServiceId(), e.getMessage());
-            throw new RuntimeException("Could not determine price for service: " + itemRequest.getItemName());
+            throw new RuntimeException("Could not determine price for service: " + itemRequest.getServiceName());
         }
 
-        // Services are always quantity 1, so total price = unit price
-        log.info("Service {}: unitPrice={} (quantity=1, total={})", 
-                itemRequest.getItemName(), unitPrice, unitPrice);
+        // Total price = unit price
+        log.info("Service {}: unitPrice={}", 
+                itemRequest.getServiceName(), unitPrice);
         
         return unitPrice;
     }
@@ -118,11 +118,9 @@ public class BookingPricingService {
      */
     public BigDecimal calculateBookingItemPrice(BookingItem bookingItem, UUID priceBookId) {
         CreateBookingItemRequest itemRequest = CreateBookingItemRequest.builder()
-                .serviceId(bookingItem.getItemId()) // Use itemId as serviceId
-                .itemName(bookingItem.getItemName())
-                .itemDescription(bookingItem.getItemDescription())
-                .discountAmount(bookingItem.getDiscountAmount())
-                .taxAmount(bookingItem.getTaxAmount())
+                .serviceId(bookingItem.getServiceId())
+                .serviceName(bookingItem.getServiceName())
+                .serviceDescription(bookingItem.getServiceDescription())
                 .build();
 
         return calculateItemPrice(itemRequest, 

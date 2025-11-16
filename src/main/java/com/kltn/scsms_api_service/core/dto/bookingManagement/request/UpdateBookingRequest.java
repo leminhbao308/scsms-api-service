@@ -57,41 +57,31 @@ public class UpdateBookingRequest {
     @JsonProperty("scheduled_end_at")
     private LocalDateTime scheduledEndAt;
     
-    // Slot information
-    @JsonProperty("slot_date")
-    private java.time.LocalDate slotDate;
-    @JsonProperty("slot_start_time")
-    private java.time.LocalTime slotStartTime;
+    // Scheduling information (used to calculate scheduledStartAt/scheduledEndAt if not provided directly)
+    @JsonProperty("schedule_date")
+    private java.time.LocalDate scheduleDate;
+    @JsonProperty("schedule_start_time")
+    private java.time.LocalTime scheduleStartTime;
     
     // Duration information
     @JsonProperty("estimated_duration_minutes")
     private Integer estimatedDurationMinutes;
-    @JsonProperty("buffer_minutes")
-    private Integer bufferMinutes;
     
     // Pricing information
     @JsonProperty("total_price")
     private BigDecimal totalPrice;
     @JsonProperty("currency")
     private String currency;
-    @JsonProperty("deposit_amount")
-    private BigDecimal depositAmount;
     
     // Status information
     @JsonProperty("payment_status")
     private Booking.PaymentStatus paymentStatus;
     @JsonProperty("status")
     private Booking.BookingStatus status;
-    @JsonProperty("priority")
-    private Booking.Priority priority;
     
     // Additional information
-    @JsonProperty("coupon_code")
-    private String couponCode;
     @JsonProperty("notes")
     private String notes;
-    @JsonProperty("special_requests")
-    private List<String> specialRequests;
     
     // Booking items (dịch vụ)
     @JsonProperty("booking_items")

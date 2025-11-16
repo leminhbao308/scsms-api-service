@@ -2,6 +2,8 @@ package com.kltn.scsms_api_service.core.entity;
 
 import com.kltn.scsms_api_service.abstracts.AuditEntity;
 import com.kltn.scsms_api_service.constants.GeneralConstant;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType;
+
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -122,35 +124,10 @@ public class Booking extends AuditEntity {
     private Integer estimatedDurationMinutes;
     
     /**
-     * Thời gian đệm (phút)
-     */
-    @Column(name = "buffer_minutes")
-    @Builder.Default
-    private Integer bufferMinutes = 15;
-    
-    /**
-     * Giờ bắt đầu slot (8h, 9h, 10h...)
-     */
-    @Column(name = "slot_start_time")
-    private java.time.LocalTime slotStartTime;
-    
-    /**
-     * Giờ kết thúc slot
-     */
-    @Column(name = "slot_end_time")
-    private java.time.LocalTime slotEndTime;
-    
-    /**
      * Thời gian hoàn thành thực tế
      */
     @Column(name = "actual_completion_time")
     private LocalDateTime actualCompletionTime;
-    
-    /**
-     * Số phút hoàn thành sớm
-     */
-    @Column(name = "early_completion_minutes")
-    private Integer earlyCompletionMinutes;
     
     /**
      * Tổng giá sau chiết khấu
@@ -164,12 +141,6 @@ public class Booking extends AuditEntity {
     @Column(name = "currency", length = 3)
     @Builder.Default
     private String currency = "VND";
-    
-    /**
-     * Số tiền đặt cọc
-     */
-    @Column(name = "deposit_amount", precision = 15, scale = 2)
-    private BigDecimal depositAmount;
     
     /**
      * Trạng thái thanh toán
@@ -188,34 +159,18 @@ public class Booking extends AuditEntity {
     private BookingStatus status = BookingStatus.PENDING;
     
     /**
-     * Độ ưu tiên
+     * Loại booking: SCHEDULED (đặt lịch trước) hoặc WALK_IN (đặt tại chỗ)
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false)
+    @Column(name = "booking_type", nullable = false, length = 20)
     @Builder.Default
-    private Priority priority = Priority.NORMAL;
-    
-    /**
-     * Mã coupon
-     */
-    @Column(name = "coupon_code", length = 50)
-    private String couponCode;
+    private BookingType bookingType = BookingType.SCHEDULED;
     
     /**
      * Ghi chú
      */
     @Column(name = "notes", length = 1000)
     private String notes;
-    
-    /**
-     * Yêu cầu đặc biệt
-     */
-    @ElementCollection
-    @CollectionTable(name = "booking_special_requests", schema = GeneralConstant.DB_SCHEMA_DEV,
-                    joinColumns = @JoinColumn(name = "booking_id"))
-    @Column(name = "special_request", length = 500)
-    @Builder.Default
-    private List<String> specialRequests = new ArrayList<>();
     
     /**
      * Thời gian check-in thực tế
@@ -262,19 +217,6 @@ public class Booking extends AuditEntity {
     @Builder.Default
     private List<BookingItem> bookingItems = new ArrayList<>();
     
-    /**
-     * Phân công nhân viên
-     */
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @Builder.Default
-    private List<BookingAssignment> assignments = new ArrayList<>();
-    
-    /**
-     * Thanh toán
-     */
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @Builder.Default
-    private List<BookingPayment> payments = new ArrayList<>();
     
     // Business methods
     
@@ -378,11 +320,6 @@ public class Booking extends AuditEntity {
         this.status = BookingStatus.COMPLETED;
         this.actualEndAt = LocalDateTime.now();
         this.actualCompletionTime = LocalDateTime.now();
-        
-        // Tính thời gian hoàn thành sớm
-        if (this.scheduledEndAt != null && this.actualEndAt.isBefore(this.scheduledEndAt)) {
-            this.earlyCompletionMinutes = (int) java.time.Duration.between(this.actualEndAt, this.scheduledEndAt).toMinutes();
-        }
     }
     
     /**
@@ -392,30 +329,6 @@ public class Booking extends AuditEntity {
         this.status = BookingStatus.COMPLETED;
         this.actualEndAt = completionTime;
         this.actualCompletionTime = completionTime;
-        
-        // Tính thời gian hoàn thành sớm
-        if (this.scheduledEndAt != null && this.actualEndAt.isBefore(this.scheduledEndAt)) {
-            this.earlyCompletionMinutes = (int) java.time.Duration.between(this.actualEndAt, this.scheduledEndAt).toMinutes();
-        }
-    }
-    
-    /**
-     * Kiểm tra booking có hoàn thành sớm không
-     */
-    public boolean isCompletedEarly() {
-        return earlyCompletionMinutes != null && earlyCompletionMinutes > 0;
-    }
-    
-    /**
-     * Lấy thời gian slot dự kiến
-     * Không cộng buffer vào estimated duration
-     */
-    public java.time.LocalTime getEstimatedSlotEndTime() {
-        if (slotStartTime != null && estimatedDurationMinutes != null) {
-            // Không cộng buffer, chỉ tính theo estimatedDurationMinutes
-            return slotStartTime.plusMinutes(estimatedDurationMinutes);
-        }
-        return null;
     }
     
     /**
@@ -441,13 +354,5 @@ public class Booking extends AuditEntity {
         CANCELLED,      // Đã hủy
         NO_SHOW         // Khách không đến
     }
-    
-    /**
-     * Enum cho độ ưu tiên
-     */
-    public enum Priority {
-        NORMAL,     // Bình thường
-        HIGH,       // Cao
-        URGENT      // Khẩn cấp
-    }
+
 }

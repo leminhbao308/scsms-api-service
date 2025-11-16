@@ -7,7 +7,6 @@ import com.kltn.scsms_api_service.core.service.businessService.InventoryLotBusin
 import com.kltn.scsms_api_service.core.service.businessService.StockTransactionBusinessService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

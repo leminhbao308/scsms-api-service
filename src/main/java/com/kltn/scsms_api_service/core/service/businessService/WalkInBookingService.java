@@ -4,9 +4,9 @@ import com.kltn.scsms_api_service.core.dto.walkInBooking.WalkInBookingRequest;
 import com.kltn.scsms_api_service.core.dto.walkInBooking.WalkInBookingResponse;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.entity.BookingItem;
+import com.kltn.scsms_api_service.core.entity.ServiceBay;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.VehicleProfile;
-import com.kltn.scsms_api_service.core.service.entityService.BayQueueService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,7 +31,6 @@ import java.util.UUID;
 public class WalkInBookingService {
 
     private final BookingService bookingService;
-    private final BayQueueService bayQueueService;
     private final ServiceBayService serviceBayService;
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
@@ -47,44 +46,113 @@ public class WalkInBookingService {
         // 1. Validate request
         validateWalkInRequest(request);
 
-        // 2. Tạo booking entity
-        Booking booking = createBookingFromRequest(request);
+        // 2. Validate bay
+        ServiceBay serviceBay = serviceBayService.getById(request.getAssignedBayId());
+        if (!serviceBay.isActive()) {
+            throw new IllegalArgumentException("Service bay is not active");
+        }
 
-        // 3. Lưu booking
+        // 3. Tính scheduledStartAt và scheduledEndAt từ booking trước đó
+        LocalDate bookingDate = request.getBookingDate() != null ? 
+            LocalDate.parse(request.getBookingDate()) : LocalDate.now();
+        
+        LocalDateTime scheduledStartAt = calculateScheduledStartAt(
+            request.getAssignedBayId(), 
+            bookingDate
+        );
+        
+        LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(
+            request.getEstimatedDurationMinutes() != null ? request.getEstimatedDurationMinutes() : 60
+        );
+
+        // 4. Tạo booking entity với scheduledStartAt và scheduledEndAt đã tính
+        Booking booking = createBookingFromRequest(request, scheduledStartAt, scheduledEndAt);
+
+        // 5. Validate conflict (double-check, phòng đa luồng)
+        List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+            request.getAssignedBayId(),
+            scheduledStartAt,
+            scheduledEndAt
+        );
+        
+        if (!conflictingBookings.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Bay is not available at the calculated time. Please try again.");
+        }
+
+        // 6. Lưu booking
         booking = bookingService.save(booking);
 
-        log.info("Saved booking to database: bookingId={}, customer={}, vehicle={}, year={}",
-                booking.getBookingId(),
-                booking.getCustomer() != null ? booking.getCustomer().getFullName() : "null",
-                booking.getVehicle() != null ? booking.getVehicle().getLicensePlate() : "null",
-                booking.getVehicleYear());
+        log.info("Saved walk-in booking to database: bookingId={}, scheduledStartAt={}, scheduledEndAt={}",
+                booking.getBookingId(), scheduledStartAt, scheduledEndAt);
 
-        // 4. Thêm vào hàng chờ bay (sử dụng ngày từ request)
-        LocalDate queueDate = request.getBookingDate() != null ? 
-            LocalDate.parse(request.getBookingDate()) : LocalDate.now();
-        log.info("🔍 DEBUG: Adding to queue with date: {} (from request: {})", queueDate, request.getBookingDate());
-        bayQueueService.addToQueue(request.getAssignedBayId(), booking.getBookingId(), queueDate);
+        // 7. Tính queue position (dựa trên số booking trước đó)
+        int queuePosition = calculateQueuePosition(request.getAssignedBayId(), bookingDate, scheduledStartAt);
 
-        // 5. Lấy thông tin hàng chờ
-        var queueEntry = bayQueueService.getBookingQueuePosition(booking.getBookingId());
-        int queuePosition = queueEntry.map(q -> q.getQueuePosition()).orElse(0);
+        // 8. Tính thời gian chờ ước tính
+        LocalDateTime now = LocalDateTime.now();
+        long estimatedWaitMinutes = java.time.Duration.between(now, scheduledStartAt).toMinutes();
+        int estimatedWaitTime = Math.max(0, (int) estimatedWaitMinutes);
 
-        // 6. Tính thời gian chờ ước tính
-        int estimatedWaitTime = calculateEstimatedWaitTime(request.getAssignedBayId(), queuePosition);
-
-        log.info("Successfully created walk-in booking: {} with queue position: {}",
-                booking.getBookingId(), queuePosition);
+        log.info("Successfully created walk-in booking: {} with scheduledStartAt: {}, queue position: {}",
+                booking.getBookingId(), scheduledStartAt, queuePosition);
 
         return WalkInBookingResponse.builder()
                 .bookingId(booking.getBookingId())
                 .bookingCode(booking.getBookingCode())
                 .assignedBayId(request.getAssignedBayId())
                 .queuePosition(queuePosition)
-                .estimatedStartTime(LocalDateTime.now().plusMinutes(estimatedWaitTime))
+                .estimatedStartTime(scheduledStartAt)
                 .estimatedWaitTime(estimatedWaitTime)
                 .status(booking.getStatus().name())
                 .message("Walk-in booking created successfully")
                 .build();
+    }
+    
+    /**
+     * Tính scheduledStartAt cho WALK_IN booking
+     * Logic: max(scheduledEndAt của các booking trước) (hoặc NOW() nếu không có)
+     */
+    private LocalDateTime calculateScheduledStartAt(UUID bayId, LocalDate date) {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Query các WALK_IN bookings chưa kết thúc của bay trong ngày
+        LocalDateTime maxScheduledEndAt = bookingService.findMaxScheduledEndAtForWalkInBookings(bayId, date);
+        
+        if (maxScheduledEndAt == null) {
+            // Không có booking nào → scheduledStartAt = NOW()
+            log.info("No existing walk-in bookings found, using current time: {}", now);
+            return now;
+        }
+        
+        // Có booking trước đó → scheduledStartAt = max(scheduledEndAt)
+        LocalDateTime scheduledStartAt = maxScheduledEndAt;
+        
+        // Đảm bảo scheduledStartAt >= NOW()
+        if (scheduledStartAt.isBefore(now)) {
+            log.info("Calculated scheduledStartAt {} is before now {}, using now", scheduledStartAt, now);
+            scheduledStartAt = now;
+        }
+        
+        log.info("Calculated scheduledStartAt: {} (from maxScheduledEndAt: {})", 
+                scheduledStartAt, maxScheduledEndAt);
+        
+        return scheduledStartAt;
+    }
+    
+    /**
+     * Tính queue position dựa trên số booking trước scheduledStartAt
+     */
+    private int calculateQueuePosition(UUID bayId, LocalDate date, LocalDateTime scheduledStartAt) {
+        List<Booking> previousBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, date);
+        
+        // Đếm số booking có scheduledStartAt < scheduledStartAt của booking hiện tại
+        long count = previousBookings.stream()
+            .filter(b -> b.getScheduledStartAt() != null && 
+                        b.getScheduledStartAt().isBefore(scheduledStartAt))
+            .count();
+        
+        return (int) count + 1; // Position bắt đầu từ 1
     }
 
     /**
@@ -126,7 +194,8 @@ public class WalkInBookingService {
     /**
      * Tạo booking entity từ request
      */
-    private Booking createBookingFromRequest(WalkInBookingRequest request) {
+    private Booking createBookingFromRequest(WalkInBookingRequest request, 
+            LocalDateTime scheduledStartAt, LocalDateTime scheduledEndAt) {
         // Debug log để kiểm tra dữ liệu request
         log.info("🔍 DEBUG: WalkInBookingRequest data:");
         log.info("  - customerType: {}", request.getCustomerType());
@@ -143,39 +212,22 @@ public class WalkInBookingService {
         // Tạo booking code
         String bookingCode = generateBookingCode();
 
-        // Calculate current time for walk-in booking
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime preferredStartAt = request.getPreferredStartAt() != null
-                ? parseDateTime(request.getPreferredStartAt())
-                : now;
-        LocalDateTime scheduledStartAt = request.getScheduledStartAt() != null
-                ? parseDateTime(request.getScheduledStartAt())
-                : now;
-        LocalDateTime scheduledEndAt = request.getScheduledEndAt() != null ? parseDateTime(request.getScheduledEndAt())
-                : now.plusMinutes(
-                        request.getEstimatedDurationMinutes() != null ? request.getEstimatedDurationMinutes() : 60);
+        // Sử dụng scheduledStartAt và scheduledEndAt đã được tính toán
+        LocalDateTime preferredStartAt = scheduledStartAt;
 
         Booking.BookingBuilder builder = Booking.builder()
                 .bookingCode(bookingCode)
                 .branch(serviceBayService.getById(request.getAssignedBayId()).getBranch())
                 .serviceBay(serviceBayService.getById(request.getAssignedBayId()))
+                .bookingType(com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.WALK_IN)
                 .status(Booking.BookingStatus.PENDING)
-                .priority(Booking.Priority.NORMAL)
                 .totalPrice(request.getTotalPrice())
                 .currency(request.getCurrency())
-                .depositAmount(request.getDepositAmount())
                 .notes(request.getNotes())
                 .preferredStartAt(preferredStartAt)
                 .scheduledStartAt(scheduledStartAt)
                 .scheduledEndAt(scheduledEndAt)
-                .estimatedDurationMinutes(request.getEstimatedDurationMinutes())
-                .slotStartTime(request.getSlotStartTime() != null ? LocalTime.parse(request.getSlotStartTime())
-                        : LocalTime.now())
-                .slotEndTime(request.getSlotEndTime() != null ? LocalTime.parse(request.getSlotEndTime())
-                        : LocalTime.now()
-                                .plusMinutes(request.getEstimatedDurationMinutes() != null
-                                        ? request.getEstimatedDurationMinutes()
-                                        : 60));
+                .estimatedDurationMinutes(request.getEstimatedDurationMinutes());
 
         if ("EXISTING".equals(request.getCustomerType())) {
             // Sử dụng customer và vehicle có sẵn
@@ -254,15 +306,12 @@ public class WalkInBookingService {
                     .map(serviceRequest -> {
                         BookingItem item = BookingItem.builder()
                                 .booking(booking)
-                                .itemType(BookingItem.ItemType.SERVICE)
-                                .itemId(serviceRequest.getServiceId())
-                                .itemName(serviceRequest.getServiceName())
-                                .itemDescription("Walk-in service")
-                                .quantity(1)
+                                .serviceId(serviceRequest.getServiceId())
+                                .serviceName(serviceRequest.getServiceName())
+                                .serviceDescription("Walk-in service")
                                 .unitPrice(serviceRequest.getPrice())
-                                .totalAmount(serviceRequest.getPrice())
-                                .discountAmount(BigDecimal.ZERO)
-                                .taxAmount(serviceRequest.getPrice().multiply(new BigDecimal("0.1"))) // 10% tax
+                                .durationMinutes(serviceRequest.getDurationMinutes() != null ? serviceRequest.getDurationMinutes() : 60)
+                                .itemStatus(BookingItem.ItemStatus.PENDING)
                                 .build();
                         return item;
                     })
@@ -283,33 +332,4 @@ public class WalkInBookingService {
         return "WALK-IN-" + dateTime + "-" + randomSuffix;
     }
 
-    /**
-     * Parse datetime string to LocalDateTime
-     * Handles both ISO format with timezone and local format
-     */
-    private LocalDateTime parseDateTime(String dateTimeString) {
-        try {
-            // Try parsing as ISO format with timezone first
-            if (dateTimeString.contains("T") && (dateTimeString.endsWith("Z") || dateTimeString.contains("+"))) {
-                // Convert to LocalDateTime by removing timezone info
-                String localDateTimeString = dateTimeString.replace("Z", "").split("\\+")[0];
-                return LocalDateTime.parse(localDateTimeString);
-            } else {
-                // Direct parse for local format
-                return LocalDateTime.parse(dateTimeString);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse datetime: {}, using current time", dateTimeString);
-            return LocalDateTime.now();
-        }
-    }
-
-    /**
-     * Tính thời gian chờ ước tính
-     */
-    private int calculateEstimatedWaitTime(UUID bayId, int queuePosition) {
-        // Tính thời gian chờ dựa trên vị trí trong hàng chờ
-        // Giả sử mỗi booking mất 60 phút
-        return queuePosition * 60;
-    }
 }

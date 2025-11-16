@@ -2,8 +2,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.param.BookingFilterParam;
-import com.kltn.scsms_api_service.core.dto.bookingManagement.request.ChangeSlotRequest;
-import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingRequest;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.request.ChangeScheduleRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBookingRequest;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
@@ -25,8 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,14 +39,10 @@ public class BookingManagementService {
     private final BookingService bookingService;
     private final BookingItemService bookingItemService;
     private final BranchService branchService;
-    private final UserService userService;
-    private final VehicleProfileService vehicleProfileService;
     private final ServiceBayService serviceBayService;
-    private final BayScheduleService bayScheduleService;
     private final BookingMapper bookingMapper;
     private final BookingItemMapper bookingItemMapper;
     private final BookingInfoService bookingInfoService;
-    private final BookingPricingService bookingPricingService;
     private final PricingBusinessService pricingBusinessService;
     private final ServiceService serviceService;
 
@@ -170,169 +163,6 @@ public class BookingManagementService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Tạo booking mới
-     */
-    @Transactional
-    public BookingInfoDto createBooking(CreateBookingRequest request) {
-        log.info("Creating booking for customer: {} at branch: {}", request.getCustomerName(), request.getBranchId());
-
-        // Validate branch
-        Branch branch = branchService.findById(request.getBranchId())
-                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                        "Branch not found with ID: " + request.getBranchId()));
-
-        // Validate customer if provided
-        User customer = null;
-        if (request.getCustomerId() != null) {
-            customer = userService.findById(request.getCustomerId())
-                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                            "User not found with ID: " + request.getCustomerId()));
-        }
-
-        // Validate vehicle if provided
-        VehicleProfile vehicle = null;
-        if (request.getVehicleId() != null) {
-            vehicle = vehicleProfileService.getVehicleProfileById(request.getVehicleId());
-        }
-
-        // Validate bay if provided
-        ServiceBay serviceBay = null;
-        if (request.getBayId() != null) {
-            serviceBay = serviceBayService.getById(request.getBayId());
-            if (!serviceBay.isActive()) {
-                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, "Service bay is not available");
-            }
-            if (!serviceBay.isAvailableForBooking()) {
-                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
-                        "Service bay does not allow booking");
-            }
-
-            // Check bay availability for the scheduled time
-            if (request.getScheduledStartAt() != null && request.getScheduledEndAt() != null) {
-                boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
-                        request.getBayId(),
-                        request.getScheduledStartAt(),
-                        request.getScheduledEndAt());
-
-                if (!isBayAvailable) {
-                    // Find conflicting booking for better error message
-                    List<Booking> conflictingBookings = bookingService.findConflictingBookings(
-                            request.getBayId(),
-                            request.getScheduledStartAt(),
-                            request.getScheduledEndAt());
-
-                    if (!conflictingBookings.isEmpty()) {
-                        Booking conflictBooking = conflictingBookings.get(0);
-                        throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
-                                String.format("Service bay '%s' is not available in the specified time range. " +
-                                        "Conflicts with booking '%s' (%s - %s)",
-                                        serviceBay.getBayName(),
-                                        conflictBooking.getBookingCode(),
-                                        conflictBooking.getScheduledStartAt(),
-                                        conflictBooking.getScheduledEndAt()));
-                    } else {
-                        throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
-                                "Service bay is not available in the specified time range");
-                    }
-                }
-            }
-        }
-
-        // Generate booking code
-        String bookingCode = generateBookingCode();
-
-        // Create booking entity
-        Booking booking = bookingMapper.toEntity(request);
-        booking.setBookingCode(bookingCode);
-        booking.setBranch(branch);
-        booking.setCustomer(customer);
-        booking.setVehicle(vehicle);
-        booking.setServiceBay(serviceBay);
-        booking.setIsActive(true);
-
-        // Calculate total price from price book
-        if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            BigDecimal totalPrice = bookingPricingService.calculateBookingTotalPrice(
-                    request.getBookingItems(),
-                    null // Sử dụng active price book
-            );
-            booking.setTotalPrice(totalPrice);
-            log.info("Calculated booking total price from price book: {}", totalPrice);
-        }
-
-        // Calculate estimated duration from services
-        if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            // For now, use a default duration per service since duration is not in request
-            // In a real implementation, you would fetch service duration from Service
-            // entity
-            Integer totalDuration = request.getBookingItems().size() * 60; // Default 60 minutes per service
-            booking.setEstimatedDurationMinutes(totalDuration);
-        }
-
-        // Set scheduled times
-        if (request.getScheduledStartAt() != null) {
-            booking.setScheduledStartAt(request.getScheduledStartAt());
-            if (booking.getEstimatedDurationMinutes() != null) {
-                // Không cộng buffer vào estimated duration
-                booking.setScheduledEndAt(request.getScheduledStartAt()
-                        .plusMinutes(booking.getEstimatedDurationMinutes()));
-            }
-        }
-
-        // Save booking
-        Booking savedBooking = bookingService.save(booking);
-
-        // Create booking items
-        if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            log.info("Creating {} booking items", request.getBookingItems().size());
-
-            for (CreateBookingItemRequest itemRequest : request.getBookingItems()) {
-                // Convert request to entity
-                BookingItem bookingItem = bookingItemMapper.toEntity(itemRequest);
-
-                // Set booking reference
-                bookingItem.setBooking(savedBooking);
-
-                // CRITICAL: Set itemId from serviceId (mapper doesn't map this automatically)
-                // This is the fix for the null service_id bug
-                if (itemRequest.getServiceId() != null) {
-                    bookingItem.setItemId(itemRequest.getServiceId());
-                    bookingItem.setItemType(BookingItem.ItemType.SERVICE);
-                    log.info("Set itemId={} and itemType=SERVICE for booking item", itemRequest.getServiceId());
-                } else {
-                    throw new ClientSideException(ErrorCode.BAD_REQUEST,
-                            "serviceId is required for booking item: " + itemRequest.getItemName());
-                }
-
-                // Set default values
-                bookingItem.setItemStatus(BookingItem.ItemStatus.PENDING);
-                bookingItem.setIsActive(true);
-                bookingItem.setIsDeleted(false);
-
-                // Always calculate unit price from price book
-                BigDecimal unitPrice = calculateItemUnitPrice(itemRequest);
-                bookingItem.setUnitPrice(unitPrice);
-                log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
-
-                // Calculate total amount (services are always quantity 1)
-                BigDecimal subtotal = bookingItem.getUnitPrice(); // Services are always quantity 1
-                BigDecimal totalAmount = subtotal
-                        .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount()
-                                : BigDecimal.ZERO)
-                        .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
-                bookingItem.setTotalAmount(totalAmount);
-
-                // Save booking item
-                bookingItemService.save(bookingItem);
-            }
-        }
-
-        // Bay assignment is handled automatically through the relationship
-        // No need to manually assign bay
-
-        return bookingInfoService.toBookingInfoDto(savedBooking);
-    }
 
     /**
      * Cập nhật booking
@@ -350,9 +180,8 @@ public class BookingManagementService {
         }
 
         // Validate bay availability if time is being updated
-        // Skip this validation if we have slot_date and slot_start_time, because handleSlotChange will validate slot availability
-        boolean hasSlotInfo = request.getSlotDate() != null && request.getSlotStartTime() != null;
-        if (!hasSlotInfo && (request.getScheduledStartAt() != null || request.getScheduledEndAt() != null)) {
+        // Validate conflict với booking khác nếu có thay đổi scheduledStartAt/scheduledEndAt
+        if (request.getScheduledStartAt() != null || request.getScheduledEndAt() != null) {
             UUID bayId = existingBooking.getServiceBay() != null ? existingBooking.getServiceBay().getBayId() : null;
             LocalDateTime startTime = request.getScheduledStartAt() != null ? request.getScheduledStartAt()
                     : existingBooking.getScheduledStartAt();
@@ -403,10 +232,11 @@ public class BookingManagementService {
             }
         }
 
-        // Xử lý thay đổi slot nếu có (chỉ cho slot booking, không cho walk-in booking)
-        if ((request.getServiceBayId() != null || request.getSlotDate() != null || request.getSlotStartTime() != null)
-                && !existingBooking.getBookingCode().startsWith("WALK")) {
-            handleSlotChange(updatedBooking, request);
+        // Xử lý thay đổi schedule nếu có (chỉ cho scheduled booking, không cho walk-in booking)
+        if ((request.getServiceBayId() != null || request.getScheduleDate() != null || request.getScheduleStartTime() != null)
+                && existingBooking.getBookingType() != null 
+                && existingBooking.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.SCHEDULED) {
+            handleScheduleChange(updatedBooking, request);
         }
 
         // Xử lý cập nhật booking items (dịch vụ) nếu có
@@ -592,14 +422,6 @@ public class BookingManagementService {
                 .build();
     }
 
-    /**
-     * Tạo mã booking
-     */
-    private String generateBookingCode() {
-        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
-        return String.format("BK-%s-%s", dateStr, timeStr);
-    }
 
     /**
      * Tính unit price cho booking item từ bảng giá
@@ -610,7 +432,7 @@ public class BookingManagementService {
             return pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
         } catch (Exception e) {
             log.error("Error calculating unit price for service {}: {}", itemRequest.getServiceId(), e.getMessage());
-            throw new RuntimeException("Could not determine unit price for service: " + itemRequest.getItemName());
+            throw new RuntimeException("Could not determine unit price for service: " + itemRequest.getServiceName());
         }
     }
 
@@ -707,38 +529,31 @@ public class BookingManagementService {
     }
 
     /**
-     * Thay đổi slot của booking
+     * Thay đổi schedule (bay, date, time) của booking
      */
     @Transactional
-    public BookingInfoDto changeBookingSlot(UUID bookingId, ChangeSlotRequest request) {
-        log.info("Changing slot for booking: {} to bay: {} at {} {}",
-                bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
+    public BookingInfoDto changeBookingSlot(UUID bookingId, ChangeScheduleRequest request) {
+        log.info("Changing schedule for booking: {} to bay: {} at {} {}",
+                bookingId, request.getNewBayId(), request.getNewScheduleDate(), request.getNewScheduleStartTime());
 
         // 1. Lấy booking hiện tại
         Booking existingBooking = bookingService.getByIdWithDetails(bookingId);
 
-        // 2. Kiểm tra booking có thể thay đổi slot không
+        // 2. Kiểm tra booking có thể thay đổi schedule không
         if (existingBooking.isCompleted() || existingBooking.isCancelled()) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_UPDATED,
-                    "Cannot change slot for completed or cancelled booking");
+                    "Cannot change schedule for completed or cancelled booking");
         }
 
         if (existingBooking.getStatus() == Booking.BookingStatus.IN_PROGRESS) {
             throw new ClientSideException(ErrorCode.BOOKING_CANNOT_BE_UPDATED,
-                    "Cannot change slot for booking that is in progress");
+                    "Cannot change schedule for booking that is in progress");
         }
 
-        // 3. Validate slot mới
-        if (!bayScheduleService.isSlotAvailable(request.getNewBayId(), request.getNewSlotDate(),
-                request.getNewSlotStartTime())) {
-            throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE,
-                    "New slot is not available for booking");
-        }
-
-        // 4. Lấy service bay mới
+        // 3. Validate bay mới và conflict với booking khác
         ServiceBay newServiceBay = serviceBayService.getById(request.getNewBayId());
         
-        // 4.1. Ensure branch matches the bay's branch
+        // 3.1. Ensure branch matches the bay's branch
         if (newServiceBay.getBranch() == null) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Service bay must have an associated branch");
@@ -752,100 +567,99 @@ public class BookingManagementService {
             existingBooking.setBranch(bayBranch);
         }
 
-        // 5. Tính thời gian kết thúc dự kiến
-        LocalDateTime newSlotStartDateTime = LocalDateTime.of(request.getNewSlotDate(), request.getNewSlotStartTime());
+        // 4. Tính thời gian kết thúc dự kiến
+        LocalDateTime newScheduleStartDateTime = LocalDateTime.of(request.getNewScheduleDate(), request.getNewScheduleStartTime());
         // Không cộng buffer vào estimated duration
-        LocalDateTime newSlotEndDateTime = newSlotStartDateTime.plusMinutes(
+        LocalDateTime newScheduleEndDateTime = newScheduleStartDateTime.plusMinutes(
                 request.getServiceDurationMinutes());
 
-        // 6. Giải phóng slot cũ
-        if (existingBooking.getServiceBay() != null && existingBooking.getSlotStartTime() != null) {
-            bayScheduleService.releaseAllSlotsForBooking(bookingId);
-            log.info("Released old slots for booking: {}", bookingId);
-        }
-
-        // 7. Cập nhật thông tin booking
-        existingBooking.setServiceBay(newServiceBay);
-        existingBooking.setSlotStartTime(request.getNewSlotStartTime());
-        existingBooking.setScheduledStartAt(newSlotStartDateTime);
-        existingBooking.setScheduledEndAt(newSlotEndDateTime);
-        existingBooking.setPreferredStartAt(newSlotStartDateTime);
-
-        // 8. Đặt slot mới
-        bayScheduleService.bookSlot(
+        // 5. Validate không có conflict với booking khác
+        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
                 request.getNewBayId(),
-                request.getNewSlotDate(),
-                request.getNewSlotStartTime(),
-                bookingId);
-
-        // 9. Block các slot phụ nếu cần
-        // Chỉ tính dựa trên service duration, không cộng bufferMinutes
-        int slotsNeeded = (int) Math
-                .ceil((double) request.getServiceDurationMinutes() / newServiceBay.getSlotDurationMinutes());
-
-        if (slotsNeeded > 1) {
-            for (int i = 1; i < slotsNeeded; i++) {
-                bayScheduleService.blockSlot(
-                        request.getNewBayId(),
-                        request.getNewSlotDate(),
-                        request.getNewSlotStartTime().plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
-                        bookingId);
+                newScheduleStartDateTime,
+                newScheduleEndDateTime);
+        
+        if (!isBayAvailable) {
+            List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+                    request.getNewBayId(),
+                    newScheduleStartDateTime,
+                    newScheduleEndDateTime);
+            
+            if (!conflictingBookings.isEmpty()) {
+                Booking conflictBooking = conflictingBookings.get(0);
+                // Exclude current booking from conflict check
+                if (!conflictBooking.getBookingId().equals(bookingId)) {
+                    throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                            String.format("Service bay '%s' is not available in the specified time range. " +
+                                    "Conflicts with booking '%s' (%s - %s)",
+                                    newServiceBay.getBayName(),
+                                    conflictBooking.getBookingCode(),
+                                    conflictBooking.getScheduledStartAt(),
+                                    conflictBooking.getScheduledEndAt()));
+                }
             }
         }
 
-        // 10. Lưu booking
+        // 6. Cập nhật thông tin booking
+        existingBooking.setServiceBay(newServiceBay);
+        existingBooking.setScheduledStartAt(newScheduleStartDateTime);
+        existingBooking.setScheduledEndAt(newScheduleEndDateTime);
+        existingBooking.setPreferredStartAt(newScheduleStartDateTime);
+
+        // Lưu booking
         Booking savedBooking = bookingService.update(existingBooking);
 
-        log.info("Successfully changed slot for booking: {} to bay: {} at {} {}",
-                bookingId, request.getNewBayId(), request.getNewSlotDate(), request.getNewSlotStartTime());
+        log.info("Successfully changed schedule for booking: {} to bay: {} at {} {}",
+                bookingId, request.getNewBayId(), request.getNewScheduleDate(), request.getNewScheduleStartTime());
 
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
 
     /**
-     * Xử lý thay đổi slot trong update booking
+     * Xử lý thay đổi schedule (bay, date, time) trong update booking
      */
-    private void handleSlotChange(Booking booking, UpdateBookingRequest request) {
-        log.info("Handling slot change for booking: {}", booking.getBookingId());
+    private void handleScheduleChange(Booking booking, UpdateBookingRequest request) {
+        log.info("Handling schedule change for booking: {}", booking.getBookingId());
 
-        // 1. Determine new slot values
+        // 1. Determine new bay and scheduled time values
         UUID newBayId = request.getServiceBayId() != null ? request.getServiceBayId()
                 : booking.getServiceBay() != null ? booking.getServiceBay().getBayId() : null;
         
         if (newBayId == null) {
-            log.warn("No bay ID provided for slot change, skipping");
+            log.warn("No bay ID provided, skipping");
             return;
         }
         
-        LocalDate newSlotDate = request.getSlotDate() != null ? request.getSlotDate()
-                : booking.getScheduledStartAt() != null ? booking.getScheduledStartAt().toLocalDate() : null;
-        LocalTime newSlotStartTime = request.getSlotStartTime() != null ? request.getSlotStartTime()
-                : booking.getSlotStartTime();
-
-        if (newSlotDate == null || newSlotStartTime == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST,
-                    "Slot date and start time are required for slot change");
+        // Lấy scheduled time từ request hoặc booking hiện tại
+        LocalDateTime newScheduledStartAt = null;
+        if (request.getScheduledStartAt() != null) {
+            newScheduledStartAt = request.getScheduledStartAt();
+        } else if (request.getScheduleDate() != null && request.getScheduleStartTime() != null) {
+            // Calculate from schedule_date + schedule_start_time
+            newScheduledStartAt = LocalDateTime.of(request.getScheduleDate(), request.getScheduleStartTime());
+        } else {
+            newScheduledStartAt = booking.getScheduledStartAt();
+        }
+        
+        if (newScheduledStartAt == null) {
+            log.warn("No scheduled start time provided, skipping");
+            return;
         }
 
-        // 2. Check if slot has actually changed
-        boolean slotChanged = booking.getServiceBay() == null || 
+        // 2. Check if bay or time has actually changed
+        boolean hasChanged = booking.getServiceBay() == null || 
                 !newBayId.equals(booking.getServiceBay().getBayId()) ||
-                (booking.getScheduledStartAt() != null && !newSlotDate.equals(booking.getScheduledStartAt().toLocalDate())) ||
-                !newSlotStartTime.equals(booking.getSlotStartTime());
+                (booking.getScheduledStartAt() != null && !newScheduledStartAt.equals(booking.getScheduledStartAt()));
 
-        // 3. Only validate availability if slot has changed
-        // If slot hasn't changed, skip availability check since it's already booked by this booking
-        if (slotChanged && !bayScheduleService.isSlotAvailable(newBayId, newSlotDate, newSlotStartTime)) {
-            throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE,
-                    "New slot is not available for booking");
+        if (!hasChanged) {
+            log.info("No changes detected, skipping");
+            return;
         }
 
-        // 2. Lấy service bay mới
+        // 3. Lấy service bay mới
         ServiceBay newServiceBay = serviceBayService.getById(newBayId);
         
-        // 3. Ensure branch matches the bay's branch
-        // If branch was changed in request, it should already be set
-        // But we need to make sure the bay belongs to the current branch
+        // 4. Ensure branch matches the bay's branch
         if (newServiceBay.getBranch() == null) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST,
                     "Service bay must have an associated branch");
@@ -859,87 +673,47 @@ public class BookingManagementService {
             booking.setBranch(bayBranch);
         }
 
-        // 4. Tính thời gian kết thúc dự kiến
-        LocalDateTime newSlotStartDateTime = LocalDateTime.of(newSlotDate, newSlotStartTime);
+        // 5. Tính thời gian kết thúc dự kiến
         int serviceDurationMinutes = request.getEstimatedDurationMinutes() != null
                 ? request.getEstimatedDurationMinutes()
                 : (booking.getEstimatedDurationMinutes() != null ? booking.getEstimatedDurationMinutes() : 60);
-        // Không cộng buffer vào estimated duration
-        LocalDateTime newSlotEndDateTime = newSlotStartDateTime.plusMinutes(serviceDurationMinutes);
+        LocalDateTime newScheduledEndAt = newScheduledStartAt.plusMinutes(serviceDurationMinutes);
 
-        // 4. Update booking information
-        if (slotChanged) {
-            // Release old slots and book new ones
-            bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
-            log.info("Released old slots for booking: {}", booking.getBookingId());
-
-            // Update slot information in booking
-            booking.setServiceBay(newServiceBay);
-            booking.setSlotStartTime(newSlotStartTime);
-            booking.setScheduledStartAt(newSlotStartDateTime);
-            booking.setScheduledEndAt(newSlotEndDateTime);
-            booking.setPreferredStartAt(newSlotStartDateTime);
+        // 6. Validate không có conflict với booking khác
+        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
+                newBayId,
+                newScheduledStartAt,
+                newScheduledEndAt);
+        
+        if (!isBayAvailable) {
+            List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+                    newBayId,
+                    newScheduledStartAt,
+                    newScheduledEndAt);
             
-            // Ensure branch matches the bay's branch (reuse the branch check from above)
-            // Branch should already be set from step 3, but double-check here
-            if (booking.getBranch() == null || !newBayBranchId.equals(booking.getBranch().getBranchId())) {
-                Branch bayBranch = branchService.findById(newBayBranchId)
-                        .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                                "Branch not found for service bay: " + newBayBranchId));
-                booking.setBranch(bayBranch);
-            }
-
-            // Book new slot
-            bayScheduleService.bookSlot(newBayId, newSlotDate, newSlotStartTime, booking.getBookingId());
-
-            // Block additional slots if needed
-            // Only calculate based on service duration, don't add bufferMinutes
-            int slotsNeeded = (int) Math.ceil((double) serviceDurationMinutes / newServiceBay.getSlotDurationMinutes());
-
-            if (slotsNeeded > 1) {
-                for (int i = 1; i < slotsNeeded; i++) {
-                    bayScheduleService.blockSlot(
-                            newBayId,
-                            newSlotDate,
-                            newSlotStartTime.plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
-                            booking.getBookingId());
+            if (!conflictingBookings.isEmpty()) {
+                Booking conflictBooking = conflictingBookings.get(0);
+                // Exclude current booking from conflict check
+                if (!conflictBooking.getBookingId().equals(booking.getBookingId())) {
+                    throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                            String.format("Service bay '%s' is not available in the specified time range. " +
+                                    "Conflicts with booking '%s' (%s - %s)",
+                                    newServiceBay.getBayName(),
+                                    conflictBooking.getBookingCode(),
+                                    conflictBooking.getScheduledStartAt(),
+                                    conflictBooking.getScheduledEndAt()));
                 }
             }
-
-            log.info("Successfully changed slot for booking: {} to bay: {} at {} {}",
-                    booking.getBookingId(), newBayId, newSlotDate, newSlotStartTime);
-        } else {
-            // Slot hasn't changed, but we may need to update scheduled_end_at if service duration changed
-            booking.setScheduledEndAt(newSlotEndDateTime);
-            
-            // If service duration changed, we may need to update blocked slots
-            // Calculate how many slots are needed with new duration
-            if (booking.getServiceBay() != null && booking.getSlotStartTime() != null) {
-                int slotsNeeded = (int) Math.ceil((double) serviceDurationMinutes / newServiceBay.getSlotDurationMinutes());
-                
-                // Get currently blocked slots for this booking (excluding the main slot which is booked)
-                // We need to release old blocked slots and add new ones if duration increased
-                // For now, we'll release all slots and re-book them to ensure consistency
-                // This is safe because the slot hasn't changed, so we know it's still available
-                bayScheduleService.releaseAllSlotsForBooking(booking.getBookingId());
-                
-                // Re-book the main slot (slot hasn't changed, so we know it's available)
-                bayScheduleService.bookSlot(newBayId, newSlotDate, newSlotStartTime, booking.getBookingId());
-                
-                // Block additional slots if needed based on new service duration
-                if (slotsNeeded > 1) {
-                    for (int i = 1; i < slotsNeeded; i++) {
-                        bayScheduleService.blockSlot(
-                                newBayId,
-                                newSlotDate,
-                                newSlotStartTime.plusMinutes(i * newServiceBay.getSlotDurationMinutes()),
-                                booking.getBookingId());
-                    }
-                }
-            }
-            
-            log.info("Updated service duration for booking: {} without changing slot", booking.getBookingId());
         }
+
+        // 7. Update booking information
+        booking.setServiceBay(newServiceBay);
+        booking.setScheduledStartAt(newScheduledStartAt);
+        booking.setScheduledEndAt(newScheduledEndAt);
+        booking.setPreferredStartAt(newScheduledStartAt);
+
+        log.info("Successfully updated schedule for booking: {} to bay: {} at {}",
+                booking.getBookingId(), newBayId, newScheduledStartAt);
     }
 
     /**
@@ -957,7 +731,7 @@ public class BookingManagementService {
         Map<UUID, BookingItem> existingItemsByIdMap = existingItems.stream()
                 .collect(Collectors.toMap(BookingItem::getBookingItemId, item -> item));
         Map<UUID, BookingItem> existingItemsByServiceIdMap = existingItems.stream()
-                .collect(Collectors.toMap(BookingItem::getItemId, item -> item));
+                .collect(Collectors.toMap(BookingItem::getServiceId, item -> item));
 
         // 3. Xử lý các items có operation DELETE trước
         for (CreateBookingItemRequest itemRequest : newBookingItems) {
@@ -1008,12 +782,12 @@ public class BookingManagementService {
 
         // Xóa hoàn toàn item
         log.info("Hard deleting booking item: {} (serviceId: {}) due to DELETE operation", 
-                itemToDelete.getBookingItemId(), itemToDelete.getItemId());
+                itemToDelete.getBookingItemId(), itemToDelete.getServiceId());
         bookingItemService.hardDeleteWithoutStatusCheck(itemToDelete.getBookingItemId());
 
         // Xóa khỏi map để tránh xử lý lại
         existingItemsByIdMap.remove(itemToDelete.getBookingItemId());
-        existingItemsByServiceIdMap.remove(itemToDelete.getItemId());
+        existingItemsByServiceIdMap.remove(itemToDelete.getServiceId());
     }
 
     /**
@@ -1023,7 +797,7 @@ public class BookingManagementService {
                                        Map<UUID, BookingItem> existingItemsByServiceIdMap) {
         UUID serviceId = itemRequest.getServiceId();
         if (serviceId == null) {
-            log.warn("Skipping booking item with null serviceId: {}", itemRequest.getItemName());
+            log.warn("Skipping booking item with null serviceId: {}", itemRequest.getServiceName());
             return;
         }
 
@@ -1043,30 +817,19 @@ public class BookingManagementService {
      */
     private void updateExistingBookingItem(BookingItem existingItem, CreateBookingItemRequest newItemRequest) {
         log.info("Updating existing booking item: {} (serviceId: {})", 
-                existingItem.getBookingItemId(), existingItem.getItemId());
+                existingItem.getBookingItemId(), existingItem.getServiceId());
 
-        // Chỉ cập nhật discount và tax, giữ nguyên unitPrice (snapshot)
-        if (newItemRequest.getDiscountAmount() != null) {
-            existingItem.setDiscountAmount(newItemRequest.getDiscountAmount());
+        // Cập nhật thông tin service nếu có
+        if (newItemRequest.getServiceName() != null) {
+            existingItem.setServiceName(newItemRequest.getServiceName());
         }
-        if (newItemRequest.getTaxAmount() != null) {
-            existingItem.setTaxAmount(newItemRequest.getTaxAmount());
-        }
-
-        // Cập nhật thông tin mô tả nếu có
-        if (newItemRequest.getItemName() != null) {
-            existingItem.setItemName(newItemRequest.getItemName());
-        }
-        if (newItemRequest.getItemDescription() != null) {
-            existingItem.setItemDescription(newItemRequest.getItemDescription());
+        if (newItemRequest.getServiceDescription() != null) {
+            existingItem.setServiceDescription(newItemRequest.getServiceDescription());
         }
 
-        // Tính lại total amount
-        existingItem.updateTotalAmount();
         bookingItemService.update(existingItem);
 
-        log.info("Updated booking item: {}, new totalAmount: {}", 
-                existingItem.getBookingItemId(), existingItem.getTotalAmount());
+        log.info("Updated booking item: {}", existingItem.getBookingItemId());
     }
 
     /**
@@ -1074,28 +837,23 @@ public class BookingManagementService {
      */
     private void createNewBookingItem(Booking booking, CreateBookingItemRequest itemRequest) {
         log.info("Creating new booking item for service: {} (serviceId: {})", 
-                itemRequest.getItemName(), itemRequest.getServiceId());
+                itemRequest.getServiceName(), itemRequest.getServiceId());
 
         // Validate service tồn tại
         com.kltn.scsms_api_service.core.entity.Service serviceEntity = serviceService.getById(itemRequest.getServiceId());
         if (!serviceEntity.getIsActive()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST,
-                    "Service is not active: " + itemRequest.getItemName());
+                    "Service is not active: " + itemRequest.getServiceName());
         }
 
         // Convert request to entity
         BookingItem bookingItem = bookingItemMapper.toEntity(itemRequest);
         bookingItem.setBooking(booking);
 
-        // CRITICAL: Set itemId from serviceId (mapper doesn't map this automatically)
-        // This is the fix for the null service_id bug
-        if (itemRequest.getServiceId() != null) {
-            bookingItem.setItemId(itemRequest.getServiceId());
-            bookingItem.setItemType(BookingItem.ItemType.SERVICE);
-            log.info("Set itemId={} and itemType=SERVICE for booking item", itemRequest.getServiceId());
-        } else {
+        // Validate serviceId
+        if (itemRequest.getServiceId() == null) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST,
-                    "serviceId is required for booking item: " + itemRequest.getItemName());
+                    "serviceId is required for booking item: " + itemRequest.getServiceName());
         }
 
         // Set default values
@@ -1113,19 +871,11 @@ public class BookingManagementService {
         // Tính giá từ price book hiện tại
         BigDecimal unitPrice = calculateItemUnitPrice(itemRequest);
         bookingItem.setUnitPrice(unitPrice);
-        log.info("Set unit price from price book for item {}: {}", itemRequest.getItemName(), unitPrice);
-
-        // Tính total amount
-        BigDecimal subtotal = bookingItem.getUnitPrice(); // Services are always quantity 1
-        BigDecimal totalAmount = subtotal
-                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO)
-                .add(itemRequest.getTaxAmount() != null ? itemRequest.getTaxAmount() : BigDecimal.ZERO);
-        bookingItem.setTotalAmount(totalAmount);
+        log.info("Set unit price from price book for service {}: {}", itemRequest.getServiceName(), unitPrice);
 
         // Save booking item
         bookingItemService.save(bookingItem);
-        log.info("Created new booking item: {} with totalAmount: {}", 
-                bookingItem.getBookingItemId(), bookingItem.getTotalAmount());
+        log.info("Created new booking item: {}", bookingItem.getBookingItemId());
     }
 
     /**
@@ -1137,9 +887,9 @@ public class BookingManagementService {
         // Lấy danh sách items hiện tại (không bao gồm items đã bị xóa)
         List<BookingItem> activeItems = bookingItemService.findByBooking(booking.getBookingId());
 
-        // Tính tổng giá
+        // Tính tổng giá (tổng unitPrice của tất cả items)
         BigDecimal totalPrice = activeItems.stream()
-                .map(BookingItem::getTotalAmount)
+                .map(BookingItem::getUnitPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         booking.setTotalPrice(totalPrice);
 

@@ -1,10 +1,10 @@
 package com.kltn.scsms_api_service.core.controllers;
 
+import com.kltn.scsms_api_service.constants.ApiConstant;
 import com.kltn.scsms_api_service.core.service.businessService.BayRecommendationService;
-import com.kltn.scsms_api_service.core.service.entityService.BayQueueService;
 import com.kltn.scsms_api_service.core.service.businessService.WalkInBookingService;
+import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.core.dto.walkInBooking.*;
-import com.kltn.scsms_api_service.core.entity.BayQueue;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,19 +25,18 @@ import java.util.UUID;
  */
 @Slf4j
 @RestController
-@RequestMapping("/walk-in")
 @RequiredArgsConstructor
 @Tag(name = "Walk-in Booking", description = "API cho walk-in booking")
 public class WalkInBookingController {
     
     private final BayRecommendationService bayRecommendationService;
-    private final BayQueueService bayQueueService;
     private final WalkInBookingService walkInBookingService;
+    private final BookingService bookingService;
     
         /**
          * Đề xuất bay tốt nhất cho walk-in booking
          */
-        @PostMapping("/recommend-bay")
+        @PostMapping(ApiConstant.RECOMMEND_BAY_API)
         @Operation(summary = "Đề xuất bay", description = "Đề xuất bay tốt nhất cho walk-in booking")
         public ResponseEntity<BayRecommendationResponse> recommendBay(
                 @RequestBody BayRecommendationRequest request,
@@ -67,7 +66,7 @@ public class WalkInBookingController {
     /**
      * Tạo walk-in booking
      */
-    @PostMapping("/create-booking")
+    @PostMapping(ApiConstant.CREATE_WALK_IN_BOOKING_API)
     @Operation(summary = "Tạo walk-in booking", description = "Tạo booking cho khách hàng walk-in")
     public ResponseEntity<WalkInBookingResponse> createWalkInBooking(
             @RequestBody WalkInBookingRequest request) {
@@ -89,7 +88,7 @@ public class WalkInBookingController {
         /**
          * Lấy thông tin hàng chờ của một bay
          */
-        @GetMapping("/bay-queue/{bayId}")
+        @GetMapping(ApiConstant.GET_BAY_QUEUE_API)
         @Operation(summary = "Lấy hàng chờ bay", description = "Lấy thông tin hàng chờ của một bay")
         public ResponseEntity<List<BookingQueueItemResponse>> getBayQueue(
                 @PathVariable UUID bayId,
@@ -101,13 +100,13 @@ public class WalkInBookingController {
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
             log.info("🔍 DEBUG: Parsed queue date: {}", parsedQueueDate);
             
-            // Lấy thông tin hàng chờ
-            List<BayQueue> bayQueues = bayQueueService.getBayQueue(bayId, parsedQueueDate);
-            log.info("🔍 DEBUG: Found {} queue entries for bay {}", bayQueues.size(), bayId);
+            // Lấy thông tin WALK_IN bookings của bay
+            List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, parsedQueueDate);
+            log.info("🔍 DEBUG: Found {} walk-in bookings for bay {}", walkInBookings.size(), bayId);
             
             // Convert to response DTOs
-            List<BookingQueueItemResponse> queueItems = bayQueues.stream()
-                .map(this::convertBayQueueToResponse)
+            List<BookingQueueItemResponse> queueItems = walkInBookings.stream()
+                .map(this::convertBookingToResponse)
                 .collect(Collectors.toList());
 
             log.info("🔍 DEBUG: Converted to {} response items", queueItems.size());
@@ -119,28 +118,6 @@ public class WalkInBookingController {
         }
     }
     
-    /**
-     * Chuyển booking từ bay này sang bay khác
-     */
-    @PostMapping("/transfer-booking")
-    @Operation(summary = "Chuyển booking", description = "Chuyển booking từ bay này sang bay khác")
-    public ResponseEntity<String> transferBooking(
-            @RequestBody TransferBookingRequest request) {
-        try {
-            log.info("Transferring booking {} from bay {} to bay {}", 
-                request.getBookingId(), request.getFromBayId(), request.getToBayId());
-            
-            // Gọi service để chuyển booking
-            bayQueueService.transferBooking(request.getFromBayId(), request.getToBayId(), request.getBookingId());
-            
-            return ResponseEntity.ok("Booking transferred successfully");
-                
-        } catch (Exception e) {
-            log.error("Error transferring booking: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Failed to transfer booking: " + e.getMessage());
-        }
-    }
-    
     // Helper methods
     
     private BayRecommendationService.BayRecommendationRequest convertToServiceRequest(BayRecommendationRequest request) {
@@ -148,7 +125,6 @@ public class WalkInBookingController {
         serviceRequest.setBranchId(request.getBranchId());
         serviceRequest.setServiceType(request.getServiceType());
         serviceRequest.setServiceDurationMinutes(request.getServiceDurationMinutes());
-        serviceRequest.setPriority(request.getPriority());
         return serviceRequest;
     }
     
@@ -211,26 +187,46 @@ public class WalkInBookingController {
             .build();
     }
 
-    private BookingQueueItemResponse convertBayQueueToResponse(BayQueue bayQueue) {
-        // Lấy thông tin booking từ bayQueue
-        Booking booking = bayQueue.getBooking();
+    private BookingQueueItemResponse convertBookingToResponse(Booking booking) {
+        // Tính queue position dựa trên số booking trước scheduledStartAt
+        int queuePosition = calculateQueuePosition(booking);
         
         return BookingQueueItemResponse.builder()
-            .bookingId(bayQueue.getBookingId())
-            .bookingCode(booking != null ? booking.getBookingCode() : "N/A")
-            .customerName(booking != null ? booking.getCustomerName() : "N/A")
-            .customerPhone(booking != null ? booking.getCustomerPhone() : "N/A")
-            .vehicleLicensePlate(booking != null ? booking.getVehicleLicensePlate() : "N/A")
+            .bookingId(booking.getBookingId())
+            .bookingCode(booking.getBookingCode())
+            .customerName(booking.getCustomerName())
+            .customerPhone(booking.getCustomerPhone())
+            .vehicleLicensePlate(booking.getVehicleLicensePlate())
             .serviceType("GENERAL") // Default service type
-            .queuePosition(bayQueue.getQueuePosition())
-            .estimatedStartTime(bayQueue.getEstimatedStartTime())
-            .estimatedCompletionTime(bayQueue.getEstimatedCompletionTime())
-            .status(booking != null ? booking.getStatus().name() : "UNKNOWN")
-            .bookingServiceNames(booking != null ? getBookingServiceNames(booking) : java.util.Arrays.asList("Dịch vụ"))
-            .bookingTotalPrice(booking != null ? booking.getTotalPrice() : java.math.BigDecimal.ZERO)
-            .bookingCustomerName(booking != null ? booking.getCustomerName() : "N/A")
-            .bookingVehicleLicensePlate(booking != null ? booking.getVehicleLicensePlate() : "N/A")
+            .queuePosition(queuePosition)
+            .estimatedStartTime(booking.getScheduledStartAt())
+            .estimatedCompletionTime(booking.getScheduledEndAt())
+            .status(booking.getStatus().name())
+            .bookingServiceNames(getBookingServiceNames(booking))
+            .bookingTotalPrice(booking.getTotalPrice())
+            .bookingCustomerName(booking.getCustomerName())
+            .bookingVehicleLicensePlate(booking.getVehicleLicensePlate())
             .build();
+    }
+    
+    /**
+     * Tính queue position dựa trên số booking trước scheduledStartAt
+     */
+    private int calculateQueuePosition(Booking booking) {
+        if (booking.getServiceBay() == null || booking.getScheduledStartAt() == null) {
+            return 1;
+        }
+        
+        LocalDate date = booking.getScheduledStartAt().toLocalDate();
+        List<Booking> previousBookings = bookingService.findWalkInBookingsByBayAndDate(
+            booking.getServiceBay().getBayId(), date);
+        
+        long count = previousBookings.stream()
+            .filter(b -> b.getScheduledStartAt() != null && 
+                        b.getScheduledStartAt().isBefore(booking.getScheduledStartAt()))
+            .count();
+        
+        return (int) count + 1;
     }
     
     /**
@@ -239,7 +235,7 @@ public class WalkInBookingController {
     private java.util.List<String> getBookingServiceNames(Booking booking) {
         if (booking.getBookingItems() != null && !booking.getBookingItems().isEmpty()) {
             return booking.getBookingItems().stream()
-                .map(item -> item.getItemName() != null ? item.getItemName() : "Dịch vụ")
+                .map(item -> item.getServiceName() != null ? item.getServiceName() : "Dịch vụ")
                 .collect(java.util.stream.Collectors.toList());
         }
         return java.util.Arrays.asList("Dịch vụ");

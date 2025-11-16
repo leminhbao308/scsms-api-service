@@ -1,8 +1,6 @@
 package com.kltn.scsms_api_service.core.service.entityService;
 
-import com.kltn.scsms_api_service.core.entity.Product;
 import com.kltn.scsms_api_service.core.entity.SalesOrder;
-import com.kltn.scsms_api_service.core.entity.SalesOrderLine;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.repository.ProductAttributeValueRepository;
 import com.kltn.scsms_api_service.core.repository.SalesOrderRepository;
@@ -16,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -148,17 +145,6 @@ public class SalesOrderEntityService {
 
         // Return Page with same pagination info as ID query
         return new PageImpl<>(orderedResults, pageable, idsPage.getTotalElements());
-    }
-
-    /**
-     * OLD METHOD - Uses single query with collection fetch (causes in-memory
-     * pagination)
-     *
-     * @deprecated Use getPagedOrdersWithDetails() which uses two-step approach
-     */
-    @Deprecated
-    public Page<SalesOrder> getPagedOrdersWithDetailsOld(Pageable pageable) {
-        return repo.findPagedWithDetails(SalesStatus.RETURNED, pageable);
     }
 
     /**

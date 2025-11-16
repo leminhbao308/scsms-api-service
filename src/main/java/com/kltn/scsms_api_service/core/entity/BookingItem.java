@@ -35,35 +35,22 @@ public class BookingItem extends AuditEntity {
     private Booking booking;
     
     /**
-     * Loại item (SERVICE hoặc SERVICE_PACKAGE)
+     * ID của service
      */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "item_type", nullable = false)
-    private ItemType itemType;
+    @Column(name = "service_id", nullable = false)
+    private UUID serviceId;
     
     /**
-     * ID của service hoặc service package
+     * Tên service tại thời điểm booking (snapshot)
      */
-    @Column(name = "item_id", nullable = false)
-    private UUID itemId;
+    @Column(name = "service_name", nullable = false, length = 255)
+    private String serviceName;
     
     /**
-     * Tên item tại thời điểm booking (snapshot)
+     * Mô tả service tại thời điểm booking
      */
-    @Column(name = "item_name", nullable = false, length = 255)
-    private String itemName;
-    
-    /**
-     * URL của item tại thời điểm booking
-     */
-    @Column(name = "item_url", length = 500)
-    private String itemUrl;
-    
-    /**
-     * Mô tả item tại thời điểm booking
-     */
-    @Column(name = "item_description", length = 1000)
-    private String itemDescription;
+    @Column(name = "service_description", length = 1000)
+    private String serviceDescription;
     
     /**
      * Giá đơn vị tại thời điểm booking
@@ -72,37 +59,10 @@ public class BookingItem extends AuditEntity {
     private BigDecimal unitPrice;
     
     /**
-     * Số lượng (services are always quantity 1)
-     */
-    @Column(name = "quantity", nullable = false)
-    @Builder.Default
-    private Integer quantity = 1;
-    
-    /**
      * Thời gian thực hiện (phút) tại thời điểm booking
      */
     @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
-    
-    /**
-     * Số tiền chiết khấu cho item này
-     */
-    @Column(name = "discount_amount", precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal discountAmount = BigDecimal.ZERO;
-    
-    /**
-     * Số tiền thuế cho item này
-     */
-    @Column(name = "tax_amount", precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal taxAmount = BigDecimal.ZERO;
-    
-    /**
-     * Tổng số tiền cho item này (đã tính chiết khấu và thuế)
-     */
-    @Column(name = "total_amount", precision = 15, scale = 2, nullable = false)
-    private BigDecimal totalAmount;
     
     /**
      * Ghi chú cho item này
@@ -119,48 +79,14 @@ public class BookingItem extends AuditEntity {
     
     /**
      * Trạng thái item (có thể khác với booking status)
+     * Để track trạng thái từng dịch vụ trong booking
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "item_status", nullable = false)
     @Builder.Default
     private ItemStatus itemStatus = ItemStatus.PENDING;
     
-    /**
-     * Thời gian bắt đầu thực tế cho item này
-     */
-    @Column(name = "actual_start_at")
-    private java.time.LocalDateTime actualStartAt;
-    
-    /**
-     * Thời gian kết thúc thực tế cho item này
-     */
-    @Column(name = "actual_end_at")
-    private java.time.LocalDateTime actualEndAt;
-    
     // Business methods
-    
-    /**
-     * Tính tổng tiền trước chiết khấu
-     */
-    public BigDecimal getSubtotalAmount() {
-        return unitPrice.multiply(BigDecimal.valueOf(quantity));
-    }
-    
-    /**
-     * Tính tổng tiền sau chiết khấu và thuế
-     */
-    public BigDecimal calculateTotalAmount() {
-        BigDecimal subtotal = getSubtotalAmount();
-        BigDecimal afterDiscount = subtotal.subtract(discountAmount != null ? discountAmount : BigDecimal.ZERO);
-        return afterDiscount.add(taxAmount != null ? taxAmount : BigDecimal.ZERO);
-    }
-    
-    /**
-     * Cập nhật tổng tiền
-     */
-    public void updateTotalAmount() {
-        this.totalAmount = calculateTotalAmount();
-    }
     
     /**
      * Kiểm tra item có hoàn thành không
@@ -181,7 +107,6 @@ public class BookingItem extends AuditEntity {
      */
     public void startItem() {
         this.itemStatus = ItemStatus.IN_PROGRESS;
-        this.actualStartAt = java.time.LocalDateTime.now();
     }
     
     /**
@@ -189,25 +114,6 @@ public class BookingItem extends AuditEntity {
      */
     public void completeItem() {
         this.itemStatus = ItemStatus.COMPLETED;
-        this.actualEndAt = java.time.LocalDateTime.now();
-    }
-    
-    /**
-     * Tính thời gian thực tế (phút)
-     */
-    public Long getActualDurationMinutes() {
-        if (actualStartAt != null && actualEndAt != null) {
-            return java.time.Duration.between(actualStartAt, actualEndAt).toMinutes();
-        }
-        return null;
-    }
-    
-    /**
-     * Enum cho loại item
-     */
-    public enum ItemType {
-        SERVICE,        // Dịch vụ đơn lẻ
-        SERVICE_PACKAGE // Gói dịch vụ
     }
     
     /**

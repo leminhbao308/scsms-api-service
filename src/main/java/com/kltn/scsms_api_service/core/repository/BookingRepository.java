@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.repository;
 
+import com.kltn.scsms_api_service.core.dto.bookingSchedule.BookingScheduleProjection;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -110,11 +111,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
        List<Booking> findByVehicle_VehicleIdOrderByScheduledStartAtDesc(UUID vehicleId);
 
        /**
-        * Tìm booking theo độ ưu tiên
-        */
-       List<Booking> findByPriorityOrderByScheduledStartAtAsc(Booking.Priority priority);
-
-       /**
         * Tìm booking theo trạng thái thanh toán
         */
        List<Booking> findByPaymentStatusOrderByCreatedDateDesc(Booking.PaymentStatus paymentStatus);
@@ -126,11 +122,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "AND b.status IN ('PENDING', 'CONFIRMED') " +
                      "ORDER BY b.scheduledStartAt ASC")
        List<Booking> findBookingsNeedingPayment();
-
-       /**
-        * Tìm booking theo coupon
-        */
-       List<Booking> findByCouponCodeOrderByCreatedDateDesc(String couponCode);
 
        /**
         * Đếm booking theo chi nhánh và ngày
@@ -169,18 +160,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "ORDER BY b.actualEndAt DESC")
        List<Booking> findCompletedBookingsInTimeRange(
                      @Param("branchId") UUID branchId,
-                     @Param("startDateTime") LocalDateTime startDateTime,
-                     @Param("endDateTime") LocalDateTime endDateTime);
-
-       /**
-        * Tìm booking theo nhân viên được phân công
-        */
-       @Query("SELECT DISTINCT b FROM Booking b JOIN b.assignments a " +
-                     "WHERE a.staff.userId = :staffId " +
-                     "AND b.scheduledStartAt BETWEEN :startDateTime AND :endDateTime " +
-                     "ORDER BY b.scheduledStartAt ASC")
-       List<Booking> findBookingsByStaffInTimeRange(
-                     @Param("staffId") UUID staffId,
                      @Param("startDateTime") LocalDateTime startDateTime,
                      @Param("endDateTime") LocalDateTime endDateTime);
 
@@ -251,7 +230,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         * - serviceBay: service bay information
         * - serviceBay.branch: branch information of the service bay
         * - bookingItems: items/services in the booking
-        * - assignments: staff assignments (optional, can be removed if not needed in
         * DTO)
         * This reduces queries from ~5 per booking to 1-2 queries
         */
@@ -262,4 +240,84 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "LEFT JOIN FETCH b.bookingItems " +
                      "WHERE b.bookingId = :bookingId")
        Optional<Booking> findByIdWithDetails(@Param("bookingId") UUID bookingId);
+       
+       /**
+        * Projection query để lấy thông tin schedule bookings cho bay và ngày cụ thể
+        * Chỉ lấy các field cần thiết để tính toán available time ranges
+        */
+       @Query("SELECT new com.kltn.scsms_api_service.core.dto.bookingSchedule.BookingScheduleProjection(" +
+                     "b.bookingId, " +
+                     "b.serviceBay.bayId, " +
+                     "b.branch.branchId, " +
+                     "b.scheduledStartAt, " +
+                     "b.scheduledEndAt, " +
+                     "b.status) " +
+                     "FROM Booking b " +
+                     "WHERE b.serviceBay.bayId = :bayId " +
+                     "AND DATE(b.scheduledStartAt) = :date " +
+                     "AND b.bookingType = 'SCHEDULED' " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.scheduledStartAt IS NOT NULL " +
+                     "AND b.scheduledEndAt IS NOT NULL " +
+                     "ORDER BY b.scheduledStartAt ASC")
+       List<BookingScheduleProjection> findScheduleProjectionsByBayAndDate(
+                     @Param("bayId") UUID bayId, 
+                     @Param("date") LocalDate date);
+       
+       /**
+        * Projection query để lấy thông tin schedule bookings cho chi nhánh và ngày cụ thể
+        */
+       @Query("SELECT new com.kltn.scsms_api_service.core.dto.bookingSchedule.BookingScheduleProjection(" +
+                     "b.bookingId, " +
+                     "b.serviceBay.bayId, " +
+                     "b.branch.branchId, " +
+                     "b.scheduledStartAt, " +
+                     "b.scheduledEndAt, " +
+                     "b.status) " +
+                     "FROM Booking b " +
+                     "WHERE b.branch.branchId = :branchId " +
+                     "AND DATE(b.scheduledStartAt) = :date " +
+                     "AND b.bookingType = 'SCHEDULED' " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.scheduledStartAt IS NOT NULL " +
+                     "AND b.scheduledEndAt IS NOT NULL " +
+                     "ORDER BY b.scheduledStartAt ASC")
+       List<BookingScheduleProjection> findScheduleProjectionsByBranchAndDate(
+                     @Param("branchId") UUID branchId, 
+                     @Param("date") LocalDate date);
+       
+       /**
+        * Tìm các WALK_IN bookings của bay trong ngày cụ thể, chưa kết thúc
+        * Sắp xếp theo scheduledStartAt để tính toán position
+        * Prevents N+1 queries by using JOIN FETCH for bookingItems
+        */
+       @Query("SELECT DISTINCT b FROM Booking b " +
+                     "LEFT JOIN FETCH b.bookingItems " +
+                     "WHERE b.serviceBay.bayId = :bayId " +
+                     "AND DATE(b.scheduledStartAt) = :date " +
+                     "AND b.bookingType = 'WALK_IN' " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.scheduledStartAt IS NOT NULL " +
+                     "AND b.scheduledEndAt IS NOT NULL " +
+                     "AND b.scheduledEndAt >= :currentTime " +
+                     "ORDER BY b.scheduledStartAt ASC")
+       List<Booking> findWalkInBookingsByBayAndDate(
+                     @Param("bayId") UUID bayId,
+                     @Param("date") LocalDate date,
+                     @Param("currentTime") LocalDateTime currentTime);
+       
+       /**
+        * Lấy scheduledEndAt lớn nhất của các WALK_IN bookings chưa kết thúc trong bay
+        */
+       @Query("SELECT MAX(b.scheduledEndAt) FROM Booking b WHERE b.serviceBay.bayId = :bayId " +
+                     "AND DATE(b.scheduledStartAt) = :date " +
+                     "AND b.bookingType = 'WALK_IN' " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.scheduledStartAt IS NOT NULL " +
+                     "AND b.scheduledEndAt IS NOT NULL " +
+                     "AND b.scheduledEndAt >= :currentTime")
+       LocalDateTime findMaxScheduledEndAtForWalkInBookings(
+                     @Param("bayId") UUID bayId,
+                     @Param("date") LocalDate date,
+                     @Param("currentTime") LocalDateTime currentTime);
 }

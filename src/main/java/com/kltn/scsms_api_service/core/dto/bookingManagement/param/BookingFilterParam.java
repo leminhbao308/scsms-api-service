@@ -34,7 +34,6 @@ public class BookingFilterParam extends BaseFilterParam<BookingFilterParam> {
     // Status filters
     private Booking.BookingStatus status;
     private Booking.PaymentStatus paymentStatus;
-    private Booking.Priority priority;
     
     // Date filters
     private LocalDate bookingDate;
@@ -50,9 +49,7 @@ public class BookingFilterParam extends BaseFilterParam<BookingFilterParam> {
     private java.math.BigDecimal totalPriceTo;
     
     // Additional filters
-    private String couponCode;
     private String notes;
-    private Boolean hasSpecialRequests;
     
     // Staff filters
     private UUID staffId;

@@ -27,9 +27,9 @@ public class BookingService {
     
     /**
      * Get booking by ID (basic, may cause lazy loading)
+     * Use getByIdWithDetails() if you need to access related entities (serviceBay, bookingItems, etc.)
      * @param bookingId UUID of the booking
      * @return Booking entity
-     * @deprecated Use getByIdWithDetails() for better performance
      */
     public Booking getById(UUID bookingId) {
         return bookingRepository.findById(bookingId)
@@ -48,18 +48,6 @@ public class BookingService {
                         () -> new ClientSideException(ErrorCode.NOT_FOUND, "Booking not found with ID: " + bookingId));
     }
 
-    /**
-     * Get booking by booking code (basic, may cause lazy loading)
-     * @param bookingCode booking code
-     * @return Booking entity
-     * @deprecated Use getByBookingCodeWithDetails() for better performance
-     */
-    public Booking getByBookingCode(String bookingCode) {
-        return bookingRepository.findByBookingCode(bookingCode)
-                .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
-                        "Booking not found with code: " + bookingCode));
-    }
-    
     /**
      * Get booking by booking code with all details (optimized to prevent N+1 queries)
      * Eagerly fetches: branch, serviceBay, serviceBay.branch, items
@@ -137,20 +125,12 @@ public class BookingService {
         return bookingRepository.findByVehicle_VehicleIdOrderByScheduledStartAtDesc(vehicleId);
     }
 
-    public List<Booking> findByPriority(Booking.Priority priority) {
-        return bookingRepository.findByPriorityOrderByScheduledStartAtAsc(priority);
-    }
-
     public List<Booking> findByPaymentStatus(Booking.PaymentStatus paymentStatus) {
         return bookingRepository.findByPaymentStatusOrderByCreatedDateDesc(paymentStatus);
     }
 
     public List<Booking> findBookingsNeedingPayment() {
         return bookingRepository.findBookingsNeedingPayment();
-    }
-
-    public List<Booking> findByCouponCode(String couponCode) {
-        return bookingRepository.findByCouponCodeOrderByCreatedDateDesc(couponCode);
     }
 
     public long countByBranchAndDate(UUID branchId, LocalDate bookingDate) {
@@ -173,11 +153,6 @@ public class BookingService {
     public List<Booking> findCompletedBookingsInTimeRange(UUID branchId, LocalDateTime startDateTime,
             LocalDateTime endDateTime) {
         return bookingRepository.findCompletedBookingsInTimeRange(branchId, startDateTime, endDateTime);
-    }
-
-    public List<Booking> findBookingsByStaffInTimeRange(UUID staffId, LocalDateTime startDateTime,
-            LocalDateTime endDateTime) {
-        return bookingRepository.findBookingsByStaffInTimeRange(staffId, startDateTime, endDateTime);
     }
 
     public List<Booking> findOverlappingBookings(UUID branchId, LocalDateTime startDateTime, LocalDateTime endDateTime,
@@ -227,5 +202,19 @@ public class BookingService {
 
     public List<Booking> findAllByIds(Set<UUID> bookingIds) {
         return bookingRepository.findAllById(bookingIds);
+    }
+    
+    /**
+     * Tìm các WALK_IN bookings của bay trong ngày cụ thể, chưa kết thúc
+     */
+    public List<Booking> findWalkInBookingsByBayAndDate(UUID bayId, LocalDate date) {
+        return bookingRepository.findWalkInBookingsByBayAndDate(bayId, date, LocalDateTime.now());
+    }
+    
+    /**
+     * Lấy scheduledEndAt lớn nhất của các WALK_IN bookings chưa kết thúc trong bay
+     */
+    public LocalDateTime findMaxScheduledEndAtForWalkInBookings(UUID bayId, LocalDate date) {
+        return bookingRepository.findMaxScheduledEndAtForWalkInBookings(bayId, date, LocalDateTime.now());
     }
 }

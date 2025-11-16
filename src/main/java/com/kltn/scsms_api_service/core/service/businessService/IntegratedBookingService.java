@@ -1,7 +1,7 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.dto.bookingManagement.BookingInfoDto;
-import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingWithSlotRequest;
+import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingWithScheduleRequest;
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBookingItemRequest;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
@@ -14,10 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 /**
- * Service tích hợp để tạo booking với slot trong một API call
+ * Service tích hợp để tạo scheduled booking với scheduling information trong một API call
+ * Tự động set bookingType = SCHEDULED
  */
 @Service
 @RequiredArgsConstructor
@@ -26,21 +26,21 @@ import java.time.LocalTime;
 public class IntegratedBookingService {
     
     private final BookingService bookingService;
-    private final BayScheduleService bayScheduleService;
     private final ServiceBayService serviceBayService;
     private final BranchService branchService;
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
     private final BookingItemService bookingItemService;
-    private final BookingPricingService bookingPricingService;
     private final BookingInfoService bookingInfoService;
+    private final PricingBusinessService pricingBusinessService;
+    private final ServiceService serviceService;
     
     /**
-     * Tạo booking hoàn chỉnh với slot trong một API call
+     * Tạo booking hoàn chỉnh với scheduling information trong một API call
      */
-    public BookingInfoDto createBookingWithSlot(CreateBookingWithSlotRequest request) {
-        log.info("Creating integrated booking for customer: {} at branch: {} with slot: {}",
-            request.getCustomerName(), request.getBranchId(), request.getSelectedSlot());
+    public BookingInfoDto createBookingWithSlot(CreateBookingWithScheduleRequest request) {
+        log.info("Creating integrated scheduled booking for customer: {} at branch: {} with schedule: {}",
+            request.getCustomerName(), request.getBranchId(), request.getSelectedSchedule());
         
         // 1. Validate tất cả thông tin
         validateRequest(request);
@@ -51,16 +51,13 @@ public class IntegratedBookingService {
         // 3. Lưu booking trước để có bookingId
         Booking savedBooking = bookingService.save(booking);
         
-        // 4. Đặt slot tự động (sau khi đã có bookingId)
-        bookSlotForBooking(savedBooking, request.getSelectedSlot());
-        
-        // 5. Tạo booking items
+        // 4. Tạo booking items
         if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
             createBookingItems(savedBooking, request);
         }
         
-        log.info("Successfully created integrated booking: {} with slot: {}",
-            savedBooking.getBookingId(), request.getSelectedSlot());
+        log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
+            savedBooking.getBookingId(), request.getSelectedSchedule());
         
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
@@ -68,7 +65,7 @@ public class IntegratedBookingService {
     /**
      * Validate request
      */
-    private void validateRequest(CreateBookingWithSlotRequest request) {
+    private void validateRequest(CreateBookingWithScheduleRequest request) {
         // Validate required fields
         if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer name is required");
@@ -82,38 +79,38 @@ public class IntegratedBookingService {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Branch ID is required");
         }
         
-        if (request.getSelectedSlot() == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Slot selection is required");
+        if (request.getSelectedSchedule() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Scheduling information is required");
         }
         
-        if (request.getSelectedSlot().getBayId() == null) {
+        if (request.getSelectedSchedule().getBayId() == null) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Bay ID is required");
         }
         
-        if (request.getSelectedSlot().getDate() == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Slot date is required");
+        if (request.getSelectedSchedule().getDate() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Schedule date is required");
         }
         
-        if (request.getSelectedSlot().getStartTime() == null) {
-            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Slot start time is required");
+        if (request.getSelectedSchedule().getStartTime() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Schedule start time is required");
         }
         
-        if (request.getSelectedSlot().getServiceDurationMinutes() == null || 
-            request.getSelectedSlot().getServiceDurationMinutes() <= 0) {
+        if (request.getSelectedSchedule().getServiceDurationMinutes() == null || 
+            request.getSelectedSchedule().getServiceDurationMinutes() <= 0) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Service duration is required and must be positive");
         }
         
         // Validate entities exist
         validateEntities(request);
         
-        // Validate slot availability
-        validateSlotAvailability(request.getSelectedSlot());
+        // Validate schedule availability (check for conflicts)
+        validateScheduleAvailability(request.getSelectedSchedule());
     }
     
     /**
      * Validate entities exist
      */
-    private void validateEntities(CreateBookingWithSlotRequest request) {
+    private void validateEntities(CreateBookingWithScheduleRequest request) {
         // Validate branch
         branchService.findById(request.getBranchId())
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, 
@@ -132,7 +129,7 @@ public class IntegratedBookingService {
         }
         
         // Validate bay
-        ServiceBay bay = serviceBayService.getById(request.getSelectedSlot().getBayId());
+        ServiceBay bay = serviceBayService.getById(request.getSelectedSchedule().getBayId());
         if (!bay.isAvailableForBooking()) {
             throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
                 "Service bay does not allow booking");
@@ -140,43 +137,36 @@ public class IntegratedBookingService {
     }
     
     /**
-     * Validate slot availability
+     * Validate schedule availability - kiểm tra conflict với booking khác
      */
-    private void validateSlotAvailability(CreateBookingWithSlotRequest.SlotSelectionRequest slot) {
-        // Validate booking date (giới hạn trong tháng)
-        bayScheduleService.validateBookingDate(slot.getDate());
-        
-        if (!bayScheduleService.isSlotAvailable(slot.getBayId(), slot.getDate(), slot.getStartTime())) {
-            throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                "Slot is not available for booking");
+    private void validateScheduleAvailability(CreateBookingWithScheduleRequest.ScheduleSelectionRequest schedule) {
+        // Validate bay exists
+        ServiceBay bay = serviceBayService.getById(schedule.getBayId());
+        if (!bay.isAvailableForBooking()) {
+            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                "Service bay does not allow booking");
         }
         
-        // Validate slot has enough time for service
-        BaySchedule baySchedule = bayScheduleService.getSlot(slot.getBayId(), slot.getDate(), slot.getStartTime());
-        if (baySchedule == null) {
-            throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                "Slot not found");
-        }
+        // Tính scheduled times
+        LocalDateTime scheduledStartAt = LocalDateTime.of(schedule.getDate(), schedule.getStartTime());
+        LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(schedule.getServiceDurationMinutes());
         
-        // Check if we have enough consecutive slots for the service
-        ServiceBay bay = serviceBayService.getById(slot.getBayId());
-        int slotsNeeded = (int) Math.ceil((double) slot.getServiceDurationMinutes() / bay.getSlotDurationMinutes());
+        // Validate không có conflict với booking khác
+        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
+                schedule.getBayId(),
+                scheduledStartAt,
+                scheduledEndAt);
         
-        // Check if all required slots are available
-        for (int i = 0; i < slotsNeeded; i++) {
-            LocalTime slotStartTime = slot.getStartTime().plusMinutes(i * bay.getSlotDurationMinutes());
-            if (!bayScheduleService.isSlotAvailable(slot.getBayId(), slot.getDate(), slotStartTime)) {
-                throw new ClientSideException(ErrorCode.SLOT_NOT_AVAILABLE, 
-                    "Required slot at " + slotStartTime + " is not available for service duration " + 
-                    slot.getServiceDurationMinutes() + " minutes (needs " + slotsNeeded + " slots)");
-            }
+        if (!isBayAvailable) {
+            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                "Service bay is not available in the specified time range");
         }
     }
     
     /**
      * Tạo booking entity
      */
-    private Booking createBookingEntity(CreateBookingWithSlotRequest request) {
+    private Booking createBookingEntity(CreateBookingWithScheduleRequest request) {
         // Generate booking code
         String bookingCode = generateBookingCode();
         
@@ -186,22 +176,22 @@ public class IntegratedBookingService {
             userService.findById(request.getCustomerId()).orElse(null) : null;
         VehicleProfile vehicle = request.getVehicleId() != null ? 
             vehicleProfileService.getVehicleProfileById(request.getVehicleId()) : null;
-        ServiceBay serviceBay = serviceBayService.getById(request.getSelectedSlot().getBayId());
+        ServiceBay serviceBay = serviceBayService.getById(request.getSelectedSchedule().getBayId());
         
-        // Use provided scheduling information or calculate from slot
+        // Use provided scheduling information or calculate from selected schedule
         LocalDateTime preferredStartAt = request.getPreferredStartAt() != null ? 
             parseDateTime(request.getPreferredStartAt()) : 
-            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime());
+            LocalDateTime.of(request.getSelectedSchedule().getDate(), request.getSelectedSchedule().getStartTime());
             
         LocalDateTime scheduledStartAt = request.getScheduledStartAt() != null ? 
             parseDateTime(request.getScheduledStartAt()) : 
-            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime());
+            LocalDateTime.of(request.getSelectedSchedule().getDate(), request.getSelectedSchedule().getStartTime());
             
         // Không cộng buffer vào estimated duration
         LocalDateTime scheduledEndAt = request.getScheduledEndAt() != null ? 
             parseDateTime(request.getScheduledEndAt()) : 
-            LocalDateTime.of(request.getSelectedSlot().getDate(), request.getSelectedSlot().getStartTime())
-                .plusMinutes(request.getSelectedSlot().getServiceDurationMinutes());
+            LocalDateTime.of(request.getSelectedSchedule().getDate(), request.getSelectedSchedule().getStartTime())
+                .plusMinutes(request.getSelectedSchedule().getServiceDurationMinutes());
         
         // Create booking
         Booking booking = Booking.builder()
@@ -224,23 +214,13 @@ public class IntegratedBookingService {
             .scheduledEndAt(scheduledEndAt)
             .estimatedDurationMinutes(request.getEstimatedDurationMinutes() != null ? 
                 request.getEstimatedDurationMinutes() : 
-                request.getSelectedSlot().getServiceDurationMinutes())
-            .bufferMinutes(serviceBay.getBufferMinutes())
-            .slotStartTime(request.getSlotStartTime() != null ? 
-                LocalTime.parse(request.getSlotStartTime()) : 
-                request.getSelectedSlot().getStartTime())
-            .slotEndTime(request.getSlotEndTime() != null ? 
-                LocalTime.parse(request.getSlotEndTime()) : 
-                request.getSelectedSlot().getStartTime().plusMinutes(serviceBay.getSlotDurationMinutes()))
+                request.getSelectedSchedule().getServiceDurationMinutes())
             .totalPrice(request.getTotalPrice())
             .currency(request.getCurrency())
-            .depositAmount(request.getDepositAmount())
-            .couponCode(request.getCouponCode())
             .notes(request.getNotes())
-            .specialRequests(request.getSpecialRequests())
             .status(Booking.BookingStatus.PENDING)
             .paymentStatus(Booking.PaymentStatus.PENDING)
-            .priority(Booking.Priority.NORMAL)
+            .bookingType(com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.SCHEDULED)
             .isActive(true)
             .isDeleted(false)
             .build();
@@ -248,35 +228,6 @@ public class IntegratedBookingService {
         return booking;
     }
     
-    /**
-     * Đặt slot cho booking
-     */
-    private void bookSlotForBooking(Booking booking, CreateBookingWithSlotRequest.SlotSelectionRequest slot) {
-        // Book the slot
-        bayScheduleService.bookSlot(
-            slot.getBayId(), 
-            slot.getDate(), 
-            slot.getStartTime(), 
-            booking.getBookingId()
-        );
-        
-        // Block additional slots if needed
-        ServiceBay bay = serviceBayService.getById(slot.getBayId());
-        // Chỉ tính dựa trên service duration, không cộng bufferMinutes
-        int slotsNeeded = (int) Math.ceil((double) slot.getServiceDurationMinutes() / bay.getSlotDurationMinutes());
-        
-        if (slotsNeeded > 1) {
-            // Block additional slots with bookingId
-            for (int i = 1; i < slotsNeeded; i++) {
-                bayScheduleService.blockSlot(
-                    slot.getBayId(),
-                    slot.getDate(),
-                    slot.getStartTime().plusMinutes(i * bay.getSlotDurationMinutes()),
-                    booking.getBookingId()
-                );
-            }
-        }
-    }
     
     /**
      * Parse datetime string to LocalDateTime
@@ -302,39 +253,30 @@ public class IntegratedBookingService {
     /**
      * Tạo booking items với giá từ price book
      */
-    private void createBookingItems(Booking booking, CreateBookingWithSlotRequest request) {
+    private void createBookingItems(Booking booking, CreateBookingWithScheduleRequest request) {
         for (CreateBookingItemRequest itemRequest : request.getBookingItems()) {
-            // Lấy giá từ price book bằng cách tạo temporary BookingItem
-            BookingItem tempBookingItem = BookingItem.builder()
-                .itemType(BookingItem.ItemType.SERVICE)
-                .itemId(itemRequest.getServiceId())
-                .itemName(itemRequest.getItemName())
-                .itemDescription(itemRequest.getItemDescription())
-                .quantity(1)
-                .discountAmount(itemRequest.getDiscountAmount())
-                .taxAmount(itemRequest.getTaxAmount())
-                .build();
+            // Lấy giá từ price book
+            BigDecimal unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
             
-            BigDecimal unitPrice = bookingPricingService.calculateBookingItemPrice(tempBookingItem, null);
-            
-            // Calculate total amount (KHÔNG cộng tax, chỉ lấy giá dịch vụ trừ discount)
-            BigDecimal subtotal = unitPrice; // Services are always quantity 1
-            BigDecimal totalAmount = subtotal
-                .subtract(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO);
-            // KHÔNG cộng tax vào total amount - chỉ lấy giá dịch vụ
+            // Get duration from Service entity
+            Integer durationMinutes = 60; // Default
+            try {
+                com.kltn.scsms_api_service.core.entity.Service serviceEntity = serviceService.getById(itemRequest.getServiceId());
+                if (serviceEntity.getEstimatedDuration() != null) {
+                    durationMinutes = serviceEntity.getEstimatedDuration();
+                }
+            } catch (Exception e) {
+                log.warn("Could not get duration from Service entity for serviceId: {}, using default 60 minutes", itemRequest.getServiceId());
+            }
             
             // Convert to BookingItem entity
             BookingItem bookingItem = BookingItem.builder()
                 .booking(booking)
-                .itemType(BookingItem.ItemType.SERVICE)
-                .itemId(itemRequest.getServiceId())
-                .itemName(itemRequest.getItemName())
-                .itemDescription(itemRequest.getItemDescription())
-                .quantity(1) // Services are always quantity 1
+                .serviceId(itemRequest.getServiceId())
+                .serviceName(itemRequest.getServiceName())
+                .serviceDescription(itemRequest.getServiceDescription())
                 .unitPrice(unitPrice) // From price book
-                .discountAmount(itemRequest.getDiscountAmount())
-                .taxAmount(itemRequest.getTaxAmount())
-                .totalAmount(totalAmount)
+                .durationMinutes(durationMinutes)
                 .itemStatus(BookingItem.ItemStatus.PENDING)
                 .isActive(true)
                 .isDeleted(false)
@@ -342,7 +284,7 @@ public class IntegratedBookingService {
             
             bookingItemService.save(bookingItem);
             log.info("Created booking item for service {} with price from price book: {}", 
-                itemRequest.getItemName(), unitPrice);
+                itemRequest.getServiceName(), unitPrice);
         }
     }
     

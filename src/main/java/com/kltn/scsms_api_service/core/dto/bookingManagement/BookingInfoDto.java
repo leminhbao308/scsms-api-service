@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -80,22 +79,6 @@ public class BookingInfoDto {
     @JsonProperty("bay_name")
     private String bayName;
 
-    // Slot information
-    @JsonProperty("slot_id")
-    private UUID slotId;
-
-    @JsonProperty("slot_start_time")
-    private LocalTime slotStartTime;
-
-    @JsonProperty("slot_end_time")
-    private LocalTime slotEndTime;
-
-    @JsonProperty("slot_duration_minutes")
-    private Integer slotDurationMinutes;
-
-    @JsonProperty("slot_status")
-    private String slotStatus;
-
     // Scheduling information
     @JsonProperty("preferred_start_at")
     private LocalDateTime preferredStartAt;
@@ -119,9 +102,6 @@ public class BookingInfoDto {
     @JsonProperty("estimated_duration_minutes")
     private Integer estimatedDurationMinutes;
 
-    @JsonProperty("buffer_minutes")
-    private Integer bufferMinutes;
-
     @JsonProperty("actual_duration_minutes")
     private Long actualDurationMinutes;
 
@@ -132,9 +112,6 @@ public class BookingInfoDto {
     @JsonProperty("currency")
     private String currency;
 
-    @JsonProperty("deposit_amount")
-    private BigDecimal depositAmount;
-
     // Status information
     @JsonProperty("payment_status")
     private Booking.PaymentStatus paymentStatus;
@@ -142,18 +119,9 @@ public class BookingInfoDto {
     @JsonProperty("status")
     private Booking.BookingStatus status;
 
-    @JsonProperty("priority")
-    private Booking.Priority priority;
-
     // Additional information
-    @JsonProperty("coupon_code")
-    private String couponCode;
-
     @JsonProperty("notes")
     private String notes;
-
-    @JsonProperty("special_requests")
-    private List<String> specialRequests;
 
     // Cancellation information
     @JsonProperty("cancellation_reason")

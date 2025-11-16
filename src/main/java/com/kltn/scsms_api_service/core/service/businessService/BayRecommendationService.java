@@ -1,10 +1,8 @@
 package com.kltn.scsms_api_service.core.service.businessService;
 
-import com.kltn.scsms_api_service.core.entity.BayQueue;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.entity.ServiceBay;
-import com.kltn.scsms_api_service.core.repository.BayQueueRepository;
-import com.kltn.scsms_api_service.core.service.entityService.BayQueueService;
+import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +23,7 @@ import java.util.stream.Collectors;
 public class BayRecommendationService {
     
     private final ServiceBayService serviceBayService;
-    private final BayQueueService bayQueueService;
-    private final BayQueueRepository bayQueueRepository;
+    private final BookingService bookingService;
     
     /**
      * Đề xuất bay tốt nhất cho walk-in booking
@@ -165,13 +162,9 @@ public class BayRecommendationService {
      * Kiểm tra bay có trống không trong ngày cụ thể
      */
     private boolean isBayEmpty(UUID bayId, LocalDate queueDate) {
-        // Kiểm tra cả hàng chờ và booking đang được xử lý
-        Long queueLength = bayQueueRepository.countActiveByBayIdAndDate(bayId, queueDate);
-        
-        // Kiểm tra booking đang được xử lý trong bay
-        Long activeBookings = countActiveBookingsInBay(bayId, queueDate);
-        
-        return queueLength == 0 && activeBookings == 0;
+        // Kiểm tra WALK_IN bookings chưa kết thúc trong bay
+        List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, queueDate);
+        return walkInBookings.isEmpty();
     }
     
     /**
@@ -185,8 +178,8 @@ public class BayRecommendationService {
      * Lấy độ dài hàng chờ của bay trong ngày cụ thể
      */
     private int getBayQueueLength(UUID bayId, LocalDate queueDate) {
-        Long queueLength = bayQueueRepository.countActiveByBayIdAndDate(bayId, queueDate);
-        return queueLength.intValue();
+        List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, queueDate);
+        return walkInBookings.size();
     }
     
     /**
@@ -221,14 +214,14 @@ public class BayRecommendationService {
      * Lấy thời gian hoàn thành dự kiến của bay trong ngày cụ thể
      */
     private LocalDateTime getEstimatedCompletionTime(UUID bayId, LocalDate queueDate) {
-        List<BayQueue> queues = bayQueueRepository.findActiveByBayIdAndDate(bayId, queueDate);
-        if (queues.isEmpty()) {
+        List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, queueDate);
+        if (walkInBookings.isEmpty()) {
             return null;
         }
         
         // Lấy thời gian hoàn thành của booking cuối cùng
-        return queues.stream()
-            .map(BayQueue::getEstimatedCompletionTime)
+        return walkInBookings.stream()
+            .map(Booking::getScheduledEndAt)
             .filter(Objects::nonNull)
             .max(LocalDateTime::compareTo)
             .orElse(null);
@@ -245,34 +238,19 @@ public class BayRecommendationService {
      * Lấy thông tin hàng chờ của bay trong ngày cụ thể
      */
     private List<BookingQueueItem> getBayQueue(UUID bayId, LocalDate queueDate) {
-        List<BayQueue> queues = bayQueueRepository.findActiveByBayIdAndDate(bayId, queueDate);
+        List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, queueDate);
         
-        return queues.stream()
+        return walkInBookings.stream()
             .map(this::convertToQueueItem)
             .collect(Collectors.toList());
     }
     
     /**
-     * Chuyển đổi BayQueue thành BookingQueueItem
+     * Chuyển đổi Booking thành BookingQueueItem
      */
-    private BookingQueueItem convertToQueueItem(BayQueue queue) {
-        // Lấy thông tin booking từ BayQueue relationship
-        Booking booking = queue.getBooking();
-        
-        if (booking == null) {
-            return BookingQueueItem.builder()
-                .bookingId(queue.getBookingId())
-                .bookingCode("N/A")
-                .customerName("N/A")
-                .customerPhone("N/A")
-                .vehicleLicensePlate("N/A")
-                .serviceType("N/A")
-                .queuePosition(queue.getQueuePosition())
-                .estimatedStartTime(queue.getEstimatedStartTime())
-                .estimatedCompletionTime(queue.getEstimatedCompletionTime())
-                .status("WAITING")
-                .build();
-        }
+    private BookingQueueItem convertToQueueItem(Booking booking) {
+        // Tính queue position dựa trên số booking trước đó
+        int queuePosition = calculateQueuePosition(booking);
         
         return BookingQueueItem.builder()
             .bookingId(booking.getBookingId())
@@ -281,15 +259,35 @@ public class BayRecommendationService {
             .customerPhone(booking.getCustomerPhone())
             .vehicleLicensePlate(booking.getVehicleLicensePlate())
             .serviceType(getServiceType(booking))
-            .queuePosition(queue.getQueuePosition())
-            .estimatedStartTime(queue.getEstimatedStartTime())
-            .estimatedCompletionTime(queue.getEstimatedCompletionTime())
+            .queuePosition(queuePosition)
+            .estimatedStartTime(booking.getScheduledStartAt())
+            .estimatedCompletionTime(booking.getScheduledEndAt())
             .status(booking.getStatus().name())
             .bookingServiceNames(getBookingServiceNames(booking))
             .bookingTotalPrice(booking.getTotalPrice())
             .bookingCustomerName(booking.getCustomerName())
             .bookingVehicleLicensePlate(booking.getVehicleLicensePlate())
             .build();
+    }
+    
+    /**
+     * Tính queue position dựa trên số booking trước scheduledStartAt
+     */
+    private int calculateQueuePosition(Booking booking) {
+        if (booking.getServiceBay() == null || booking.getScheduledStartAt() == null) {
+            return 1;
+        }
+        
+        LocalDate date = booking.getScheduledStartAt().toLocalDate();
+        List<Booking> previousBookings = bookingService.findWalkInBookingsByBayAndDate(
+            booking.getServiceBay().getBayId(), date);
+        
+        long count = previousBookings.stream()
+            .filter(b -> b.getScheduledStartAt() != null && 
+                        b.getScheduledStartAt().isBefore(booking.getScheduledStartAt()))
+            .count();
+        
+        return (int) count + 1;
     }
     
     /**
@@ -311,7 +309,7 @@ public class BayRecommendationService {
     private java.util.List<String> getBookingServiceNames(Booking booking) {
         if (booking.getBookingItems() != null && !booking.getBookingItems().isEmpty()) {
             return booking.getBookingItems().stream()
-                .map(item -> item.getItemName() != null ? item.getItemName() : "Dịch vụ")
+                .map(item -> item.getServiceName() != null ? item.getServiceName() : "Dịch vụ")
                 .collect(java.util.stream.Collectors.toList());
         }
         return java.util.Arrays.asList("Dịch vụ");
@@ -598,14 +596,4 @@ public class BayRecommendationService {
         public String getReason() { return reason; }
     }
     
-    /**
-     * Đếm số booking đang được xử lý trong bay
-     */
-    private Long countActiveBookingsInBay(UUID bayId, LocalDate queueDate) {
-        // Kiểm tra booking có status đang được xử lý trong bay
-        // Tạm thời return 0 để tránh lỗi compilation
-        // TODO: Implement proper logic to count active bookings in bay
-        log.debug("Checking active bookings in bay: {} for date: {}", bayId, queueDate);
-        return 0L;
-    }
 }

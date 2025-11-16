@@ -128,12 +128,8 @@ public class BookingItemService {
         log.debug("Flushed persistence context to database");
     }
     
-    public List<BookingItem> findByItemType(BookingItem.ItemType itemType) {
-        return bookingItemRepository.findByItemTypeOrderByCreatedDateDesc(itemType);
-    }
-    
-    public List<BookingItem> findByItemId(UUID itemId) {
-        return bookingItemRepository.findByItemIdOrderByCreatedDateDesc(itemId);
+    public List<BookingItem> findByServiceId(UUID serviceId) {
+        return bookingItemRepository.findByServiceIdOrderByCreatedDateDesc(serviceId);
     }
     
     public List<BookingItem> findByItemStatus(BookingItem.ItemStatus itemStatus) {
@@ -144,10 +140,6 @@ public class BookingItemService {
         return bookingItemRepository.findByBooking_BookingIdAndItemStatusOrderByDisplayOrderAsc(bookingId, itemStatus);
     }
     
-    public List<BookingItem> findByItemTypeAndItemStatus(BookingItem.ItemType itemType, BookingItem.ItemStatus itemStatus) {
-        return bookingItemRepository.findByItemTypeAndItemStatusOrderByCreatedDateDesc(itemType, itemStatus);
-    }
-    
     public long countByBooking(UUID bookingId) {
         return bookingItemRepository.countByBooking_BookingId(bookingId);
     }
@@ -156,16 +148,8 @@ public class BookingItemService {
         return bookingItemRepository.countByItemStatus(itemStatus);
     }
     
-    public long countByItemType(BookingItem.ItemType itemType) {
-        return bookingItemRepository.countByItemType(itemType);
-    }
-    
-    public Long sumQuantityByItemType(BookingItem.ItemType itemType) {
-        return bookingItemRepository.sumQuantityByItemType(itemType);
-    }
-    
-    public BigDecimal sumTotalAmountByItemId(UUID itemId) {
-        return bookingItemRepository.sumTotalAmountByItemId(itemId);
+    public BigDecimal sumTotalAmountByServiceId(UUID serviceId) {
+        return bookingItemRepository.sumTotalAmountByServiceId(serviceId);
     }
     
     public List<Object[]> findMostPopularItems() {
@@ -178,14 +162,6 @@ public class BookingItemService {
     
     public List<BookingItem> findByDurationRange(Integer minDuration, Integer maxDuration) {
         return bookingItemRepository.findByDurationRange(minDuration, maxDuration);
-    }
-    
-    public List<BookingItem> findItemsWithDiscount() {
-        return bookingItemRepository.findItemsWithDiscount();
-    }
-    
-    public List<BookingItem> findByBookingAndItemType(UUID bookingId, BookingItem.ItemType itemType) {
-        return bookingItemRepository.findByBooking_BookingIdAndItemTypeOrderByDisplayOrderAsc(bookingId, itemType);
     }
     
     @Transactional

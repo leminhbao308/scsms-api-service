@@ -74,26 +74,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
         List<SalesOrder> findAllWithDetailsByStatus(SalesStatus status);
 
         /**
-         * Find paged sales orders with all details - TWO-STEP QUERY APPROACH
-         * <p>
-         * Step 1: Get paginated IDs (this method)
-         * <p>
-         * Step 2: Fetch full data with JOIN FETCH using IDs (findByIdInWithDetails)
-         *
-         * @deprecated Use the two-step approach: findPagedIds + findByIdInWithDetails
-         */
-        @Deprecated
-        @Query(value = "SELECT DISTINCT so FROM SalesOrder so " +
-                        "LEFT JOIN FETCH so.lines l " +
-                        "LEFT JOIN FETCH l.product p " +
-                        "LEFT JOIN FETCH p.productType " +
-                        "LEFT JOIN FETCH so.customer c " +
-                        "LEFT JOIN FETCH c.role " +
-                        "LEFT JOIN FETCH so.branch " +
-                        "WHERE so.status <> :excludeStatus", countQuery = "SELECT COUNT(DISTINCT so) FROM SalesOrder so WHERE so.status <> :excludeStatus")
-        Page<SalesOrder> findPagedWithDetails(@Param("excludeStatus") SalesStatus excludeStatus, Pageable pageable);
-
-        /**
          * STEP 1: Get paginated order IDs (lightweight query, no JOIN FETCH)
          * This query is fast and pagination works correctly in database
          * Use this with Pageable to get the correct page of IDs

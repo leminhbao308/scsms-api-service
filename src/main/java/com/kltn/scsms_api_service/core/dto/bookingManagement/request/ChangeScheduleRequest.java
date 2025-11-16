@@ -11,25 +11,26 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 /**
- * Request DTO để thay đổi slot của booking
+ * Request DTO để thay đổi schedule (bay, date, time) của booking
+ * Không còn tạo slot entity, chỉ update scheduledStartAt/scheduledEndAt
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChangeSlotRequest {
+public class ChangeScheduleRequest {
     
-    // New slot information
+    // New scheduling information
     @JsonProperty("new_bay_id")
     private UUID newBayId;
     
-    @JsonProperty("new_slot_date")
-    private LocalDate newSlotDate;
+    @JsonProperty("new_schedule_date")
+    private LocalDate newScheduleDate;
     
-    @JsonProperty("new_slot_start_time")
-    private LocalTime newSlotStartTime;
+    @JsonProperty("new_schedule_start_time")
+    private LocalTime newScheduleStartTime;
     
-    // Service duration (to calculate how many slots needed)
+    // Service duration (to calculate scheduledEndAt)
     @JsonProperty("service_duration_minutes")
     private Integer serviceDurationMinutes;
     
@@ -41,3 +42,4 @@ public class ChangeSlotRequest {
     @JsonProperty("changed_by")
     private String changedBy;
 }
+

@@ -71,8 +71,7 @@ public class ServiceProcessTrackingManagementService {
         if (carServiceId == null && booking.getBookingItems() != null && !booking.getBookingItems().isEmpty()) {
             // Get the first service from booking items
             carServiceId = booking.getBookingItems().stream()
-                    .filter(item -> item.getItemType() == BookingItem.ItemType.SERVICE)
-                    .map(BookingItem::getItemId)
+                    .map(BookingItem::getServiceId)
                     .findFirst()
                     .orElse(null);
         }

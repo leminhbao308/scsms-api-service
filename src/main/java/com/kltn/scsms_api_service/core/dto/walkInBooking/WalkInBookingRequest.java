@@ -73,9 +73,6 @@ public class WalkInBookingRequest {
     @JsonProperty("currency")
     private String currency;
     
-    @JsonProperty("deposit_amount")
-    private BigDecimal depositAmount;
-    
     // Scheduling information
     @JsonProperty("estimated_duration_minutes")
     private Integer estimatedDurationMinutes;
@@ -89,20 +86,8 @@ public class WalkInBookingRequest {
     @JsonProperty("scheduled_end_at")
     private String scheduledEndAt; // ISO string format
     
-    @JsonProperty("slot_start_time")
-    private String slotStartTime; // HH:mm format
-    
-    @JsonProperty("slot_end_time")
-    private String slotEndTime; // HH:mm format
-    
     @JsonProperty("notes")
     private String notes;
-    
-    @JsonProperty("priority")
-    private String priority;
-    
-    @JsonProperty("special_requests")
-    private List<String> specialRequests;
     
     @JsonProperty("booking_date")
     private String bookingDate; // YYYY-MM-DD format

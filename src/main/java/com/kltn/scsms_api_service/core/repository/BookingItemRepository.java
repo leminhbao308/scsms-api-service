@@ -19,14 +19,9 @@ public interface BookingItemRepository extends JpaRepository<BookingItem, UUID> 
     List<BookingItem> findByBooking_BookingIdOrderByDisplayOrderAsc(UUID bookingId);
     
     /**
-     * Tìm booking items theo loại item
+     * Tìm booking items theo service ID
      */
-    List<BookingItem> findByItemTypeOrderByCreatedDateDesc(BookingItem.ItemType itemType);
-    
-    /**
-     * Tìm booking items theo ID item
-     */
-    List<BookingItem> findByItemIdOrderByCreatedDateDesc(UUID itemId);
+    List<BookingItem> findByServiceIdOrderByCreatedDateDesc(UUID serviceId);
     
     /**
      * Tìm booking items theo trạng thái
@@ -40,12 +35,6 @@ public interface BookingItemRepository extends JpaRepository<BookingItem, UUID> 
         UUID bookingId, BookingItem.ItemStatus itemStatus);
     
     /**
-     * Tìm booking items theo loại item và trạng thái
-     */
-    List<BookingItem> findByItemTypeAndItemStatusOrderByCreatedDateDesc(
-        BookingItem.ItemType itemType, BookingItem.ItemStatus itemStatus);
-    
-    /**
      * Đếm booking items theo booking
      */
     long countByBooking_BookingId(UUID bookingId);
@@ -56,31 +45,19 @@ public interface BookingItemRepository extends JpaRepository<BookingItem, UUID> 
     long countByItemStatus(BookingItem.ItemStatus itemStatus);
     
     /**
-     * Đếm booking items theo loại item
+     * Tính tổng doanh thu theo service
      */
-    long countByItemType(BookingItem.ItemType itemType);
-    
-    /**
-     * Tính tổng số lượng item theo loại
-     */
-    @Query("SELECT SUM(bi.quantity) FROM BookingItem bi WHERE bi.itemType = :itemType " +
-           "AND bi.booking.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS')")
-    Long sumQuantityByItemType(@Param("itemType") BookingItem.ItemType itemType);
-    
-    /**
-     * Tính tổng doanh thu theo item
-     */
-    @Query("SELECT SUM(bi.totalAmount) FROM BookingItem bi WHERE bi.itemId = :itemId " +
+    @Query("SELECT SUM(bi.unitPrice) FROM BookingItem bi WHERE bi.serviceId = :serviceId " +
            "AND bi.booking.status = 'COMPLETED'")
-    java.math.BigDecimal sumTotalAmountByItemId(@Param("itemId") UUID itemId);
+    java.math.BigDecimal sumTotalAmountByServiceId(@Param("serviceId") UUID serviceId);
     
     /**
      * Tìm booking items phổ biến nhất
      */
-    @Query("SELECT bi.itemId, bi.itemName, COUNT(bi) as itemCount " +
+    @Query("SELECT bi.serviceId, bi.serviceName, COUNT(bi) as itemCount " +
            "FROM BookingItem bi " +
            "WHERE bi.booking.status = 'COMPLETED' " +
-           "GROUP BY bi.itemId, bi.itemName " +
+           "GROUP BY bi.serviceId, bi.serviceName " +
            "ORDER BY itemCount DESC")
     List<Object[]> findMostPopularItems();
     
@@ -101,19 +78,6 @@ public interface BookingItemRepository extends JpaRepository<BookingItem, UUID> 
     List<BookingItem> findByDurationRange(
         @Param("minDuration") Integer minDuration,
         @Param("maxDuration") Integer maxDuration);
-    
-    /**
-     * Tìm booking items có chiết khấu
-     */
-    @Query("SELECT bi FROM BookingItem bi WHERE bi.discountAmount > 0 " +
-           "ORDER BY bi.discountAmount DESC")
-    List<BookingItem> findItemsWithDiscount();
-    
-    /**
-     * Tìm booking items theo booking và loại item
-     */
-    List<BookingItem> findByBooking_BookingIdAndItemTypeOrderByDisplayOrderAsc(
-        UUID bookingId, BookingItem.ItemType itemType);
     
     /**
      * Xóa booking items theo booking
