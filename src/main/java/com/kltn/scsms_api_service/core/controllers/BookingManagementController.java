@@ -102,6 +102,21 @@ public class BookingManagementController {
         return ResponseBuilder.success(bookings);
     }
 
+    @GetMapping(ApiConstant.GET_BOOKINGS_FOR_MANAGEMENT_API)
+    @Operation(summary = "Get bookings for management", 
+               description = "Retrieve all bookings with statuses: CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED for vehicle care management. Sorted by scheduledStartAt DESC")
+    @SwaggerOperation(summary = "Get bookings for management")
+    public ResponseEntity<ApiResponse<List<BookingInfoDto>>> getBookingsForManagement() {
+        List<Booking.BookingStatus> statuses = List.of(
+            Booking.BookingStatus.CHECKED_IN,
+            Booking.BookingStatus.IN_PROGRESS,
+            Booking.BookingStatus.CANCELLED,
+            Booking.BookingStatus.COMPLETED
+        );
+        List<BookingInfoDto> bookings = bookingManagementService.getBookingsByStatuses(statuses);
+        return ResponseBuilder.success(bookings);
+    }
+
     @GetMapping(ApiConstant.GET_BOOKING_STATISTICS_API)
     @Operation(summary = "Get booking statistics", description = "Get booking statistics for a specific branch and date")
     @SwaggerOperation(summary = "Get booking statistics")

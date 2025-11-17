@@ -142,6 +142,18 @@ public class BookingManagementService {
     }
 
     /**
+     * Lấy booking theo nhiều trạng thái
+     * Dùng để quản lý chăm sóc xe (CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED)
+     */
+    public List<BookingInfoDto> getBookingsByStatuses(List<Booking.BookingStatus> statuses) {
+        log.info("Getting bookings with statuses: {}", statuses);
+        List<Booking> bookings = bookingService.findByStatusIn(statuses);
+        return bookings.stream()
+                .map(bookingMapper::toBookingInfoDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Lấy booking sắp tới của khách hàng
      */
     public List<BookingInfoDto> getUpcomingBookingsByCustomer(UUID customerId) {

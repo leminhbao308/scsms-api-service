@@ -60,6 +60,24 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
        List<Booking> findByStatusOrderByScheduledStartAtAsc(Booking.BookingStatus status);
 
        /**
+        * Tìm booking theo nhiều trạng thái
+        * Dùng để lấy booking cho quản lý chăm sóc xe (CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED)
+        */
+       @Query("SELECT b FROM Booking b WHERE b.status IN :statuses " +
+                     "ORDER BY b.scheduledStartAt DESC")
+       List<Booking> findByStatusInOrderByScheduledStartAtDesc(@Param("statuses") List<Booking.BookingStatus> statuses);
+
+       /**
+        * Tìm booking theo chi nhánh và nhiều trạng thái
+        */
+       @Query("SELECT b FROM Booking b WHERE b.branch.branchId = :branchId " +
+                     "AND b.status IN :statuses " +
+                     "ORDER BY b.scheduledStartAt DESC")
+       List<Booking> findByBranchAndStatusInOrderByScheduledStartAtDesc(
+                     @Param("branchId") UUID branchId,
+                     @Param("statuses") List<Booking.BookingStatus> statuses);
+
+       /**
         * Tìm booking theo chi nhánh và trạng thái
         */
        List<Booking> findByBranch_BranchIdAndStatusOrderByScheduledStartAtAsc(UUID branchId,

@@ -470,6 +470,7 @@ public class ApiConstant {
         public static final String GET_BOOKINGS_BY_BRANCH_API = "/branches/{branchId}/bookings";
         public static final String GET_BOOKINGS_BY_BRANCH_AND_DATE_API = "/branches/{branchId}/bookings/date/{bookingDate}";
         public static final String GET_BOOKINGS_BY_STATUS_API = BOOKING_MANAGEMENT_PREFIX + "/status/{status}";
+        public static final String GET_BOOKINGS_FOR_MANAGEMENT_API = BOOKING_MANAGEMENT_PREFIX + "/management";
         public static final String GET_BOOKING_STATISTICS_API = "/branches/{branchId}/bookings/statistics/date/{date}";
         public static final String CREATE_BOOKING_WITH_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX + "/create-with-schedule";
         public static final String UPDATE_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/update";
@@ -771,6 +772,7 @@ public class ApiConstant {
                                 apiPrefix + GET_BOOKINGS_BY_BRANCH_API,
                                 apiPrefix + GET_BOOKINGS_BY_BRANCH_AND_DATE_API,
                                 apiPrefix + GET_BOOKINGS_BY_STATUS_API,
+                                apiPrefix + GET_BOOKINGS_FOR_MANAGEMENT_API,
                                 apiPrefix + GET_BOOKING_STATISTICS_API,
                                 apiPrefix + CREATE_BOOKING_WITH_SCHEDULE_API,
                                 apiPrefix + UPDATE_BOOKING_API,

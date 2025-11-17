@@ -109,6 +109,14 @@ public class BookingService {
         return bookingRepository.findByStatusOrderByScheduledStartAtAsc(status);
     }
 
+    public List<Booking> findByStatusIn(List<Booking.BookingStatus> statuses) {
+        return bookingRepository.findByStatusInOrderByScheduledStartAtDesc(statuses);
+    }
+
+    public List<Booking> findByBranchAndStatusIn(UUID branchId, List<Booking.BookingStatus> statuses) {
+        return bookingRepository.findByBranchAndStatusInOrderByScheduledStartAtDesc(branchId, statuses);
+    }
+
     public List<Booking> findByBranchAndStatus(UUID branchId, Booking.BookingStatus status) {
         return bookingRepository.findByBranch_BranchIdAndStatusOrderByScheduledStartAtAsc(branchId, status);
     }
