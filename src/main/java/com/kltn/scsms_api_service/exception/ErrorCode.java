@@ -77,6 +77,8 @@ public enum ErrorCode {
     BOOKING_CANNOT_BE_STARTED("SCS-8008", "SCS-8008", "BOOKING", "Booking cannot be started", "error.booking_cannot_be_started"),
     BOOKING_CANNOT_BE_COMPLETED("SCS-8009", "SCS-8009", "BOOKING", "Booking cannot be completed", "error.booking_cannot_be_completed"),
     BOOKING_TIME_CONFLICT("SCS-8010", "SCS-8010", "BOOKING", "Booking time conflict", "error.booking_time_conflict"),
+    WALK_IN_DURATION_INCREASE_REQUIRES_BAY_CHANGE("SCS-8011", "SCS-8011", "BOOKING", "Walk-in booking duration increase requires bay change due to queue conflict", "error.walk_in_duration_increase_requires_bay_change"),
+    SLOT_BOOKING_DURATION_INCREASE_REQUIRES_SLOT_CHANGE("SCS-8012", "SCS-8012", "BOOKING", "Slot booking duration increase requires slot change due to time conflict", "error.slot_booking_duration_increase_requires_slot_change"),
     
     // Booking Item related errors
     BOOKING_ITEM_NOT_FOUND("SCS-9001", "SCS-9001", "BOOKING_ITEM", "Booking item not found", "error.booking_item_not_found"),

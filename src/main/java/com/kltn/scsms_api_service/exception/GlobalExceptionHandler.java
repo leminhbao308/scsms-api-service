@@ -31,6 +31,7 @@ public class GlobalExceptionHandler {
         private String message;
         private String path;
         private String errorCode;
+        private Object data; // Additional data for error context (e.g., alternative bay for walk-in booking)
     }
     
     /**
@@ -49,6 +50,7 @@ public class GlobalExceptionHandler {
             .message(ex.getMessage())
             .path(getRequestPath(request))
             .errorCode(ex.getCode() != null ? ex.getCode().name() : null)
+            .data(ex.getData()) // Include additional data if available
             .build();
         
         // Log client errors at WARN level

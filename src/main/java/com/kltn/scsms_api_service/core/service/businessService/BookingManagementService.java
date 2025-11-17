@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -260,7 +262,27 @@ public class BookingManagementService {
 
         // Xử lý cập nhật booking items (dịch vụ) nếu có
         if (request.getBookingItems() != null) {
+            // Lưu duration ban đầu để so sánh
+            Integer originalDuration = existingBooking.getEstimatedDurationMinutes();
             updateBookingItems(bookingId, request.getBookingItems(), existingBooking);
+            
+            // Kiểm tra walk-in booking tăng thời gian và có booking sau
+            if (existingBooking.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.WALK_IN
+                    && existingBooking.getEstimatedDurationMinutes() != null
+                    && originalDuration != null
+                    && existingBooking.getEstimatedDurationMinutes() > originalDuration) {
+                validateWalkInDurationIncrease(existingBooking, originalDuration);
+            }
+            
+            // Kiểm tra slot booking tăng thời gian và cần slot mới
+            if (existingBooking.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.SCHEDULED
+                    && existingBooking.getEstimatedDurationMinutes() != null
+                    && originalDuration != null
+                    && existingBooking.getEstimatedDurationMinutes() > originalDuration
+                    && existingBooking.getScheduledStartAt() != null
+                    && existingBooking.getServiceBay() != null) {
+                validateSlotBookingDurationIncrease(existingBooking, originalDuration);
+            }
         }
 
         Booking savedBooking = bookingService.update(updatedBooking);
@@ -988,15 +1010,111 @@ public class BookingManagementService {
                 .sum();
         booking.setEstimatedDurationMinutes(totalDuration > 0 ? totalDuration : null);
 
-        // Cập nhật scheduledEndAt nếu là booking đặt trước và có scheduledStartAt
-        if (!booking.getBookingCode().startsWith("WALK") 
-                && booking.getScheduledStartAt() != null 
-                && totalDuration != null && totalDuration > 0) {
+        // Cập nhật scheduledEndAt nếu có scheduledStartAt
+        if (booking.getScheduledStartAt() != null && totalDuration != null && totalDuration > 0) {
             booking.setScheduledEndAt(booking.getScheduledStartAt().plusMinutes(totalDuration));
             log.info("Updated scheduledEndAt to: {}", booking.getScheduledEndAt());
         }
 
         log.info("Recalculated booking totals - totalPrice: {}, estimatedDurationMinutes: {}", 
                 totalPrice, totalDuration);
+    }
+    
+    /**
+     * Kiểm tra walk-in booking tăng thời gian có booking sau trong hàng đợi không
+     * Nếu có booking sau, từ chối và yêu cầu user chọn bay khác
+     */
+    private void validateWalkInDurationIncrease(Booking booking, Integer originalDuration) {
+        log.info("Validating walk-in booking duration increase: bookingId={}, originalDuration={}, newDuration={}", 
+                booking.getBookingId(), originalDuration, booking.getEstimatedDurationMinutes());
+        
+        // Chỉ kiểm tra nếu là walk-in booking và có bay
+        if (booking.getServiceBay() == null || booking.getScheduledStartAt() == null) {
+            log.warn("Cannot validate: booking has no bay or scheduledStartAt");
+            return;
+        }
+        
+        UUID bayId = booking.getServiceBay().getBayId();
+        LocalDate bookingDate = booking.getScheduledStartAt().toLocalDate();
+        
+        // Tính thời gian kết thúc mới
+        LocalDateTime newScheduledEndAt = booking.getScheduledStartAt()
+                .plusMinutes(booking.getEstimatedDurationMinutes());
+        
+        // Kiểm tra conflict với booking khác trong cùng bay
+        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
+                bayId, booking.getScheduledStartAt(), newScheduledEndAt);
+        
+        if (!isBayAvailable) {
+            List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+                    bayId, booking.getScheduledStartAt(), newScheduledEndAt);
+            
+            // Exclude current booking from conflict check
+            conflictingBookings = conflictingBookings.stream()
+                    .filter(b -> !b.getBookingId().equals(booking.getBookingId()))
+                    .collect(Collectors.toList());
+            
+            if (!conflictingBookings.isEmpty()) {
+                log.warn("Cannot increase duration: found {} conflicting bookings", conflictingBookings.size());
+                throw new ClientSideException(
+                        ErrorCode.WALK_IN_DURATION_INCREASE_REQUIRES_BAY_CHANGE,
+                        "Tổng thời gian dịch vụ bạn chọn vượt quá thời gian có sẵn trong bay hiện tại do đã có booking khác. " +
+                                "Vui lòng chọn bay khác hoặc giảm số lượng/bớt dịch vụ.");
+            }
+        }
+        
+        log.info("Duration increase validated: no conflicts found");
+    }
+    
+    /**
+     * Kiểm tra slot booking tăng thời gian có conflict với booking khác không
+     * Nếu có conflict, từ chối và yêu cầu user chọn slot khác
+     */
+    private void validateSlotBookingDurationIncrease(Booking booking, Integer originalDuration) {
+        log.info("Validating slot booking duration increase: bookingId={}, originalDuration={}, newDuration={}", 
+                booking.getBookingId(), originalDuration, booking.getEstimatedDurationMinutes());
+        
+        // Chỉ kiểm tra nếu là slot booking và có bay, scheduledStartAt
+        if (booking.getServiceBay() == null || booking.getScheduledStartAt() == null) {
+            log.warn("Cannot validate: booking has no bay or scheduledStartAt");
+            return;
+        }
+        
+        UUID bayId = booking.getServiceBay().getBayId();
+        LocalDateTime scheduledStartAt = booking.getScheduledStartAt();
+        LocalDateTime newScheduledEndAt = scheduledStartAt.plusMinutes(booking.getEstimatedDurationMinutes());
+        
+        // Tính thời gian kết thúc ban đầu
+        LocalDateTime originalScheduledEndAt = scheduledStartAt.plusMinutes(originalDuration);
+        
+        // Nếu thời gian mới vẫn nằm trong slot ban đầu, không cần kiểm tra
+        if (newScheduledEndAt.isBefore(originalScheduledEndAt) || newScheduledEndAt.equals(originalScheduledEndAt)) {
+            log.info("New duration still fits within original slot, no validation needed");
+            return;
+        }
+        
+        // Kiểm tra conflict với booking khác
+        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
+                bayId, scheduledStartAt, newScheduledEndAt);
+        
+        if (!isBayAvailable) {
+            List<Booking> conflictingBookings = bookingService.findConflictingBookings(
+                    bayId, scheduledStartAt, newScheduledEndAt);
+            
+            // Exclude current booking from conflict check
+            conflictingBookings = conflictingBookings.stream()
+                    .filter(b -> !b.getBookingId().equals(booking.getBookingId()))
+                    .collect(Collectors.toList());
+            
+            if (!conflictingBookings.isEmpty()) {
+                log.warn("Cannot increase duration: found {} conflicting bookings", conflictingBookings.size());
+                throw new ClientSideException(
+                        ErrorCode.SLOT_BOOKING_DURATION_INCREASE_REQUIRES_SLOT_CHANGE,
+                        "Tổng thời gian dịch vụ bạn chọn vượt quá thời gian slot hiện tại do đã có booking khác. " +
+                                "Vui lòng chọn thời gian slot khác hoặc giảm số lượng/bớt dịch vụ.");
+            }
+        }
+        
+        log.info("Duration increase validated: no conflicts found");
     }
 }
