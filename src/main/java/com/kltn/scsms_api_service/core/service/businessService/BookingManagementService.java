@@ -251,6 +251,13 @@ public class BookingManagementService {
             handleScheduleChange(updatedBooking, request);
         }
 
+        // Xử lý thay đổi bay cho walk-in booking nếu có
+        if (request.getServiceBayId() != null
+                && existingBooking.getBookingType() != null
+                && existingBooking.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.WALK_IN) {
+            handleWalkInBayChange(updatedBooking, request);
+        }
+
         // Xử lý cập nhật booking items (dịch vụ) nếu có
         if (request.getBookingItems() != null) {
             updateBookingItems(bookingId, request.getBookingItems(), existingBooking);
@@ -726,6 +733,75 @@ public class BookingManagementService {
 
         log.info("Successfully updated schedule for booking: {} to bay: {} at {}",
                 booking.getBookingId(), newBayId, newScheduledStartAt);
+    }
+
+    /**
+     * Xử lý thay đổi bay cho walk-in booking
+     * Walk-in booking không có scheduled time cố định, chỉ cần validate bay thuộc branch
+     */
+    private void handleWalkInBayChange(Booking booking, UpdateBookingRequest request) {
+        log.info("Handling bay change for walk-in booking: {}", booking.getBookingId());
+
+        UUID newBayId = request.getServiceBayId();
+        if (newBayId == null) {
+            log.warn("No bay ID provided for walk-in booking, skipping");
+            return;
+        }
+
+        // Check if bay has actually changed
+        UUID currentBayId = booking.getServiceBay() != null ? booking.getServiceBay().getBayId() : null;
+        if (currentBayId != null && newBayId.equals(currentBayId)) {
+            log.info("Bay has not changed, skipping update");
+            return;
+        }
+
+        // Get new service bay
+        ServiceBay newServiceBay = serviceBayService.getById(newBayId);
+
+        // Validate bay belongs to booking's branch
+        if (newServiceBay.getBranch() == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Service bay must have an associated branch");
+        }
+
+        UUID newBayBranchId = newServiceBay.getBranch().getBranchId();
+        UUID bookingBranchId = booking.getBranch() != null ? booking.getBranch().getBranchId() : null;
+
+        if (bookingBranchId == null) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Booking must have an associated branch");
+        }
+
+        if (!newBayBranchId.equals(bookingBranchId)) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    String.format("Service bay '%s' does not belong to booking's branch. " +
+                            "Bay belongs to branch '%s', but booking belongs to branch '%s'",
+                            newServiceBay.getBayName(),
+                            newServiceBay.getBranch().getBranchName(),
+                            booking.getBranch().getBranchName()));
+        }
+
+        // Validate bay is active
+        if (!newServiceBay.getIsActive()) {
+            throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "Service bay is not active: " + newServiceBay.getBayName());
+        }
+
+        // Only validate allowBooking if bay is actually changing
+        // If keeping the same bay, we don't need to check allowBooking as it's already in use
+        if (!newServiceBay.getAllowBooking()) {
+            log.warn("Service bay '{}' does not allow booking, but proceeding as it may be the current bay or a valid exception",
+                    newServiceBay.getBayName());
+            // For walk-in bookings, we allow updating to a bay even if allowBooking is false
+            // as the bay might be temporarily disabled but still usable for existing bookings
+            // or it might be a special case for walk-in bookings
+        }
+
+        // Update bay for walk-in booking
+        booking.setServiceBay(newServiceBay);
+
+        log.info("Successfully updated bay for walk-in booking: {} to bay: {}",
+                booking.getBookingId(), newBayId);
     }
 
     /**

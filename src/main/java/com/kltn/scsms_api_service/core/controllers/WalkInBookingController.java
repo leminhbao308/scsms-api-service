@@ -87,14 +87,18 @@ public class WalkInBookingController {
     
         /**
          * Lấy thông tin hàng chờ của một bay
+         * @param bayId ID của bay
+         * @param queueDate Ngày cần lấy queue (optional, mặc định là hôm nay)
+         * @param includeBookingId ID của booking cần include vào queue (optional, dùng khi update booking để luôn hiển thị booking hiện tại)
          */
         @GetMapping(ApiConstant.GET_BAY_QUEUE_API)
         @Operation(summary = "Lấy hàng chờ bay", description = "Lấy thông tin hàng chờ của một bay")
         public ResponseEntity<List<BookingQueueItemResponse>> getBayQueue(
                 @PathVariable UUID bayId,
-                @RequestParam(required = false) String queueDate) {
+                @RequestParam(required = false) String queueDate,
+                @RequestParam(required = false) UUID includeBookingId) {
         try {
-            log.info("🔍 DEBUG: Getting bay queue for bay: {} on date: {}", bayId, queueDate);
+            log.info("🔍 DEBUG: Getting bay queue for bay: {} on date: {}, includeBookingId: {}", bayId, queueDate, includeBookingId);
 
             // Parse ngày nếu có
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
@@ -103,6 +107,47 @@ public class WalkInBookingController {
             // Lấy thông tin WALK_IN bookings của bay
             List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, parsedQueueDate);
             log.info("🔍 DEBUG: Found {} walk-in bookings for bay {}", walkInBookings.size(), bayId);
+            
+            // Nếu có includeBookingId, thêm booking đó vào queue nếu chưa có
+            if (includeBookingId != null) {
+                // Kiểm tra xem booking đã có trong queue chưa
+                boolean alreadyInQueue = walkInBookings.stream()
+                    .anyMatch(b -> b.getBookingId().equals(includeBookingId));
+                
+                if (!alreadyInQueue) {
+                    try {
+                        // Lấy booking từ database với đầy đủ thông tin (bookingItems, serviceBay, etc.)
+                        // Sử dụng getByIdWithDetails() để load related entities
+                        Booking bookingToInclude = bookingService.getByIdWithDetails(includeBookingId);
+                        if (bookingToInclude != null 
+                                && bookingToInclude.getBookingType() == com.kltn.scsms_api_service.core.entity.enumAttribute.BookingType.WALK_IN
+                                && bookingToInclude.getServiceBay() != null
+                                && bookingToInclude.getServiceBay().getBayId().equals(bayId)
+                                && bookingToInclude.getScheduledStartAt() != null
+                                && bookingToInclude.getScheduledStartAt().toLocalDate().equals(parsedQueueDate)) {
+                            log.info("🔍 DEBUG: Including booking {} in queue even though it may have passed scheduledEndAt", includeBookingId);
+                            walkInBookings.add(bookingToInclude);
+                            // Sort lại theo scheduledStartAt
+                            walkInBookings.sort((b1, b2) -> {
+                                if (b1.getScheduledStartAt() == null) return 1;
+                                if (b2.getScheduledStartAt() == null) return -1;
+                                return b1.getScheduledStartAt().compareTo(b2.getScheduledStartAt());
+                            });
+                        } else {
+                            log.warn("🔍 DEBUG: Cannot include booking {} - validation failed: bookingType={}, hasServiceBay={}, bayIdMatch={}, hasScheduledStartAt={}, dateMatch={}", 
+                                includeBookingId,
+                                bookingToInclude != null ? bookingToInclude.getBookingType() : "null",
+                                bookingToInclude != null && bookingToInclude.getServiceBay() != null,
+                                bookingToInclude != null && bookingToInclude.getServiceBay() != null && bookingToInclude.getServiceBay().getBayId().equals(bayId),
+                                bookingToInclude != null && bookingToInclude.getScheduledStartAt() != null,
+                                bookingToInclude != null && bookingToInclude.getScheduledStartAt() != null && bookingToInclude.getScheduledStartAt().toLocalDate().equals(parsedQueueDate));
+                        }
+                    } catch (Exception e) {
+                        log.warn("🔍 DEBUG: Cannot include booking {} - error loading booking: {}", includeBookingId, e.getMessage());
+                        // Continue without including the booking if it doesn't exist or has errors
+                    }
+                }
+            }
             
             // Convert to response DTOs
             List<BookingQueueItemResponse> queueItems = walkInBookings.stream()
