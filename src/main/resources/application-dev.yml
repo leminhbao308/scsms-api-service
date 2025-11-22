@@ -23,6 +23,10 @@ logging:
     com.kltn.scsms_api_service: TRACE
     root: warn
     web: debug
+    # Enable STOMP protocol logging để debug WebSocket connection issues
+    org.springframework.messaging.simp: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.web.socket.messaging: DEBUG
 
 app:
   cors:
