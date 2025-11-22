@@ -19,6 +19,8 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.core.entity.Token;
+import com.kltn.scsms_api_service.core.dto.auth.response.SessionInfoDto;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.UserMapper;
@@ -30,7 +32,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -45,7 +49,7 @@ public class AuthService {
     private final TokenService tokenService;
     private final RoleService roleService;
     
-    public ApiResponse<?> login(@Valid LoginRequest request) {
+    public ApiResponse<?> login(@Valid LoginRequest request, HttpServletRequest httpRequest) {
         // Validate that either email or phoneNumber is provided
         if ((request.getEmail() == null || request.getEmail().trim().isEmpty()) &&
             (request.getPhoneNumber() == null || request.getPhoneNumber().trim().isEmpty())) {
@@ -73,10 +77,20 @@ public class AuthService {
             throw new ClientSideException(ErrorCode.UNAUTHORIZED, "User account is inactive or deleted");
         
         if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            // Revoke old tokens and generate new ones
-            tokenService.revokeAllUserTokens(user.getUserId());
+            // Generate device ID if not provided (for backward compatibility)
+            String deviceId = request.getDeviceId();
+            if (deviceId == null || deviceId.trim().isEmpty()) {
+                deviceId = java.util.UUID.randomUUID().toString();
+            }
             
-            Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(user);
+            // Extract device info from request
+            String deviceName = request.getDeviceName();
+            String ipAddress = extractIpAddress(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            
+            // Generate new tokens WITHOUT revoking old ones (multi-device support)
+            Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(
+                user, deviceId, deviceName, ipAddress, userAgent);
             
             user.setLastLogin(LocalDateTime.now());
             userService.saveUser(user);
@@ -87,7 +101,7 @@ public class AuthService {
         }
     }
     
-    public ApiResponse<?> refreshToken(@Valid RefreshTokenRequest request) {
+    public ApiResponse<?> refreshToken(@Valid RefreshTokenRequest request, HttpServletRequest httpRequest) {
         String refreshToken = request.getRefreshToken();
         
         if (!tokenService.isValidTokenAndNotExpired(refreshToken) || !tokenService.isRefreshToken(refreshToken)) {
@@ -104,7 +118,21 @@ public class AuthService {
         if (!user.getIsActive() || user.getIsDeleted())
             throw new ClientSideException(ErrorCode.UNAUTHORIZED, "User account is inactive or deleted");
         
-        Map<TokenType, String> tokens = tokenService.refreshTokens(user);
+        // Extract device info from refresh token claims or request
+        String deviceId = tokenService.getDeviceIdFromToken(refreshToken);
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            // Fallback: generate new device ID if not in token (for backward compatibility)
+            deviceId = java.util.UUID.randomUUID().toString();
+        }
+        
+        // Get device info from token or request
+        String deviceName = null;
+        String ipAddress = extractIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        
+        // Refresh tokens for this specific device (doesn't revoke other devices)
+        Map<TokenType, String> tokens = tokenService.refreshTokens(
+            user, deviceId, deviceName, ipAddress, userAgent);
         
         user.setLastLogin(LocalDateTime.now());
         userService.saveUser(user);
@@ -112,10 +140,22 @@ public class AuthService {
         return buildAuthResponse(tokens, user);
     }
     
-    public void logout(LogoutRequest request) {
-        // Revoke tokens based on the access token in the Authorization header
-        String userId = tokenService.getUserIdFromToken(request.getRefreshToken());
-        tokenService.revokeAllUserTokens(java.util.UUID.fromString(userId));
+    public void logout(LogoutRequest request, HttpServletRequest httpRequest) {
+        String refreshToken = request.getRefreshToken();
+        
+        // Get device ID from refresh token
+        String deviceId = tokenService.getDeviceIdFromToken(refreshToken);
+        String userId = tokenService.getUserIdFromToken(refreshToken);
+        
+        if (deviceId != null && !deviceId.trim().isEmpty()) {
+            // Revoke only tokens for this specific device
+            tokenService.revokeTokensByDeviceId(java.util.UUID.fromString(userId), deviceId);
+            log.info("Logout: Revoked tokens for userId: {} and deviceId: {}", userId, deviceId);
+        } else {
+            // Fallback: if no device ID, revoke all tokens (backward compatibility)
+            tokenService.revokeAllUserTokens(java.util.UUID.fromString(userId));
+            log.info("Logout: Revoked all tokens for userId: {} (no device ID found)", userId);
+        }
     }
     
     public void changePassword(@Valid ChangePasswordRequest request, HttpServletRequest httpRequest) {
@@ -172,6 +212,21 @@ public class AuthService {
         }
         throw new IllegalArgumentException("Invalid or empty authorization header");
     }
+
+    private String extractIpAddress(HttpServletRequest request) {
+        String ipAddress = request.getHeader("X-Forwarded-For");
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            ipAddress = request.getHeader("X-Real-IP");
+        }
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            ipAddress = request.getRemoteAddr();
+        }
+        // Handle multiple IPs (X-Forwarded-For can contain multiple IPs)
+        if (ipAddress != null && ipAddress.contains(",")) {
+            ipAddress = ipAddress.split(",")[0].trim();
+        }
+        return ipAddress;
+    }
     
     public ApiResponse<?> register(RegisterRequest registerRequest) {
         // Validate email not already in use (only if email is provided)
@@ -209,6 +264,71 @@ public class AuthService {
         
         Map<TokenType, String> tokens = tokenService.generateAndSaveTokens(createdUser);
         return buildAuthResponse(tokens, createdUser);
+    }
+
+    /**
+     * Get all active sessions for current user
+     */
+    public List<SessionInfoDto> getActiveSessions(String accessToken) {
+        String userId = tokenService.getUserIdFromToken(accessToken);
+        String currentDeviceId = tokenService.getDeviceIdFromToken(accessToken);
+        
+        List<Token> activeTokens = tokenService.getActiveTokensByUser(
+            java.util.UUID.fromString(userId), TokenType.ACCESS);
+        
+        return activeTokens.stream()
+            .map(token -> {
+                boolean isCurrentDevice = token.getDeviceId() != null 
+                    && token.getDeviceId().equals(currentDeviceId);
+                
+                return SessionInfoDto.builder()
+                    .deviceId(token.getDeviceId())
+                    .deviceName(token.getDeviceName())
+                    .ipAddress(token.getIpAddress())
+                    .userAgent(token.getUserAgent())
+                    .createdAt(token.getCreatedAt())
+                    .lastActivity(token.getUpdatedAt())
+                    .isCurrentDevice(isCurrentDevice)
+                    .build();
+            })
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Logout specific device by device ID
+     */
+    public void logoutDevice(String accessToken, String deviceId) {
+        String userId = tokenService.getUserIdFromToken(accessToken);
+        tokenService.revokeTokensByDeviceId(java.util.UUID.fromString(userId), deviceId);
+        log.info("Logout device: userId={}, deviceId={}", userId, deviceId);
+    }
+
+    /**
+     * Logout all devices except current device
+     */
+    public void logoutAllOtherDevices(String accessToken) {
+        String userId = tokenService.getUserIdFromToken(accessToken);
+        String currentDeviceId = tokenService.getDeviceIdFromToken(accessToken);
+        
+        if (currentDeviceId == null || currentDeviceId.trim().isEmpty()) {
+            // If no device ID, logout all (backward compatibility)
+            tokenService.revokeAllUserTokens(java.util.UUID.fromString(userId));
+            log.info("Logout all devices: userId={} (no current device ID)", userId);
+            return;
+        }
+        
+        // Get all active tokens
+        List<Token> activeTokens = tokenService.getActiveTokensByUser(
+            java.util.UUID.fromString(userId), TokenType.ACCESS);
+        
+        // Revoke all tokens except current device
+        for (Token token : activeTokens) {
+            if (token.getDeviceId() != null && !token.getDeviceId().equals(currentDeviceId)) {
+                tokenService.revokeTokenByValue(token.getToken());
+            }
+        }
+        
+        log.info("Logout all other devices: userId={}, currentDeviceId={}", userId, currentDeviceId);
     }
     
     private ApiResponse<?> buildAuthResponse(Map<TokenType, String> tokens, User user) {

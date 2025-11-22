@@ -34,5 +34,15 @@ public interface TokenRepository extends JpaRepository<Token, String> {
         "UPDATE Token t SET t.revoked = true, t.expired = true WHERE t.user.userId = :userId AND t.revoked = false")
     int revokeAllUserTokens(@Param("userId") UUID userId);
     
+    // Revoke tokens by device ID
+    @Modifying
+    @Query(
+        "UPDATE Token t SET t.revoked = true, t.expired = true WHERE t.user.userId = :userId AND t.deviceId = :deviceId AND t.revoked = false")
+    int revokeTokensByDeviceId(@Param("userId") UUID userId, @Param("deviceId") String deviceId);
+    
+    // Find all valid tokens by user (for session management)
+    @Query("SELECT t FROM Token t WHERE t.user.userId = :userId AND t.revoked = false AND t.expired = false AND t.type = :type ORDER BY t.createdAt DESC")
+    List<Token> findActiveTokensByUserAndType(@Param("userId") UUID userId, @Param("type") TokenType type);
+    
     void deleteAllByExpiredAndRevokedAndExpiresAtBefore(boolean expired, boolean revoked, LocalDateTime expiresAtBefore);
 }

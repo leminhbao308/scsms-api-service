@@ -42,4 +42,16 @@ public class Token {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Column(name = "device_id", length = 255)
+    private String deviceId;
+
+    @Column(name = "device_name", length = 255)
+    private String deviceName;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
 }

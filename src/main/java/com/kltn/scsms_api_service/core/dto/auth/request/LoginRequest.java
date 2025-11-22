@@ -16,4 +16,10 @@ public class LoginRequest {
     private String phoneNumber;
 
     private String password;
+
+    @JsonProperty("device_id")
+    private String deviceId;
+
+    @JsonProperty("device_name")
+    private String deviceName;
 }

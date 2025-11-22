@@ -37,6 +37,11 @@ public class TokenService {
     private final PermissionService permissionService;
 
     private void saveTokens(UUID userId, Map<TokenType, String> tokens) {
+        saveTokens(userId, tokens, null, null, null, null);
+    }
+
+    private void saveTokens(UUID userId, Map<TokenType, String> tokens, 
+                           String deviceId, String deviceName, String ipAddress, String userAgent) {
         User user = userRepository.getReferenceById(userId);
 
         // Batch insert tokens
@@ -53,13 +58,17 @@ public class TokenService {
                     .revoked(false)
                     .expired(false)
                     .expiresAt(LocalDateTime.now().plusSeconds(tokenExpirationTime / 1000))
+                    .deviceId(deviceId)
+                    .deviceName(deviceName)
+                    .ipAddress(ipAddress)
+                    .userAgent(userAgent)
                     .build();
 
             tokenEntities.add(token);
         });
 
         tokenRepository.saveAll(tokenEntities);
-        log.info("JWT - Saved {} tokens for userId: {}", tokenEntities.size(), userId);
+        log.info("JWT - Saved {} tokens for userId: {} with device: {}", tokenEntities.size(), userId, deviceId);
     }
 
     public void revokeAllUserTokens(UUID userId) {
@@ -106,6 +115,12 @@ public class TokenService {
     }
 
     public Map<TokenType, String> generateAndSaveTokens(User user) {
+        return generateAndSaveTokens(user, null, null, null, null);
+    }
+
+    public Map<TokenType, String> generateAndSaveTokens(User user, 
+                                                       String deviceId, String deviceName, 
+                                                       String ipAddress, String userAgent) {
         Map<String, Object> accessTokenClaims = new HashMap<>();
         accessTokenClaims.put("sub", user.getUserId().toString());
         accessTokenClaims.put("full_name", user.getFullName());
@@ -114,10 +129,16 @@ public class TokenService {
         accessTokenClaims.put("role", user.getRole().getRoleCode());
         accessTokenClaims.put("type", TokenType.ACCESS.toString());
         accessTokenClaims.put("permissions", permissionService.getUserPermissionCodes(user));
+        if (deviceId != null) {
+            accessTokenClaims.put("device_id", deviceId);
+        }
 
         Map<String, Object> refreshTokenClaims = new HashMap<>();
         refreshTokenClaims.put("sub", user.getUserId().toString());
         refreshTokenClaims.put("type", TokenType.REFRESH.toString());
+        if (deviceId != null) {
+            refreshTokenClaims.put("device_id", deviceId);
+        }
 
         String accessToken = generateToken(accessTokenClaims, jwtTokenProperties.getAccessTokenExpiresIn());
         String refreshToken = generateToken(refreshTokenClaims, jwtTokenProperties.getRefreshTokenExpiresIn());
@@ -126,7 +147,7 @@ public class TokenService {
         tokens.put(TokenType.ACCESS, accessToken);
         tokens.put(TokenType.REFRESH, refreshToken);
 
-        saveTokens(user.getUserId(), tokens);
+        saveTokens(user.getUserId(), tokens, deviceId, deviceName, ipAddress, userAgent);
         return tokens;
     }
 
@@ -148,6 +169,16 @@ public class TokenService {
 
         // Both ACCESS and REFRESH tokens use 'sub' claim for user ID
         return claims.get("sub", String.class);
+    }
+
+    public String getDeviceIdFromToken(String token) {
+        try {
+            Claims claims = getClaimsFromToken(token);
+            return claims.get("device_id", String.class);
+        } catch (Exception e) {
+            log.warn("Failed to extract device_id from token: {}", e.getMessage());
+            return null;
+        }
     }
 
     public Claims getClaimsFromToken(final String token) {
@@ -214,11 +245,33 @@ public class TokenService {
     }
 
     public Map<TokenType, String> refreshTokens(User user) {
+        return refreshTokens(user, null, null, null, null);
+    }
 
-        // Revoke all existing tokens
-        revokeAllUserTokens(user.getUserId());
+    public Map<TokenType, String> refreshTokens(User user, 
+                                               String deviceId, String deviceName, 
+                                               String ipAddress, String userAgent) {
+        // Revoke only tokens for this specific device (if deviceId provided)
+        // Otherwise, keep all existing tokens (multi-device support)
+        if (deviceId != null) {
+            revokeTokensByDeviceId(user.getUserId(), deviceId);
+        }
+        // Note: We don't revoke all tokens anymore to support multi-device login
 
-        // Generate and save new tokens
-        return generateAndSaveTokens(user);
+        // Generate and save new tokens for this device
+        return generateAndSaveTokens(user, deviceId, deviceName, ipAddress, userAgent);
+    }
+
+    public void revokeTokensByDeviceId(UUID userId, String deviceId) {
+        int revoked = tokenRepository.revokeTokensByDeviceId(userId, deviceId);
+        log.info("JWT - Revoked {} tokens for userId: {} and deviceId: {}", revoked, userId, deviceId);
+    }
+
+    public void revokeTokenByValue(String tokenValue) {
+        revokeToken(tokenValue);
+    }
+
+    public List<Token> getActiveTokensByUser(UUID userId, TokenType type) {
+        return tokenRepository.findActiveTokensByUserAndType(userId, type);
     }
 }

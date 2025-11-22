@@ -9,14 +9,18 @@ import com.kltn.scsms_api_service.core.dto.request.ForgotPasswordRequest;
 import com.kltn.scsms_api_service.core.dto.request.LogoutRequest;
 import com.kltn.scsms_api_service.core.dto.request.RefreshTokenRequest;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
+import com.kltn.scsms_api_service.core.dto.auth.response.SessionInfoDto;
 import com.kltn.scsms_api_service.core.service.businessService.AuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -37,13 +41,13 @@ public class AuthController {
      */
     @PostMapping(ApiConstant.LOGIN_API)
     @SwaggerOperation(summary = "Perform user login", description = "Authenticate user using email or phone number with password, return access token, refresh token and user info")
-    public ResponseEntity<ApiResponse<?>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<?>> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
 
         String loginIdentifier = request.getPhoneNumber() != null ? "phone: " + request.getPhoneNumber()
                 : "email: " + request.getEmail();
-        log.info("Login attempt for {}", loginIdentifier);
+        log.info("Login attempt for {} with device: {}", loginIdentifier, request.getDeviceId());
 
-        ApiResponse<?> response = authService.login(request);
+        ApiResponse<?> response = authService.login(request, httpRequest);
 
         return ResponseEntity.ok(response);
     }
@@ -54,11 +58,11 @@ public class AuthController {
     @PostMapping(ApiConstant.REFRESH_TOKEN_API)
     @SwaggerOperation(summary = "Refresh access token", description = "Use refresh token to obtain a new access token")
     public ResponseEntity<ApiResponse<?>> refreshToken(
-            @RequestBody RefreshTokenRequest request) {
+            @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
 
         log.info("Token refresh attempt");
 
-        ApiResponse<?> response = authService.refreshToken(request);
+        ApiResponse<?> response = authService.refreshToken(request, httpRequest);
 
         return ResponseEntity.ok(response);
     }
@@ -67,12 +71,12 @@ public class AuthController {
      * User logout - invalidate tokens
      */
     @PostMapping(ApiConstant.LOGOUT_API)
-    @SwaggerOperation(summary = "User logout", description = "Invalidate user tokens and logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest request) {
+    @SwaggerOperation(summary = "User logout", description = "Invalidate user tokens for current device and logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest request, HttpServletRequest httpRequest) {
 
         log.info("Logout request received");
 
-        authService.logout(request);
+        authService.logout(request, httpRequest);
 
         return ResponseEntity.ok(
                 ApiResponse.<Void>builder()
@@ -251,6 +255,62 @@ public class AuthController {
                 ApiResponse.<Boolean>builder()
                         .success(true)
                         .message("Token is valid")
+                        .build());
+    }
+
+    /**
+     * Get all active sessions for current user
+     */
+    @GetMapping(ApiConstant.GET_ACTIVE_SESSIONS_API)
+    @SwaggerOperation(summary = "Get active sessions", description = "Get list of all active sessions (devices) for current user")
+    public ResponseEntity<ApiResponse<java.util.List<SessionInfoDto>>> getActiveSessions(
+            @RequestHeader("Authorization") String authHeader) {
+        
+        String accessToken = authHeader.replace("Bearer ", "");
+        java.util.List<SessionInfoDto> sessions = authService.getActiveSessions(accessToken);
+        
+        return ResponseEntity.ok(
+                ApiResponse.<java.util.List<SessionInfoDto>>builder()
+                        .success(true)
+                        .message("Active sessions retrieved successfully")
+                        .data(sessions)
+                        .build());
+    }
+
+    /**
+     * Logout specific device by device ID
+     */
+    @PostMapping(ApiConstant.LOGOUT_DEVICE_API)
+    @SwaggerOperation(summary = "Logout device", description = "Logout a specific device by device ID")
+    public ResponseEntity<ApiResponse<Void>> logoutDevice(
+            @PathVariable String deviceId,
+            @RequestHeader("Authorization") String authHeader) {
+        
+        String accessToken = authHeader.replace("Bearer ", "");
+        authService.logoutDevice(accessToken, deviceId);
+        
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Device logged out successfully")
+                        .build());
+    }
+
+    /**
+     * Logout all other devices except current device
+     */
+    @PostMapping(ApiConstant.LOGOUT_ALL_OTHER_DEVICES_API)
+    @SwaggerOperation(summary = "Logout all other devices", description = "Logout all devices except the current one")
+    public ResponseEntity<ApiResponse<Void>> logoutAllOtherDevices(
+            @RequestHeader("Authorization") String authHeader) {
+        
+        String accessToken = authHeader.replace("Bearer ", "");
+        authService.logoutAllOtherDevices(accessToken);
+        
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("All other devices logged out successfully")
                         .build());
     }
 }

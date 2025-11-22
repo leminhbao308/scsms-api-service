@@ -21,6 +21,9 @@ public class ApiConstant {
         public static final String RESET_PASSWORD_API = AUTH_PREFIX + "/reset-password";
         public static final String GOOGLE_OAUTH2_CALLBACK_API = AUTH_PREFIX + "/oauth2/callback";
         public static final String GOOGLE_OAUTH2_URL_API = AUTH_PREFIX + "/oauth2/url";
+        public static final String GET_ACTIVE_SESSIONS_API = AUTH_PREFIX + "/sessions";
+        public static final String LOGOUT_DEVICE_API = AUTH_PREFIX + "/sessions/{deviceId}/logout";
+        public static final String LOGOUT_ALL_OTHER_DEVICES_API = AUTH_PREFIX + "/sessions/logout-others";
 
         // User management module endpoints
         public static final String USER_MANAGEMENT_PREFIX = "/users";
