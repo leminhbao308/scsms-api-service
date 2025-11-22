@@ -200,6 +200,16 @@ public class BookingService {
     }
 
     /**
+     * Tìm các booking conflict với bay và thời gian cụ thể với PESSIMISTIC LOCK
+     * Sử dụng để ngăn race condition khi tạo booking mới
+     * Lock đảm bảo atomicity giữa check conflict và save booking
+     */
+    @Transactional
+    public List<Booking> findConflictingBookingsWithLock(UUID bayId, LocalDateTime startTime, LocalDateTime endTime) {
+        return bookingRepository.findConflictingBookingsWithLock(bayId, startTime, endTime);
+    }
+
+    /**
      * Tìm các booking có trạng thái thanh toán cụ thể và trạng thái booking không
      * phải cancelled
      */

@@ -9,11 +9,15 @@ import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,38 +38,100 @@ public class IntegratedBookingService {
     
     /**
      * Tạo booking hoàn chỉnh với scheduling information trong một API call
+     * Sử dụng pessimistic locking để ngăn race condition conflict booking
      */
     public BookingInfoDto createBookingWithSlot(CreateBookingWithScheduleRequest request) {
         log.info("Creating integrated scheduled booking for customer: {} at branch: {} with schedule: {}",
             request.getCustomerName(), request.getBranchId(), request.getSelectedSchedule());
         
-        // 1. Validate tất cả thông tin
-        validateRequest(request);
-        
-        // 2. Tạo booking entity
-        Booking booking = createBookingEntity(request);
-        
-        // 3. Lưu booking trước để có bookingId
-        Booking savedBooking = bookingService.save(booking);
-        
-        // 4. Tạo booking items
-        if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
-            createBookingItems(savedBooking, request);
+        try {
+            // 1. Validate tất cả thông tin (không bao gồm conflict check)
+            validateRequestWithoutConflictCheck(request);
+            
+            // 2. Tính scheduled times
+            LocalDateTime scheduledStartAt = LocalDateTime.of(
+                request.getSelectedSchedule().getDate(), 
+                request.getSelectedSchedule().getStartTime()
+            );
+            LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(
+                request.getSelectedSchedule().getServiceDurationMinutes()
+            );
+            
+            // 3. Check conflict với PESSIMISTIC LOCK (atomic operation - ngăn race condition)
+            List<Booking> conflicts = bookingService.findConflictingBookingsWithLock(
+                request.getSelectedSchedule().getBayId(),
+                scheduledStartAt,
+                scheduledEndAt
+            );
+            
+            if (!conflicts.isEmpty()) {
+                Booking conflictBooking = conflicts.get(0);
+                ServiceBay serviceBay = serviceBayService.getById(request.getSelectedSchedule().getBayId());
+                
+                // Tạo error data với thông tin chi tiết
+                Map<String, Object> errorData = new HashMap<>();
+                errorData.put("conflictingBooking", Map.of(
+                    "bookingCode", conflictBooking.getBookingCode(),
+                    "scheduledStartAt", conflictBooking.getScheduledStartAt().toString(),
+                    "scheduledEndAt", conflictBooking.getScheduledEndAt().toString(),
+                    "customerName", conflictBooking.getCustomerName() != null ? conflictBooking.getCustomerName() : "N/A",
+                    "status", conflictBooking.getStatus().name()
+                ));
+                errorData.put("requestedTime", Map.of(
+                    "startAt", scheduledStartAt.toString(),
+                    "endAt", scheduledEndAt.toString()
+                ));
+                
+                throw new ClientSideException(
+                    ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                    String.format(
+                        "Service bay '%s' is not available in the specified time range. " +
+                        "Conflicts with booking '%s' (%s - %s). Please select a different time slot.",
+                        serviceBay.getBayName(),
+                        conflictBooking.getBookingCode(),
+                        conflictBooking.getScheduledStartAt(),
+                        conflictBooking.getScheduledEndAt()
+                    ),
+                    errorData
+                );
+            }
+            
+            // 4. Tạo booking entity (đã được lock, không có race condition)
+            Booking booking = createBookingEntity(request);
+            
+            // 5. Lưu booking
+            Booking savedBooking = bookingService.save(booking);
+            
+            // 6. Tạo booking items
+            if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
+                createBookingItems(savedBooking, request);
+            }
+            
+            log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
+                savedBooking.getBookingId(), request.getSelectedSchedule());
+            
+            // 7. Gửi WebSocket notification để clients reload booking list
+            webSocketService.notifyBookingReload();
+            
+            return bookingInfoService.toBookingInfoDto(savedBooking);
+            
+        } catch (DataIntegrityViolationException e) {
+            // Database constraint violation (backup protection)
+            log.error("Database constraint violation when creating booking: {}", e.getMessage());
+            if (e.getMessage() != null && e.getMessage().contains("idx_booking_bay_time_unique")) {
+                throw new ClientSideException(
+                    ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                    "Service bay is not available. Another booking was created for this time slot. Please try again with a different time."
+                );
+            }
+            throw e;
         }
-        
-        log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
-            savedBooking.getBookingId(), request.getSelectedSchedule());
-        
-        // 5. Gửi WebSocket notification để clients reload booking list
-        webSocketService.notifyBookingReload();
-        
-        return bookingInfoService.toBookingInfoDto(savedBooking);
     }
     
     /**
-     * Validate request
+     * Validate request without conflict check (conflict check sẽ được thực hiện với lock)
      */
-    private void validateRequest(CreateBookingWithScheduleRequest request) {
+    private void validateRequestWithoutConflictCheck(CreateBookingWithScheduleRequest request) {
         // Validate required fields
         if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
             throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer name is required");
@@ -103,8 +169,12 @@ public class IntegratedBookingService {
         // Validate entities exist
         validateEntities(request);
         
-        // Validate schedule availability (check for conflicts)
-        validateScheduleAvailability(request.getSelectedSchedule());
+        // Validate bay allows booking (không check conflict ở đây)
+        ServiceBay bay = serviceBayService.getById(request.getSelectedSchedule().getBayId());
+        if (!bay.isAvailableForBooking()) {
+            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                "Service bay does not allow booking");
+        }
     }
     
     /**
@@ -136,32 +206,6 @@ public class IntegratedBookingService {
         }
     }
     
-    /**
-     * Validate schedule availability - kiểm tra conflict với booking khác
-     */
-    private void validateScheduleAvailability(CreateBookingWithScheduleRequest.ScheduleSelectionRequest schedule) {
-        // Validate bay exists
-        ServiceBay bay = serviceBayService.getById(schedule.getBayId());
-        if (!bay.isAvailableForBooking()) {
-            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
-                "Service bay does not allow booking");
-        }
-        
-        // Tính scheduled times
-        LocalDateTime scheduledStartAt = LocalDateTime.of(schedule.getDate(), schedule.getStartTime());
-        LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(schedule.getServiceDurationMinutes());
-        
-        // Validate không có conflict với booking khác
-        boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(
-                schedule.getBayId(),
-                scheduledStartAt,
-                scheduledEndAt);
-        
-        if (!isBayAvailable) {
-            throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
-                "Service bay is not available in the specified time range");
-        }
-    }
     
     /**
      * Tạo booking entity

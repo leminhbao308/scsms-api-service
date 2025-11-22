@@ -5,9 +5,11 @@ import com.kltn.scsms_api_service.core.entity.Booking;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -200,8 +202,25 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
        @Query("SELECT b FROM Booking b WHERE b.serviceBay.bayId = :bayId " +
                      "AND ((b.scheduledStartAt < :endDateTime AND b.scheduledEndAt > :startDateTime)) " +
                      "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.isDeleted = false " +
                      "ORDER BY b.scheduledStartAt ASC")
        List<Booking> findConflictingBookings(
+                     @Param("bayId") UUID bayId,
+                     @Param("startDateTime") LocalDateTime startDateTime,
+                     @Param("endDateTime") LocalDateTime endDateTime);
+
+       /**
+        * Tìm booking conflict với bay cụ thể trong khoảng thời gian với PESSIMISTIC LOCK
+        * Sử dụng để ngăn race condition khi tạo booking mới
+        * Lock đảm bảo atomicity giữa check conflict và save booking
+        */
+       @Lock(LockModeType.PESSIMISTIC_WRITE)
+       @Query("SELECT b FROM Booking b WHERE b.serviceBay.bayId = :bayId " +
+                     "AND ((b.scheduledStartAt < :endDateTime AND b.scheduledEndAt > :startDateTime)) " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS') " +
+                     "AND b.isDeleted = false " +
+                     "ORDER BY b.scheduledStartAt ASC")
+       List<Booking> findConflictingBookingsWithLock(
                      @Param("bayId") UUID bayId,
                      @Param("startDateTime") LocalDateTime startDateTime,
                      @Param("endDateTime") LocalDateTime endDateTime);

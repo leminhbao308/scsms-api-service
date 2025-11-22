@@ -11,15 +11,19 @@ import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import com.kltn.scsms_api_service.core.service.entityService.VehicleProfileService;
+import com.kltn.scsms_api_service.exception.ClientSideException;
+import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -37,76 +41,116 @@ public class WalkInBookingService {
 
     /**
      * Tạo walk-in booking
+     * Sử dụng pessimistic locking để ngăn race condition conflict booking
      */
     @Transactional
     public WalkInBookingResponse createWalkInBooking(WalkInBookingRequest request) {
         log.info("Creating walk-in booking: customerName={}, bayId={}",
                 request.getCustomerName(), request.getAssignedBayId());
 
-        // 1. Validate request
-        validateWalkInRequest(request);
+        try {
+            // 1. Validate request
+            validateWalkInRequest(request);
 
-        // 2. Validate bay
-        ServiceBay serviceBay = serviceBayService.getById(request.getAssignedBayId());
-        if (!serviceBay.isActive()) {
-            throw new IllegalArgumentException("Service bay is not active");
+            // 2. Validate bay
+            ServiceBay serviceBay = serviceBayService.getById(request.getAssignedBayId());
+            if (!serviceBay.isActive()) {
+                throw new ClientSideException(ErrorCode.SERVICE_BAY_NOT_AVAILABLE, 
+                    "Service bay is not active");
+            }
+
+            // 3. Tính scheduledStartAt và scheduledEndAt từ booking trước đó
+            LocalDate bookingDate = request.getBookingDate() != null ? 
+                LocalDate.parse(request.getBookingDate()) : LocalDate.now();
+            
+            LocalDateTime scheduledStartAt = calculateScheduledStartAt(
+                request.getAssignedBayId(), 
+                bookingDate
+            );
+            
+            LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(
+                request.getEstimatedDurationMinutes() != null ? request.getEstimatedDurationMinutes() : 60
+            );
+
+            // 4. Check conflict với PESSIMISTIC LOCK (atomic operation - ngăn race condition)
+            List<Booking> conflictingBookings = bookingService.findConflictingBookingsWithLock(
+                request.getAssignedBayId(),
+                scheduledStartAt,
+                scheduledEndAt
+            );
+            
+            if (!conflictingBookings.isEmpty()) {
+                Booking conflictBooking = conflictingBookings.get(0);
+                
+                // Tạo error data với thông tin chi tiết
+                Map<String, Object> errorData = new HashMap<>();
+                errorData.put("conflictingBooking", Map.of(
+                    "bookingCode", conflictBooking.getBookingCode(),
+                    "scheduledStartAt", conflictBooking.getScheduledStartAt().toString(),
+                    "scheduledEndAt", conflictBooking.getScheduledEndAt().toString(),
+                    "customerName", conflictBooking.getCustomerName() != null ? conflictBooking.getCustomerName() : "N/A",
+                    "status", conflictBooking.getStatus().name()
+                ));
+                errorData.put("requestedTime", Map.of(
+                    "startAt", scheduledStartAt.toString(),
+                    "endAt", scheduledEndAt.toString()
+                ));
+                
+                throw new ClientSideException(
+                    ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                    String.format(
+                        "Bay is not available at the calculated time. " +
+                        "Conflicts with booking '%s' (%s - %s). Please try again.",
+                        conflictBooking.getBookingCode(),
+                        conflictBooking.getScheduledStartAt(),
+                        conflictBooking.getScheduledEndAt()
+                    ),
+                    errorData
+                );
+            }
+
+            // 5. Tạo booking entity với scheduledStartAt và scheduledEndAt đã tính (đã được lock)
+            Booking booking = createBookingFromRequest(request, scheduledStartAt, scheduledEndAt);
+
+            // 6. Lưu booking
+            booking = bookingService.save(booking);
+
+            log.info("Saved walk-in booking to database: bookingId={}, scheduledStartAt={}, scheduledEndAt={}",
+                    booking.getBookingId(), scheduledStartAt, scheduledEndAt);
+
+            // 7. Tính queue position (dựa trên số booking trước đó)
+            int queuePosition = calculateQueuePosition(request.getAssignedBayId(), bookingDate, scheduledStartAt);
+
+            // 8. Tính thời gian chờ ước tính
+            LocalDateTime now = LocalDateTime.now();
+            long estimatedWaitMinutes = java.time.Duration.between(now, scheduledStartAt).toMinutes();
+            int estimatedWaitTime = Math.max(0, (int) estimatedWaitMinutes);
+
+            log.info("Successfully created walk-in booking: {} with scheduledStartAt: {}, queue position: {}",
+                    booking.getBookingId(), scheduledStartAt, queuePosition);
+
+            return WalkInBookingResponse.builder()
+                    .bookingId(booking.getBookingId())
+                    .bookingCode(booking.getBookingCode())
+                    .assignedBayId(request.getAssignedBayId())
+                    .queuePosition(queuePosition)
+                    .estimatedStartTime(scheduledStartAt)
+                    .estimatedWaitTime(estimatedWaitTime)
+                    .status(booking.getStatus().name())
+                    .message("Walk-in booking created successfully")
+                    .build();
+                    
+        } catch (DataIntegrityViolationException e) {
+            // Database constraint violation (backup protection)
+            log.error("Database constraint violation when creating walk-in booking: {}", e.getMessage());
+            if (e.getMessage() != null && e.getMessage().contains("idx_booking_bay_time_unique")) {
+                throw new ClientSideException(
+                    ErrorCode.SERVICE_BAY_NOT_AVAILABLE,
+                    "Bay is not available. Another booking was created for this time slot. Please try again."
+                );
+            }
+            throw e;
         }
-
-        // 3. Tính scheduledStartAt và scheduledEndAt từ booking trước đó
-        LocalDate bookingDate = request.getBookingDate() != null ? 
-            LocalDate.parse(request.getBookingDate()) : LocalDate.now();
-        
-        LocalDateTime scheduledStartAt = calculateScheduledStartAt(
-            request.getAssignedBayId(), 
-            bookingDate
-        );
-        
-        LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(
-            request.getEstimatedDurationMinutes() != null ? request.getEstimatedDurationMinutes() : 60
-        );
-
-        // 4. Tạo booking entity với scheduledStartAt và scheduledEndAt đã tính
-        Booking booking = createBookingFromRequest(request, scheduledStartAt, scheduledEndAt);
-
-        // 5. Validate conflict (double-check, phòng đa luồng)
-        List<Booking> conflictingBookings = bookingService.findConflictingBookings(
-            request.getAssignedBayId(),
-            scheduledStartAt,
-            scheduledEndAt
-        );
-        
-        if (!conflictingBookings.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Bay is not available at the calculated time. Please try again.");
-        }
-
-        // 6. Lưu booking
-        booking = bookingService.save(booking);
-
-        log.info("Saved walk-in booking to database: bookingId={}, scheduledStartAt={}, scheduledEndAt={}",
-                booking.getBookingId(), scheduledStartAt, scheduledEndAt);
-
-        // 7. Tính queue position (dựa trên số booking trước đó)
-        int queuePosition = calculateQueuePosition(request.getAssignedBayId(), bookingDate, scheduledStartAt);
-
-        // 8. Tính thời gian chờ ước tính
-        LocalDateTime now = LocalDateTime.now();
-        long estimatedWaitMinutes = java.time.Duration.between(now, scheduledStartAt).toMinutes();
-        int estimatedWaitTime = Math.max(0, (int) estimatedWaitMinutes);
-
-        log.info("Successfully created walk-in booking: {} with scheduledStartAt: {}, queue position: {}",
-                booking.getBookingId(), scheduledStartAt, queuePosition);
-
-        return WalkInBookingResponse.builder()
-                .bookingId(booking.getBookingId())
-                .bookingCode(booking.getBookingCode())
-                .assignedBayId(request.getAssignedBayId())
-                .queuePosition(queuePosition)
-                .estimatedStartTime(scheduledStartAt)
-                .estimatedWaitTime(estimatedWaitTime)
-                .status(booking.getStatus().name())
-                .message("Walk-in booking created successfully")
-                .build();
     }
     
     /**
@@ -160,34 +204,34 @@ public class WalkInBookingService {
      */
     private void validateWalkInRequest(WalkInBookingRequest request) {
         if (request.getCustomerType() == null) {
-            throw new IllegalArgumentException("Customer type is required");
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer type is required");
         }
 
         if ("EXISTING".equals(request.getCustomerType())) {
             if (request.getCustomerId() == null) {
-                throw new IllegalArgumentException("Customer ID is required for existing customer");
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer ID is required for existing customer");
             }
             if (request.getVehicleId() == null) {
-                throw new IllegalArgumentException("Vehicle ID is required for existing customer");
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Vehicle ID is required for existing customer");
             }
         } else if ("NEW".equals(request.getCustomerType())) {
             if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
-                throw new IllegalArgumentException("Customer name is required for new customer");
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer name is required for new customer");
             }
             if (request.getCustomerPhone() == null || request.getCustomerPhone().trim().isEmpty()) {
-                throw new IllegalArgumentException("Customer phone is required for new customer");
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Customer phone is required for new customer");
             }
             if (request.getVehicleLicensePlate() == null || request.getVehicleLicensePlate().trim().isEmpty()) {
-                throw new IllegalArgumentException("Vehicle license plate is required for new customer");
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, "Vehicle license plate is required for new customer");
             }
         }
 
         if (request.getAssignedBayId() == null) {
-            throw new IllegalArgumentException("Assigned bay ID is required");
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Assigned bay ID is required");
         }
 
         if (request.getBranchId() == null) {
-            throw new IllegalArgumentException("Branch ID is required");
+            throw new ClientSideException(ErrorCode.BAD_REQUEST, "Branch ID is required");
         }
     }
 
@@ -215,7 +259,7 @@ public class WalkInBookingService {
         // Sử dụng scheduledStartAt và scheduledEndAt đã được tính toán
         LocalDateTime preferredStartAt = scheduledStartAt;
 
-        Booking.BookingBuilder builder = Booking.builder()
+        var builder = Booking.builder()
                 .bookingCode(bookingCode)
                 .branch(serviceBayService.getById(request.getAssignedBayId()).getBranch())
                 .serviceBay(serviceBayService.getById(request.getAssignedBayId()))
@@ -237,7 +281,7 @@ public class WalkInBookingService {
             if (request.getCustomerId() != null) {
                 // Lấy thông tin customer từ database
                 User customer = userService.findById(request.getCustomerId())
-                        .orElseThrow(() -> new IllegalArgumentException(
+                        .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
                                 "Customer not found with ID: " + request.getCustomerId()));
                 builder.customer(customer)
                         .customerName(customer.getFullName())
