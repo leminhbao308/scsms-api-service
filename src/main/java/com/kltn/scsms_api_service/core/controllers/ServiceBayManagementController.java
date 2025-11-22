@@ -27,9 +27,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Controller quản lý Service Bay
- */
 @Slf4j
 @RestController
 @RequestMapping(ApiConstant.SERVICE_BAY_MANAGEMENT_PREFIX)

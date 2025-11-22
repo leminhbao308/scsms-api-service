@@ -15,10 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Service tích hợp để tạo scheduled booking với scheduling information trong một API call
- * Tự động set bookingType = SCHEDULED
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -34,6 +30,7 @@ public class IntegratedBookingService {
     private final BookingInfoService bookingInfoService;
     private final PricingBusinessService pricingBusinessService;
     private final ServiceService serviceService;
+    private final com.kltn.scsms_api_service.core.service.websocket.WebSocketService webSocketService;
     
     /**
      * Tạo booking hoàn chỉnh với scheduling information trong một API call
@@ -58,6 +55,9 @@ public class IntegratedBookingService {
         
         log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
             savedBooking.getBookingId(), request.getSelectedSchedule());
+        
+        // 5. Gửi WebSocket notification để clients reload booking list
+        webSocketService.notifyBookingReload();
         
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }

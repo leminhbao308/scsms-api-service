@@ -33,6 +33,17 @@ public class SecurityConfiguration {
                 configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(
                 configurer -> configurer.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/ws/**", "/ws-native/**", "/api/ws/**", "/api/ws-native/**").permitAll()
+                .requestMatchers("/auth/login", "/auth/register", "/auth/refresh-token", 
+                    "/auth/logout", "/auth/forgot-password", "/auth/reset-password",
+                    "/auth/verify-token", "/auth/oauth2/**").permitAll()
+                .requestMatchers("/otp/**").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/docs/**", "/swagger-ui/**", "/swagger-resources/**", 
+                    "/webjars/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                .anyRequest().authenticated()
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }

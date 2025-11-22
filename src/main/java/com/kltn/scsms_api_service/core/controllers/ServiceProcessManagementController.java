@@ -41,8 +41,6 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
         return filterParam;
     }
 
-    // ========== SERVICE PROCESS MANAGEMENT ==========
-
     @GetMapping
     @SwaggerOperation(summary = "Lấy danh sách quy trình chăm sóc xe", description = "Lấy danh sách tất cả quy trình chăm sóc xe với phân trang và lọc")
     @Operation(summary = "Lấy danh sách quy trình chăm sóc xe")
@@ -155,8 +153,6 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
         return ResponseEntity.ok(result);
     }
 
-    // ========== SERVICE PROCESS STEP MANAGEMENT ==========
-
     @GetMapping("/{processId}/steps")
     @SwaggerOperation(summary = "Lấy danh sách bước của quy trình", description = "Lấy danh sách tất cả bước của một quy trình chăm sóc xe")
     @Operation(summary = "Lấy danh sách bước của quy trình")
@@ -213,8 +209,5 @@ public class ServiceProcessManagementController implements FilterStandardlize<Se
         BaseResponseData<?> result = serviceProcessManagementService.deleteServiceProcessStep(stepId);
         return ResponseEntity.ok(result);
     }
-
-
-    // ========== SERVICE PROCESS STEP PRODUCT MANAGEMENT ==========
 
 }

@@ -103,16 +103,14 @@ public class BookingManagementController {
     }
 
     @GetMapping(ApiConstant.GET_BOOKINGS_FOR_MANAGEMENT_API)
-    @Operation(summary = "Get bookings for management", 
-               description = "Retrieve all bookings with statuses: CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED for vehicle care management. Sorted by scheduledStartAt DESC")
+    @Operation(summary = "Get bookings for management", description = "Retrieve all bookings with statuses: CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED for vehicle care management. Sorted by scheduledStartAt DESC")
     @SwaggerOperation(summary = "Get bookings for management")
     public ResponseEntity<ApiResponse<List<BookingInfoDto>>> getBookingsForManagement() {
         List<Booking.BookingStatus> statuses = List.of(
-            Booking.BookingStatus.CHECKED_IN,
-            Booking.BookingStatus.IN_PROGRESS,
-            Booking.BookingStatus.CANCELLED,
-            Booking.BookingStatus.COMPLETED
-        );
+                Booking.BookingStatus.CHECKED_IN,
+                Booking.BookingStatus.IN_PROGRESS,
+                Booking.BookingStatus.CANCELLED,
+                Booking.BookingStatus.COMPLETED);
         List<BookingInfoDto> bookings = bookingManagementService.getBookingsByStatuses(statuses);
         return ResponseBuilder.success(bookings);
     }
@@ -129,22 +127,21 @@ public class BookingManagementController {
     }
 
     /**
-     * Tạo scheduled booking hoàn chỉnh với scheduling information trong một API call
+     * Tạo scheduled booking hoàn chỉnh với scheduling information trong một API
+     * call
      * Tự động set bookingType = SCHEDULED
      */
     @PostMapping(ApiConstant.CREATE_BOOKING_WITH_SCHEDULE_API)
-    @Operation(summary = "Create scheduled booking with schedule", 
-               description = "Create a complete scheduled booking with customer info, vehicle info, services, and scheduling information (bay, date, time) in one API call. Automatically sets bookingType = SCHEDULED")
+    @Operation(summary = "Create scheduled booking with schedule", description = "Create a complete scheduled booking with customer info, vehicle info, services, and scheduling information (bay, date, time) in one API call. Automatically sets bookingType = SCHEDULED")
     @SwaggerOperation(summary = "Create scheduled booking with schedule")
     public ResponseEntity<ApiResponse<BookingInfoDto>> createBookingWithSchedule(
-            @Parameter(description = "Complete booking creation request with scheduling information") 
-            @Valid @RequestBody CreateBookingWithScheduleRequest request) {
-        
+            @Parameter(description = "Complete booking creation request with scheduling information") @Valid @RequestBody CreateBookingWithScheduleRequest request) {
+
         log.info("Creating scheduled booking for customer: {} at branch: {} with schedule: {}",
-            request.getCustomerName(), request.getBranchId(), request.getSelectedSchedule());
-        
+                request.getCustomerName(), request.getBranchId(), request.getSelectedSchedule());
+
         BookingInfoDto booking = integratedBookingService.createBookingWithSlot(request);
-        
+
         return ResponseBuilder.created(booking);
     }
 

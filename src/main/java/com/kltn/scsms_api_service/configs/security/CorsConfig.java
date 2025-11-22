@@ -31,9 +31,41 @@ public class CorsConfig implements WebMvcConfigurer {
         
         log.info("CORS Configuration - Allowed Origin Patterns: {}", Arrays.toString(origins));
         
+        // CORS for all endpoints including WebSocket SockJS info endpoint
         registry.addMapping("/**")
             .allowedOriginPatterns(origins)
             .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
+            .maxAge(3600);
+        
+        // Explicit CORS for WebSocket endpoints (SockJS info endpoint is HTTP GET)
+        // Register both /ws/** and /api/ws/** to ensure compatibility with context-path
+        registry.addMapping("/ws/**")
+            .allowedOriginPatterns(origins)
+            .allowedMethods("GET", "POST", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
+            .maxAge(3600);
+        
+        registry.addMapping("/ws-native/**")
+            .allowedOriginPatterns(origins)
+            .allowedMethods("GET", "POST", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
+            .maxAge(3600);
+        
+        // Also register with context-path prefix for compatibility
+        registry.addMapping("/api/ws/**")
+            .allowedOriginPatterns(origins)
+            .allowedMethods("GET", "POST", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
+            .maxAge(3600);
+        
+        registry.addMapping("/api/ws-native/**")
+            .allowedOriginPatterns(origins)
+            .allowedMethods("GET", "POST", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(true)
             .maxAge(3600);
@@ -76,6 +108,19 @@ public class CorsConfig implements WebMvcConfigurer {
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+        
+        // Explicit CORS configuration for WebSocket endpoints
+        // Register both /ws/** and /api/ws/** to ensure compatibility with context-path
+        CorsConfiguration wsConfiguration = new CorsConfiguration();
+        wsConfiguration.setAllowedOriginPatterns(origins);
+        wsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "OPTIONS"));
+        wsConfiguration.setAllowedHeaders(List.of("*"));
+        wsConfiguration.setAllowCredentials(true);
+        wsConfiguration.setMaxAge(3600L);
+        source.registerCorsConfiguration("/ws/**", wsConfiguration);
+        source.registerCorsConfiguration("/ws-native/**", wsConfiguration);
+        source.registerCorsConfiguration("/api/ws/**", wsConfiguration);
+        source.registerCorsConfiguration("/api/ws-native/**", wsConfiguration);
         
         return source;
     }

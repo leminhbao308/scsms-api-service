@@ -2,6 +2,7 @@ package com.kltn.scsms_api_service.core.service.businessService;
 
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.service.entityService.BookingService;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class BookingWorkflowService {
     
     private final BookingService bookingService;
+    private final WebSocketService webSocketService;
     
     /**
      * Workflow: PENDING → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED
@@ -56,6 +58,9 @@ public class BookingWorkflowService {
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
         bookingService.update(booking);
         
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
+        
         log.info("Successfully confirmed booking: {}", bookingId);
     }
     
@@ -80,6 +85,9 @@ public class BookingWorkflowService {
         booking.setActualCheckInAt(LocalDateTime.now());
         bookingService.update(booking);
         
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
+        
         log.info("Successfully checked in booking: {}", bookingId);
     }
     
@@ -101,6 +109,9 @@ public class BookingWorkflowService {
         booking.setActualStartAt(LocalDateTime.now());
         bookingService.update(booking);
         
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
+        
         log.info("Successfully started service for booking: {}", bookingId);
     }
     
@@ -121,6 +132,9 @@ public class BookingWorkflowService {
         // Hoàn thành booking
         booking.completeService();
         bookingService.update(booking);
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
         
         // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
         // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
@@ -145,6 +159,9 @@ public class BookingWorkflowService {
         // Hoàn thành booking với thời gian cụ thể
         booking.completeService(completionTime);
         bookingService.update(booking);
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
         
         // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
         // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
@@ -175,6 +192,9 @@ public class BookingWorkflowService {
         // Hủy booking
         booking.cancelBooking(reason, cancelledBy);
         bookingService.update(booking);
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
         
         log.info("Successfully cancelled booking: {}", bookingId);
     }

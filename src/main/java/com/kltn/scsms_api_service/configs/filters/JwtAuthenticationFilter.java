@@ -53,6 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         // Skip bypass paths (actuator, swagger, login, etc.)
         if (isBypassPath(path)) {
+            log.debug("AuthFilter - Bypassing path: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
@@ -158,6 +159,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.contains("/swagger-resources")
             || path.contains("/webjars")
             || path.contains("/swagger-ui.html")
+            || path.startsWith("/ws/") // Allow WebSocket endpoints (SockJS info endpoint)
+            || path.startsWith("/ws-native/") // Allow native WebSocket endpoints
+            || path.startsWith("/api/ws/") // Allow WebSocket endpoints with context-path
+            || path.startsWith("/api/ws-native/") // Allow native WebSocket endpoints with context-path
             || path.equals(API_PREFIX + ApiConstant.LOGIN_API) // Allow login
             || path.equals(API_PREFIX + ApiConstant.REFRESH_TOKEN_API) // Allow refresh
             || path.equals(API_PREFIX + ApiConstant.REGISTER_API) // Allow registration

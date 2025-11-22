@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.core.dto.bookingManagement.request.ChangeSched
 import com.kltn.scsms_api_service.core.dto.bookingManagement.request.UpdateBookingRequest;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.BookingMapper;
@@ -24,8 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +46,7 @@ public class BookingManagementService {
     private final BookingInfoService bookingInfoService;
     private final PricingBusinessService pricingBusinessService;
     private final ServiceService serviceService;
+    private final WebSocketService webSocketService;
 
     /**
      * Lấy tất cả booking
@@ -287,6 +287,9 @@ public class BookingManagementService {
 
         Booking savedBooking = bookingService.update(updatedBooking);
 
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
+
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
 
@@ -309,6 +312,9 @@ public class BookingManagementService {
         // No need to manually unassign bay
 
         bookingService.delete(bookingId);
+
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
     }
 
     /**
@@ -649,6 +655,9 @@ public class BookingManagementService {
 
         // Lưu booking
         Booking savedBooking = bookingService.update(existingBooking);
+
+        // Gửi WebSocket notification
+        webSocketService.notifyBookingReload();
 
         log.info("Successfully changed schedule for booking: {} to bay: {} at {} {}",
                 bookingId, request.getNewBayId(), request.getNewScheduleDate(), request.getNewScheduleStartTime());

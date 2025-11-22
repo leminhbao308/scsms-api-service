@@ -41,20 +41,40 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         long startTime = System.currentTimeMillis();
         
         try {
-            logger.info("REQUEST START: {} {} from {}",
-                request.getMethod(),
-                request.getRequestURI(),
-                getClientIP(request));
+            // Log all requests, especially WebSocket endpoints for debugging
+            String uri = request.getRequestURI();
+            if (uri.startsWith("/ws/") || uri.startsWith("/ws-native/") 
+                || uri.startsWith("/api/ws/") || uri.startsWith("/api/ws-native/")) {
+                logger.info("REQUEST START (WebSocket): {} {} from {}",
+                    request.getMethod(),
+                    uri,
+                    getClientIP(request));
+            } else {
+                logger.info("REQUEST START: {} {} from {}",
+                    request.getMethod(),
+                    uri,
+                    getClientIP(request));
+            }
             
             filterChain.doFilter(request, response);
             
         } finally {
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("REQUEST END: {} {} - Status: {} - Duration: {}ms",
-                request.getMethod(),
-                request.getRequestURI(),
-                response.getStatus(),
-                duration);
+            String uri = request.getRequestURI();
+            if (uri.startsWith("/ws/") || uri.startsWith("/ws-native/") 
+                || uri.startsWith("/api/ws/") || uri.startsWith("/api/ws-native/")) {
+                logger.info("REQUEST END (WebSocket): {} {} - Status: {} - Duration: {}ms",
+                    request.getMethod(),
+                    uri,
+                    response.getStatus(),
+                    duration);
+            } else {
+                logger.info("REQUEST END: {} {} - Status: {} - Duration: {}ms",
+                    request.getMethod(),
+                    uri,
+                    response.getStatus(),
+                    duration);
+            }
             
             // Clean up MDC
             LoggingUtils.clearMDC();

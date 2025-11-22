@@ -27,9 +27,9 @@ import java.util.UUID;
 @Slf4j
 @Tag(name = "Center Social Media Management", description = "APIs for managing center social media")
 public class CenterSocialMediaManagementController {
-    
+
     private final CenterSocialMediaManagementService centerSocialMediaManagementService;
-    
+
     @GetMapping(ApiConstant.GET_ALL_CENTER_SOCIAL_MEDIA_API)
     @Operation(summary = "Get all social media for center", description = "Retrieve all social media for a specific center")
     @SwaggerOperation(summary = "Get all social media for center")
@@ -39,8 +39,7 @@ public class CenterSocialMediaManagementController {
         List<CenterSocialMediaDto> socialMedia = centerSocialMediaManagementService.getAllSocialMediaByCenter(centerId);
         return ResponseBuilder.success(socialMedia);
     }
-    
-    
+
     @GetMapping(ApiConstant.GET_CENTER_SOCIAL_MEDIA_BY_ID_API)
     @Operation(summary = "Get social media by ID", description = "Retrieve a specific social media by its ID")
     @SwaggerOperation(summary = "Get social media by ID")
@@ -50,7 +49,7 @@ public class CenterSocialMediaManagementController {
         CenterSocialMediaDto socialMedia = centerSocialMediaManagementService.getSocialMediaById(socialMediaId);
         return ResponseBuilder.success(socialMedia);
     }
-    
+
     @PostMapping(ApiConstant.CREATE_CENTER_SOCIAL_MEDIA_API)
     @Operation(summary = "Create social media", description = "Create new social media for a center")
     @SwaggerOperation(summary = "Create social media")
@@ -60,7 +59,7 @@ public class CenterSocialMediaManagementController {
         CenterSocialMediaDto socialMedia = centerSocialMediaManagementService.createSocialMedia(request);
         return ResponseBuilder.created(socialMedia);
     }
-    
+
     @PostMapping(ApiConstant.UPDATE_CENTER_SOCIAL_MEDIA_API)
     @Operation(summary = "Update social media", description = "Update existing social media")
     @SwaggerOperation(summary = "Update social media")
@@ -71,7 +70,7 @@ public class CenterSocialMediaManagementController {
         CenterSocialMediaDto socialMedia = centerSocialMediaManagementService.updateSocialMedia(socialMediaId, request);
         return ResponseBuilder.success(socialMedia);
     }
-    
+
     @PostMapping(ApiConstant.DELETE_CENTER_SOCIAL_MEDIA_API)
     @Operation(summary = "Delete social media", description = "Delete social media (soft delete)")
     @SwaggerOperation(summary = "Delete social media")
@@ -81,7 +80,7 @@ public class CenterSocialMediaManagementController {
         centerSocialMediaManagementService.deleteSocialMedia(socialMediaId);
         return ResponseBuilder.success("Social media deleted successfully");
     }
-    
+
     @PostMapping(ApiConstant.UPDATE_CENTER_SOCIAL_MEDIA_STATUS_API)
     @Operation(summary = "Update social media active status", description = "Update the active status of social media")
     @SwaggerOperation(summary = "Update social media active status")
@@ -89,8 +88,9 @@ public class CenterSocialMediaManagementController {
             @Parameter(description = "Social Media ID") @PathVariable UUID socialMediaId,
             @Parameter(description = "Status update request") @Valid @RequestBody UpdateCenterSocialMediaStatusRequest request) {
         log.info("Updating social media active status for ID: {} to {}", socialMediaId, request.getIsActive());
-        CenterSocialMediaDto socialMedia = centerSocialMediaManagementService.updateSocialMediaStatus(socialMediaId, request);
+        CenterSocialMediaDto socialMedia = centerSocialMediaManagementService.updateSocialMediaStatus(socialMediaId,
+                request);
         return ResponseBuilder.success(socialMedia);
     }
-    
+
 }

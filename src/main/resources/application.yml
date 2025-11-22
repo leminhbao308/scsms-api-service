@@ -12,6 +12,13 @@ spring:
       enabled: true
       max-file-size: 10MB # Max size per file
       max-request-size: 50MB # Max size for entire request (multiple files)
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY: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}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.7
 server:
   port: 8081
   servlet:

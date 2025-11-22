@@ -15,7 +15,7 @@ spring:
       hibernate:
         default_schema: dev
         format_sql: true
-        show_sql: true
+        show_sql: false
     show-sql: false
 logging:
   sensitive-fields: ${SENSITIVE_DATA:accessToken, refreshToken, phoneNumber,email}

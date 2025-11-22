@@ -40,14 +40,14 @@ public class CenterBusinessHoursManagementController {
         return ResponseBuilder.success(businessHours);
     }
 
-
     @GetMapping(ApiConstant.GET_CENTER_BUSINESS_HOURS_BY_ID_API)
     @Operation(summary = "Get business hours by ID", description = "Retrieve a specific business hours by its ID")
     @SwaggerOperation(summary = "Get business hours by ID")
     public ResponseEntity<ApiResponse<CenterBusinessHoursDto>> getBusinessHoursById(
             @Parameter(description = "Business Hours ID") @PathVariable UUID businessHoursId) {
         log.info("Getting business hours by ID: {}", businessHoursId);
-        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService.getBusinessHoursById(businessHoursId);
+        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService
+                .getBusinessHoursById(businessHoursId);
         return ResponseBuilder.success(businessHours);
     }
 
@@ -68,7 +68,8 @@ public class CenterBusinessHoursManagementController {
             @Parameter(description = "Business Hours ID") @PathVariable UUID businessHoursId,
             @Parameter(description = "Business hours update request") @Valid @RequestBody UpdateCenterBusinessHoursRequest request) {
         log.info("Updating business hours with ID: {}", businessHoursId);
-        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService.updateBusinessHours(businessHoursId, request);
+        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService.updateBusinessHours(businessHoursId,
+                request);
         return ResponseBuilder.success(businessHours);
     }
 
@@ -89,7 +90,8 @@ public class CenterBusinessHoursManagementController {
             @Parameter(description = "Business Hours ID") @PathVariable UUID businessHoursId,
             @Parameter(description = "Status update request") @Valid @RequestBody UpdateCenterBusinessHoursStatusRequest request) {
         log.info("Updating business hours closed status for ID: {} to {}", businessHoursId, request.getIsClosed());
-        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService.updateBusinessHoursStatus(businessHoursId,
+        CenterBusinessHoursDto businessHours = centerBusinessHoursManagementService.updateBusinessHoursStatus(
+                businessHoursId,
                 request);
         return ResponseBuilder.success(businessHours);
     }

@@ -19,10 +19,6 @@ import java.util.stream.Collectors;
 
 import java.util.UUID;
 
-/**
- * Controller cho Walk-in Booking
- * Cung cấp API endpoints cho việc đặt lịch walk-in
- */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -42,12 +38,12 @@ public class WalkInBookingController {
                 @RequestBody BayRecommendationRequest request,
                 @RequestParam(required = false) String queueDate) {
         try {
-            log.info("🔍 DEBUG: Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes, queueDate={}", 
+            log.info("DEBUG: Recommending bay for walk-in booking: branchId={}, serviceDuration={} minutes, queueDate={}",
                 request.getBranchId(), request.getServiceDurationMinutes(), queueDate);
             
             // Parse ngày nếu có
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
-            log.info("🔍 DEBUG: Parsed queue date: {}", parsedQueueDate);
+            log.info("DEBUG: Parsed queue date: {}", parsedQueueDate);
             
             // Gọi service để đề xuất bay
             BayRecommendationService.BayRecommendation recommendation = bayRecommendationService.recommendBay(convertToServiceRequest(request), parsedQueueDate);
@@ -98,15 +94,12 @@ public class WalkInBookingController {
                 @RequestParam(required = false) String queueDate,
                 @RequestParam(required = false) UUID includeBookingId) {
         try {
-            log.info("🔍 DEBUG: Getting bay queue for bay: {} on date: {}, includeBookingId: {}", bayId, queueDate, includeBookingId);
 
             // Parse ngày nếu có
             LocalDate parsedQueueDate = queueDate != null ? LocalDate.parse(queueDate) : LocalDate.now();
-            log.info("🔍 DEBUG: Parsed queue date: {}", parsedQueueDate);
             
             // Lấy thông tin WALK_IN bookings của bay
             List<Booking> walkInBookings = bookingService.findWalkInBookingsByBayAndDate(bayId, parsedQueueDate);
-            log.info("🔍 DEBUG: Found {} walk-in bookings for bay {}", walkInBookings.size(), bayId);
             
             // Nếu có includeBookingId, thêm booking đó vào queue nếu chưa có
             if (includeBookingId != null) {
@@ -125,7 +118,6 @@ public class WalkInBookingController {
                                 && bookingToInclude.getServiceBay().getBayId().equals(bayId)
                                 && bookingToInclude.getScheduledStartAt() != null
                                 && bookingToInclude.getScheduledStartAt().toLocalDate().equals(parsedQueueDate)) {
-                            log.info("🔍 DEBUG: Including booking {} in queue even though it may have passed scheduledEndAt", includeBookingId);
                             walkInBookings.add(bookingToInclude);
                             // Sort lại theo scheduledStartAt
                             walkInBookings.sort((b1, b2) -> {
@@ -134,7 +126,7 @@ public class WalkInBookingController {
                                 return b1.getScheduledStartAt().compareTo(b2.getScheduledStartAt());
                             });
                         } else {
-                            log.warn("🔍 DEBUG: Cannot include booking {} - validation failed: bookingType={}, hasServiceBay={}, bayIdMatch={}, hasScheduledStartAt={}, dateMatch={}", 
+                            log.warn("DEBUG: Cannot include booking {} - validation failed: bookingType={}, hasServiceBay={}, bayIdMatch={}, hasScheduledStartAt={}, dateMatch={}",
                                 includeBookingId,
                                 bookingToInclude != null ? bookingToInclude.getBookingType() : "null",
                                 bookingToInclude != null && bookingToInclude.getServiceBay() != null,
@@ -143,7 +135,7 @@ public class WalkInBookingController {
                                 bookingToInclude != null && bookingToInclude.getScheduledStartAt() != null && bookingToInclude.getScheduledStartAt().toLocalDate().equals(parsedQueueDate));
                         }
                     } catch (Exception e) {
-                        log.warn("🔍 DEBUG: Cannot include booking {} - error loading booking: {}", includeBookingId, e.getMessage());
+                        log.warn("DEBUG: Cannot include booking {} - error loading booking: {}", includeBookingId, e.getMessage());
                         // Continue without including the booking if it doesn't exist or has errors
                     }
                 }
@@ -154,7 +146,7 @@ public class WalkInBookingController {
                 .map(this::convertBookingToResponse)
                 .collect(Collectors.toList());
 
-            log.info("🔍 DEBUG: Converted to {} response items", queueItems.size());
+            log.info("DEBUG: Converted to {} response items", queueItems.size());
             return ResponseEntity.ok(queueItems);
 
         } catch (Exception e) {

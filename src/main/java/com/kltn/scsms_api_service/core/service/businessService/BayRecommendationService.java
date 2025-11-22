@@ -13,10 +13,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Service đề xuất bay tốt nhất cho walk-in booking
- * Sử dụng thuật toán tính điểm để chọn bay phù hợp nhất
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
