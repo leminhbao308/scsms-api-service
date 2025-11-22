@@ -56,10 +56,10 @@ public class BookingWorkflowService {
         }
         
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingConfirmed(updatedBooking);
         
         log.info("Successfully confirmed booking: {}", bookingId);
     }
@@ -83,10 +83,10 @@ public class BookingWorkflowService {
         
         booking.setStatus(Booking.BookingStatus.CHECKED_IN);
         booking.setActualCheckInAt(LocalDateTime.now());
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCheckedIn(updatedBooking);
         
         log.info("Successfully checked in booking: {}", bookingId);
     }
@@ -107,10 +107,10 @@ public class BookingWorkflowService {
         
         booking.setStatus(Booking.BookingStatus.IN_PROGRESS);
         booking.setActualStartAt(LocalDateTime.now());
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingStarted(updatedBooking);
         
         log.info("Successfully started service for booking: {}", bookingId);
     }
@@ -131,10 +131,10 @@ public class BookingWorkflowService {
         
         // Hoàn thành booking
         booking.completeService();
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCompleted(updatedBooking);
         
         // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
         // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
@@ -158,10 +158,10 @@ public class BookingWorkflowService {
         
         // Hoàn thành booking với thời gian cụ thể
         booking.completeService(completionTime);
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCompleted(updatedBooking);
         
         // Không cần xử lý slot nữa - chỉ cập nhật trạng thái booking
         // Slot logic đã được loại bỏ, chỉ dùng scheduledStartAt/scheduledEndAt
@@ -191,10 +191,10 @@ public class BookingWorkflowService {
         
         // Hủy booking
         booking.cancelBooking(reason, cancelledBy);
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
         
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCancelled(updatedBooking);
         
         log.info("Successfully cancelled booking: {}", bookingId);
     }

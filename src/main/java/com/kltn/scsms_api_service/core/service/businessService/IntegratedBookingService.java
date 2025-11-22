@@ -110,8 +110,8 @@ public class IntegratedBookingService {
             log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
                 savedBooking.getBookingId(), request.getSelectedSchedule());
             
-            // 7. Gửi WebSocket notification để clients reload booking list
-            webSocketService.notifyBookingReload();
+            // 7. Gửi WebSocket notification với structured event
+            webSocketService.notifyBookingCreated(savedBooking);
             
             return bookingInfoService.toBookingInfoDto(savedBooking);
             

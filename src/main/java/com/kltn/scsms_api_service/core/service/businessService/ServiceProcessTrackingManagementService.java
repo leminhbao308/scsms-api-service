@@ -4,6 +4,7 @@ import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.Serv
 import com.kltn.scsms_api_service.core.dto.serviceProcessTrackingManagement.request.*;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.exception.ServerSideException;
 import com.kltn.scsms_api_service.mapper.ServiceProcessTrackingMapper;
@@ -36,6 +37,7 @@ public class ServiceProcessTrackingManagementService {
     private final ServiceBayService serviceBayService;
     private final ServiceProcessTrackingMapper serviceProcessTrackingMapper;
     private final ServiceService serviceService;
+    private final WebSocketService webSocketService;
     
     /**
      * Tạo tracking mới cho booking
@@ -88,6 +90,13 @@ public class ServiceProcessTrackingManagementService {
                 .build();
         
         ServiceProcessTracking savedTracking = serviceProcessTrackingService.save(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(savedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingCreated(trackingWithDetails);
+        
         return populateCarServiceName(serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(savedTracking));
     }
     
@@ -112,6 +121,13 @@ public class ServiceProcessTrackingManagementService {
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(updatedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingStarted(trackingWithDetails);
+        
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
     
@@ -139,6 +155,13 @@ public class ServiceProcessTrackingManagementService {
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(updatedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingUpdated(trackingWithDetails);
+        
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
     
@@ -183,6 +206,13 @@ public class ServiceProcessTrackingManagementService {
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(updatedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingCompleted(trackingWithDetails);
+        
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
     
@@ -208,6 +238,13 @@ public class ServiceProcessTrackingManagementService {
         tracking.setLastUpdatedAt(LocalDateTime.now());
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(updatedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingCancelled(trackingWithDetails);
+        
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
     
@@ -294,6 +331,13 @@ public class ServiceProcessTrackingManagementService {
         serviceProcessTrackingMapper.updateEntity(tracking, request);
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
+        
+        // Reload tracking với relationships để gửi WebSocket event
+        ServiceProcessTracking trackingWithDetails = serviceProcessTrackingService.getById(updatedTracking.getTrackingId());
+        
+        // Gửi WebSocket notification
+        webSocketService.notifyTrackingUpdated(trackingWithDetails);
+        
         return serviceProcessTrackingMapper.toServiceProcessTrackingInfoDto(updatedTracking);
     }
     

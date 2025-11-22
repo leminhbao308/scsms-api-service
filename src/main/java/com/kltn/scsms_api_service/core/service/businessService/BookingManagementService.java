@@ -287,8 +287,8 @@ public class BookingManagementService {
 
         Booking savedBooking = bookingService.update(updatedBooking);
 
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingUpdated(savedBooking);
 
         return bookingInfoService.toBookingInfoDto(savedBooking);
     }
@@ -311,10 +311,15 @@ public class BookingManagementService {
         // Bay will be automatically available when booking is deleted
         // No need to manually unassign bay
 
+        // Lưu booking info trước khi xóa để gửi event
+        UUID deletedBookingId = booking.getBookingId();
+        String deletedBookingCode = booking.getBookingCode();
+        
         bookingService.delete(bookingId);
 
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        // Note: Booking đã bị xóa nên không có bookingData
+        webSocketService.notifyBookingDeleted(deletedBookingId, deletedBookingCode);
     }
 
     /**
@@ -334,7 +339,10 @@ public class BookingManagementService {
 
         // Cancel booking
         booking.cancelBooking(reason, cancelledBy);
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
+
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCancelled(updatedBooking);
 
         // Bay will be automatically available when booking is deleted
         // No need to manually unassign bay
@@ -355,7 +363,10 @@ public class BookingManagementService {
         }
 
         booking.updateStatus(Booking.BookingStatus.CONFIRMED, "Booking confirmed by staff");
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
+
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingConfirmed(updatedBooking);
     }
 
     /**
@@ -373,7 +384,10 @@ public class BookingManagementService {
         }
 
         booking.checkIn();
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
+
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCheckedIn(updatedBooking);
     }
 
     /**
@@ -391,7 +405,10 @@ public class BookingManagementService {
         }
 
         booking.startService();
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
+
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingStarted(updatedBooking);
     }
 
     /**
@@ -409,7 +426,10 @@ public class BookingManagementService {
         }
 
         booking.completeService();
-        bookingService.update(booking);
+        Booking updatedBooking = bookingService.update(booking);
+
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingCompleted(updatedBooking);
 
         // Bay will be automatically available when booking is completed
         // No need to manually unassign bay
@@ -656,8 +676,9 @@ public class BookingManagementService {
         // Lưu booking
         Booking savedBooking = bookingService.update(existingBooking);
 
-        // Gửi WebSocket notification
-        webSocketService.notifyBookingReload();
+        // Gửi WebSocket notification với structured event
+        webSocketService.notifyBookingUpdated(savedBooking, 
+            String.format("Lịch hẹn cho booking #%s đã được thay đổi", savedBooking.getBookingCode()));
 
         log.info("Successfully changed schedule for booking: {} to bay: {} at {} {}",
                 bookingId, request.getNewBayId(), request.getNewScheduleDate(), request.getNewScheduleStartTime());
