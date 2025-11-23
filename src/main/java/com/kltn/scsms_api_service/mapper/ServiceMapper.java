@@ -6,7 +6,6 @@ import com.kltn.scsms_api_service.core.dto.serviceManagement.request.UpdateServi
 import com.kltn.scsms_api_service.core.entity.Service;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {AuditMapper.class})

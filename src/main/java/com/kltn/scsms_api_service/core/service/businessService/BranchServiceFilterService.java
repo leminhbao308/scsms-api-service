@@ -113,6 +113,20 @@ public class BranchServiceFilterService {
     }
     
     /**
+     * Kiểm tra tính khả dụng của một service cụ thể tại branch
+     * Tối ưu hơn filterServicesByBranch() vì chỉ kiểm tra 1 service thay vì tất cả services
+     */
+    public ServiceAvailabilityInfo checkSingleServiceAvailability(UUID branchId, UUID serviceId, boolean requireFullInventory) {
+        Branch branch = branchService.findById(branchId)
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Branch not found"));
+        
+        com.kltn.scsms_api_service.core.entity.Service service = serviceEntityService.findById(serviceId)
+            .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Service not found"));
+        
+        return checkServiceAvailability(service, branch, requireFullInventory);
+    }
+    
+    /**
      * Kiểm tra tính khả dụng của một service
      */
     private ServiceAvailabilityInfo checkServiceAvailability(com.kltn.scsms_api_service.core.entity.Service service,

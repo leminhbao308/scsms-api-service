@@ -102,6 +102,22 @@ public class VehicleProfileService {
             predicates.add(cb.equal(vehicleProfileRoot.get("ownerId"), filterParam.getOwnerId()));
         }
         
+        // Filter by isDeleted: default to false (only non-deleted vehicles)
+        if (filterParam.getDeleted() != null) {
+            predicates.add(cb.equal(vehicleProfileRoot.get("isDeleted"), filterParam.getDeleted()));
+        } else {
+            // Default: only show non-deleted vehicles
+            predicates.add(cb.equal(vehicleProfileRoot.get("isDeleted"), false));
+        }
+        
+        // Filter by isActive: default to true (only active vehicles)
+        if (filterParam.getActive() != null) {
+            predicates.add(cb.equal(vehicleProfileRoot.get("isActive"), filterParam.getActive()));
+        } else {
+            // Default: only show active vehicles
+            predicates.add(cb.equal(vehicleProfileRoot.get("isActive"), true));
+        }
+        
         return predicates;
     }
     
