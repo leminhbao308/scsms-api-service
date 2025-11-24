@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -466,5 +467,9 @@ public class PromotionService {
 
     public long getStackablePromotionsCount() {
         return promotionRepository.getStackablePromotionsCount();
+    }
+    
+    public List<Promotion> findAll(Specification<Promotion> spec) {
+        return promotionRepository.findAll(spec);
     }
 }

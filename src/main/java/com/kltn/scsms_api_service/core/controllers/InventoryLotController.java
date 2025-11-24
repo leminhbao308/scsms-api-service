@@ -1,4 +1,4 @@
-package com.kltn.scsms_api_service.core.controller;
+package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.core.dto.InventoryLotDTO;
 import com.kltn.scsms_api_service.core.dto.StockTransactionDTO;

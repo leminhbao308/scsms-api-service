@@ -12,11 +12,14 @@ import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.PromotionLineMapper;
 import com.kltn.scsms_api_service.mapper.PromotionMapper;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -749,6 +752,30 @@ public class PromotionManagementService {
                 .status(salesOrder != null ? salesOrder.getStatus() : null)
                 .notes(notes)
                 .build();
+    }
+    
+    public List<Promotion> getPromotionsForReport(LocalDateTime fromDate, LocalDateTime toDate, String promotionCode) {
+        log.info("Getting promotions for report from {} to {}, code: {}", fromDate, toDate, promotionCode);
+        
+        Specification<Promotion> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Filter: Promotion's endAt must be within the date range
+            predicates.add(cb.between(root.get("endAt"), fromDate, toDate));
+            
+            // Filter by promotion code if provided
+            if (promotionCode != null && !promotionCode.isBlank()) {
+                predicates.add(cb.equal(root.get("promotionCode"), promotionCode));
+            }
+            
+            // Exclude deleted promotions
+            predicates.add(cb.equal(root.get("isDeleted"), false));
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        // Fetch with eager loading of related entities
+        return promotionService.findAll(spec);
     }
 
     /**

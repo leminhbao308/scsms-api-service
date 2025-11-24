@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -201,5 +202,9 @@ public class SalesOrderEntityService {
         }
 
         return orders;
+    }
+    
+    public List<SalesOrder> findSalesOrdersForReport(LocalDateTime fromDate, LocalDateTime toDate, UUID branchId, SalesStatus salesStatus) {
+        return repo.findSalesOrdersForReport(fromDate, toDate, branchId, salesStatus);
     }
 }
