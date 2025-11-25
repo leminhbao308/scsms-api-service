@@ -39,6 +39,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
@@ -118,6 +119,7 @@ public class SalesOrdersController {
      * Create draft order and initiate payment (Combined endpoint for POS)
      */
     @PostMapping("/so/create-and-pay")
+    @Transactional
     @Operation(summary = "Create order and initiate payment", description = "Create sales order, confirm, fulfill, and initiate payment in one call")
     public ResponseEntity<ApiResponse<CreateAndPayResponse>> createAndPay(@RequestBody CreateAndPayRequest req) {
         try {
@@ -252,8 +254,11 @@ public class SalesOrdersController {
             } else if (req.getEarnedPoints() != null && req.getEarnedPoints() > 0) {
                 log.warn("Loyalty points ({}) not credited - customer is null or guest", req.getEarnedPoints());
             }
+            
+            // 5. Fullfill order
+            so = salesBS.fulfill(so.getId());
 
-            // 5. Initiate payment
+            // 6. Initiate payment
             PaymentResponse paymentResponse = null;
             if (req.getPaymentMethod() != null && !req.getPaymentMethod().equals(PaymentMethod.CASH)) {
                 InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
@@ -281,7 +286,7 @@ public class SalesOrdersController {
                 }
             }
 
-            // 5. Build response
+            // 7. Build response
             SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
 
             CreateAndPayResponse response = CreateAndPayResponse.builder()
