@@ -46,18 +46,19 @@ public class AiBookingAssistantController {
         
         try {
             // 1. Build conversation messages từ history
-            // Tối ưu: Giới hạn conversation history để giảm token count và tăng tốc độ
+            // Frontend gửi toàn bộ conversation history, backend sẽ sử dụng tất cả để AI có đầy đủ context
             List<Message> messages = new ArrayList<>();
             
-            // Add conversation history nếu có (giới hạn 10 messages gần nhất để giảm token count và tăng tốc độ)
+            // Add conversation history nếu có (sử dụng toàn bộ để AI có đầy đủ context)
             if (request.getConversationHistory() != null && !request.getConversationHistory().isEmpty()) {
                 int historySize = request.getConversationHistory().size();
-                int startIndex = Math.max(0, historySize - 10); // Chỉ lấy 10 messages gần nhất để tối ưu performance
                 
-                log.debug("Conversation history: total={}, using last {} messages", historySize, historySize - startIndex);
+                log.debug("Conversation history: total={}, using all {} messages", historySize, historySize);
                 
-                for (int i = startIndex; i < historySize; i++) {
-                    ChatRequest.ChatMessage chatMessage = request.getConversationHistory().get(i);
+                // Sử dụng toàn bộ conversation history để AI có đầy đủ context
+                // Điều này đảm bảo AI có thể nhận biết được vehicle_id, date_time, branch_name, 
+                // service_type, bay_name, time đã được chọn trong các lượt trả lời trước
+                for (ChatRequest.ChatMessage chatMessage : request.getConversationHistory()) {
                     if ("user".equalsIgnoreCase(chatMessage.getRole())) {
                         messages.add(new UserMessage(chatMessage.getContent()));
                     } else if ("assistant".equalsIgnoreCase(chatMessage.getRole())) {

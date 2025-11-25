@@ -32,4 +32,13 @@ public class InventoryLevelEntityService {
     public List<InventoryLevel> getAll() {
         return repo.findAll();
     }
+    
+    /**
+     * Lấy tất cả inventory levels của một branch
+     * @param branchId ID của branch
+     * @return Danh sách inventory levels của branch
+     */
+    public List<InventoryLevel> findAllByBranchId(UUID branchId) {
+        return repo.findAllByBranch_BranchId(branchId);
+    }
 }

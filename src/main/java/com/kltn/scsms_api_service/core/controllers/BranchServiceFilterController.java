@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.kltn.scsms_api_service.core.dto.branchServiceFilter.BranchServiceFilterResult;
+import com.kltn.scsms_api_service.core.dto.branchServiceFilter.ServiceAvailabilityInfo;
 import com.kltn.scsms_api_service.core.service.businessService.BranchServiceFilterService;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
@@ -76,6 +77,77 @@ public class BranchServiceFilterController {
                 .toList();
 
         return ResponseBuilder.success("Filtered service IDs by branch", serviceIds);
+    }
+
+    /**
+     * Kiểm tra tính khả dụng của một service cụ thể tại branch
+     * So sánh sản phẩm dịch vụ cần dùng với kho của chi nhánh
+     */
+    @GetMapping("/branch/{branchId}/service/{serviceId}/availability")
+    @Operation(summary = "Kiểm tra tính khả dụng của service tại branch", 
+               description = "Kiểm tra xem một service cụ thể có thể sử dụng tại branch dựa trên inventory của kho chi nhánh")
+    public ResponseEntity<ApiResponse<ServiceAvailabilityInfo>> checkServiceAvailability(
+            @Parameter(description = "ID của branch") @PathVariable UUID branchId,
+            @Parameter(description = "ID của service cần kiểm tra") @PathVariable UUID serviceId,
+            @Parameter(description = "Yêu cầu đủ inventory (true) hay chỉ cần có một phần (false)") 
+            @RequestParam(defaultValue = "true") boolean requireFullInventory) {
+
+        log.info("Checking service availability - Branch: {}, Service: {}, RequireFullInventory: {}", 
+                branchId, serviceId, requireFullInventory);
+        
+        ServiceAvailabilityInfo availabilityInfo = branchServiceFilterService
+                .checkSingleServiceAvailability(branchId, serviceId, requireFullInventory);
+        
+        return ResponseBuilder.success("Service availability checked", availabilityInfo);
+    }
+
+    /**
+     * Test endpoint để kiểm tra xem controller có hoạt động không
+     */
+    @GetMapping("/branch/{branchId}/test")
+    @Operation(summary = "Test endpoint", description = "Test endpoint để kiểm tra controller")
+    public ResponseEntity<ApiResponse<String>> testEndpoint(
+            @Parameter(description = "ID của branch") @PathVariable UUID branchId) {
+        log.info("Test endpoint called with branchId: {}", branchId);
+        return ResponseBuilder.success("Test endpoint works! BranchId: " + branchId, "OK");
+    }
+
+    /**
+     * Test POST endpoint để kiểm tra xem POST có hoạt động không
+     */
+    @PostMapping("/branch/{branchId}/test-post")
+    @Operation(summary = "Test POST endpoint", description = "Test POST endpoint để kiểm tra POST method")
+    public ResponseEntity<ApiResponse<String>> testPostEndpoint(
+            @Parameter(description = "ID của branch") @PathVariable UUID branchId,
+            @RequestBody(required = false) Object body) {
+        log.info("Test POST endpoint called with branchId: {}, body: {}", branchId, body);
+        return ResponseBuilder.success("Test POST endpoint works! BranchId: " + branchId, "OK");
+    }
+
+    /**
+     * Kiểm tra tính khả dụng của nhiều services cùng lúc tại branch
+     * So sánh sản phẩm dịch vụ cần dùng với kho của chi nhánh cho nhiều services
+     * 
+     * Sử dụng POST với request body (khuyến nghị - tránh vấn đề với List trong query param)
+     */
+    @PostMapping("/branch/{branchId}/batch-check-services")
+    @Operation(summary = "Kiểm tra tính khả dụng của nhiều services tại branch", 
+               description = "Kiểm tra nhiều services cùng lúc tại branch dựa trên inventory của kho chi nhánh. " +
+                           "Truyền danh sách serviceIds trong request body (JSON array). Nếu không truyền serviceIds, trả về kết quả rỗng.")
+    public ResponseEntity<ApiResponse<BranchServiceFilterResult>> checkMultipleServicesAvailability(
+            @Parameter(description = "ID của branch") @PathVariable UUID branchId,
+            @Parameter(description = "Danh sách ID của các service cần kiểm tra (JSON array). Có thể truyền null hoặc mảng rỗng.") 
+            @RequestBody List<UUID> serviceIds,
+            @Parameter(description = "Yêu cầu đủ inventory (true) hay chỉ cần có một phần (false)") 
+            @RequestParam(defaultValue = "true") boolean requireFullInventory) {
+
+        log.info("Batch checking services availability - Branch: {}, Services count: {}, RequireFullInventory: {}", 
+                branchId, serviceIds != null ? serviceIds.size() : 0, requireFullInventory);
+        
+        BranchServiceFilterResult result = branchServiceFilterService
+                .checkMultipleServicesAvailability(branchId, serviceIds, requireFullInventory);
+        
+        return ResponseBuilder.success("Batch service availability checked", result);
     }
 
 }

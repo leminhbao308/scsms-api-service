@@ -110,6 +110,9 @@ public class AvailabilityResponse {
         
         @JsonProperty("estimated_duration")
         private Integer estimatedDuration;
+        
+        @JsonProperty("price")
+        private java.math.BigDecimal price;
     }
 }
 

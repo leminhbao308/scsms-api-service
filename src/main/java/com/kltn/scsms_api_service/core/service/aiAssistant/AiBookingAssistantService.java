@@ -25,6 +25,7 @@ import com.kltn.scsms_api_service.core.entity.VehicleProfile;
 import com.kltn.scsms_api_service.core.service.businessService.BookingTimeRangeService;
 import com.kltn.scsms_api_service.core.service.businessService.BranchServiceFilterService;
 import com.kltn.scsms_api_service.core.service.businessService.IntegratedBookingService;
+import com.kltn.scsms_api_service.core.service.businessService.PricingBusinessService;
 import com.kltn.scsms_api_service.core.service.entityService.BranchService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
@@ -45,6 +46,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -64,6 +66,7 @@ public class AiBookingAssistantService {
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
     private final BranchService branchService;
+    private final PricingBusinessService pricingBusinessService;
 
 
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
@@ -99,12 +102,19 @@ public class AiBookingAssistantService {
                         log.info("Found exact match service: {}", service.getServiceName());
                     } else {
                         // Không có exact match, trả về danh sách để user chọn
+                        // Lấy giá từ price book cho tất cả services
+                        List<UUID> serviceIds = foundServices.stream()
+                                .map(Service::getServiceId)
+                                .collect(Collectors.toList());
+                        Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
+                        
                         List<AvailabilityResponse.SuggestedServiceInfo> suggestedServices = foundServices.stream()
                                 .map(s -> AvailabilityResponse.SuggestedServiceInfo.builder()
                                         .serviceId(s.getServiceId())
                                         .serviceName(s.getServiceName())
                                         .description(s.getDescription())
                                         .estimatedDuration(s.getEstimatedDuration())
+                                        .price(priceMap.getOrDefault(s.getServiceId(), BigDecimal.ZERO))
                                         .build())
                                 .collect(Collectors.toList());
 
@@ -139,12 +149,19 @@ public class AiBookingAssistantService {
                     }
 
                     // Trả về danh sách services để user chọn
+                    // Lấy giá từ price book cho tất cả services
+                    List<UUID> serviceIds = allServices.stream()
+                            .map(Service::getServiceId)
+                            .collect(Collectors.toList());
+                    Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
+                    
                     List<AvailabilityResponse.SuggestedServiceInfo> suggestedServices = allServices.stream()
                             .map(s -> AvailabilityResponse.SuggestedServiceInfo.builder()
                                     .serviceId(s.getServiceId())
                                     .serviceName(s.getServiceName())
                                     .description(s.getDescription())
                                     .estimatedDuration(s.getEstimatedDuration())
+                                    .price(priceMap.getOrDefault(s.getServiceId(), BigDecimal.ZERO))
                                     .build())
                             .collect(Collectors.toList());
 
@@ -228,40 +245,103 @@ public class AiBookingAssistantService {
             }
 
             if (branchId != null) {
-                // Check inventory cho service - QUAN TRỌNG: Kiểm tra tồn kho sản phẩm
-                // Tối ưu: Chỉ kiểm tra service cụ thể thay vì tất cả services
+                // Check inventory cho service đã chọn - QUAN TRỌNG: Kiểm tra tồn kho sản phẩm
+                // Sử dụng batch-check-services để kiểm tra service cụ thể
                 long inventoryCheckStart = System.currentTimeMillis();
-                log.info("Checking inventory for service '{}' at branch {}", 
+                log.info("Checking inventory for selected service '{}' at branch {} using batch-check", 
                         finalService.getServiceName(), branchId);
                 
-                ServiceAvailabilityInfo serviceAvailabilityInfo = branchServiceFilterService
-                        .checkSingleServiceAvailability(branchId, finalService.getServiceId(), true);
+                // Gọi batch-check-services với service đã chọn
+                List<UUID> serviceIdsToCheck = new ArrayList<>();
+                serviceIdsToCheck.add(finalService.getServiceId());
+                
+                BranchServiceFilterResult filterResult = branchServiceFilterService
+                        .checkMultipleServicesAvailability(branchId, serviceIdsToCheck, true);
                 
                 long inventoryCheckEnd = System.currentTimeMillis();
                 log.info("Inventory check completed in {} ms", (inventoryCheckEnd - inventoryCheckStart));
 
-                if (!serviceAvailabilityInfo.isAvailable()) {
+                // Kiểm tra xem service đã chọn có available không
+                boolean selectedServiceAvailable = filterResult.getAvailableServices().stream()
+                        .anyMatch(info -> info.getId().equals(finalService.getServiceId()));
+                
+                if (!selectedServiceAvailable) {
+                    // Service không hợp lệ - tìm thông tin chi tiết
+                    ServiceAvailabilityInfo serviceAvailabilityInfo = filterResult.getUnavailableServices().stream()
+                            .filter(info -> info.getId().equals(finalService.getServiceId()))
+                            .findFirst()
+                            .orElse(null);
+                    
                     String errorMessage = "Dịch vụ '" + service.getServiceName() + "' không có đủ hàng tại chi nhánh này";
-                    if (serviceAvailabilityInfo.getMissingProducts() != null && !serviceAvailabilityInfo.getMissingProducts().isEmpty()) {
-                        errorMessage += ". Thiếu sản phẩm: " + String.join(", ", serviceAvailabilityInfo.getMissingProducts());
-                    }
-                    if (serviceAvailabilityInfo.getInsufficientProducts() != null && !serviceAvailabilityInfo.getInsufficientProducts().isEmpty()) {
-                        errorMessage += ". Không đủ số lượng: " + String.join(", ", serviceAvailabilityInfo.getInsufficientProducts());
+                    if (serviceAvailabilityInfo != null) {
+                        if (serviceAvailabilityInfo.getMissingProducts() != null && !serviceAvailabilityInfo.getMissingProducts().isEmpty()) {
+                            errorMessage += ". Thiếu sản phẩm: " + String.join(", ", serviceAvailabilityInfo.getMissingProducts());
+                        }
+                        if (serviceAvailabilityInfo.getInsufficientProducts() != null && !serviceAvailabilityInfo.getInsufficientProducts().isEmpty()) {
+                            errorMessage += ". Không đủ số lượng: " + String.join(", ", serviceAvailabilityInfo.getInsufficientProducts());
+                        }
                     }
                     
-                    log.warn("Service '{}' is not available at branch {} due to inventory issues: {}", 
+                    log.warn("Selected service '{}' is not available at branch {} due to inventory issues: {}", 
                             finalService.getServiceName(), branchId, errorMessage);
                     
-                    return AvailabilityResponse.builder()
-                            .status("FULL")
-                            .message(errorMessage)
-                            .suggestions(new ArrayList<>())
-                            .availableBays(new ArrayList<>())
-                            .suggestedServices(new ArrayList<>())
-                            .build();
+                    // Lấy danh sách services available tại branch để gợi ý
+                    BranchServiceFilterResult allAvailableServices = branchServiceFilterService
+                            .filterServicesByBranch(branchId, true);
+                    
+                    // Lấy danh sách service IDs để lấy giá batch
+                    List<UUID> availableServiceIds = allAvailableServices.getAvailableServices().stream()
+                            .filter(info -> !info.getId().equals(finalService.getServiceId())) // Loại bỏ service đã chọn
+                            .map(info -> info.getId())
+                            .collect(Collectors.toList());
+                    
+                    // Lấy giá từ price book cho tất cả services available
+                    Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(availableServiceIds, null);
+                    
+                    List<AvailabilityResponse.SuggestedServiceInfo> availableServiceSuggestions = 
+                            allAvailableServices.getAvailableServices().stream()
+                                    .filter(info -> !info.getId().equals(finalService.getServiceId())) // Loại bỏ service đã chọn
+                                    .map(info -> {
+                                        // Lấy thông tin service đầy đủ
+                                        Service availableService = serviceService.findById(info.getId()).orElse(null);
+                                        if (availableService != null) {
+                                            return AvailabilityResponse.SuggestedServiceInfo.builder()
+                                                    .serviceId(availableService.getServiceId())
+                                                    .serviceName(availableService.getServiceName())
+                                                    .description(availableService.getDescription())
+                                                    .estimatedDuration(availableService.getEstimatedDuration())
+                                                    .price(priceMap.getOrDefault(availableService.getServiceId(), BigDecimal.ZERO))
+                                                    .build();
+                                        }
+                                        return null;
+                                    })
+                                    .filter(s -> s != null)
+                                    .collect(Collectors.toList());
+                    
+                    // Nếu có services available khác, yêu cầu chọn lại
+                    if (!availableServiceSuggestions.isEmpty()) {
+                        errorMessage += ". Vui lòng chọn dịch vụ khác từ danh sách sau:";
+                        
+                        return AvailabilityResponse.builder()
+                                .status("NEEDS_SERVICE_SELECTION")
+                                .message(errorMessage)
+                                .suggestions(new ArrayList<>())
+                                .availableBays(new ArrayList<>())
+                                .suggestedServices(availableServiceSuggestions)
+                                .build();
+                    } else {
+                        // Không có service nào available
+                        return AvailabilityResponse.builder()
+                                .status("FULL")
+                                .message(errorMessage + ". Hiện tại không có dịch vụ nào khả dụng tại chi nhánh này.")
+                                .suggestions(new ArrayList<>())
+                                .availableBays(new ArrayList<>())
+                                .suggestedServices(new ArrayList<>())
+                                .build();
+                    }
                 }
                 
-                log.info("Service '{}' passed inventory check at branch {}", 
+                log.info("Selected service '{}' passed inventory check at branch {}", 
                         finalService.getServiceName(), branchId);
             }
 
@@ -786,9 +866,16 @@ public class AiBookingAssistantService {
                         .build();
             }
 
-            // 5. Check inventory cho services
+            // 5. Check inventory cho services đã chọn - sử dụng batch-check-services
+            List<UUID> serviceIdsToCheck = services.stream()
+                    .map(Service::getServiceId)
+                    .collect(Collectors.toList());
+            
+            log.info("Checking inventory for {} selected services at branch {} using batch-check", 
+                    serviceIdsToCheck.size(), branchId);
+            
             BranchServiceFilterResult filterResult = branchServiceFilterService
-                    .filterServicesByBranch(branchId, true);
+                    .checkMultipleServicesAvailability(branchId, serviceIdsToCheck, true);
 
             List<Service> availableServices = new ArrayList<>();
             for (Service service : services) {
@@ -797,15 +884,53 @@ public class AiBookingAssistantService {
 
                 if (isAvailable) {
                     availableServices.add(service);
+                } else {
+                    // Log thông tin chi tiết về service không available
+                    ServiceAvailabilityInfo unavailableInfo = filterResult.getUnavailableServices().stream()
+                            .filter(info -> info.getId().equals(service.getServiceId()))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (unavailableInfo != null) {
+                        log.warn("Service '{}' is not available at branch {}: missing={}, insufficient={}", 
+                                service.getServiceName(), branchId,
+                                unavailableInfo.getMissingProducts(),
+                                unavailableInfo.getInsufficientProducts());
+                    }
                 }
             }
 
             if (availableServices.isEmpty()) {
+                StringBuilder errorMessage = new StringBuilder("Các dịch vụ đã chọn không có đủ hàng tại chi nhánh này");
+                
+                // Thêm thông tin chi tiết về sản phẩm thiếu
+                List<String> allMissingProducts = new ArrayList<>();
+                List<String> allInsufficientProducts = new ArrayList<>();
+                
+                for (ServiceAvailabilityInfo info : filterResult.getUnavailableServices()) {
+                    if (info.getMissingProducts() != null) {
+                        allMissingProducts.addAll(info.getMissingProducts());
+                    }
+                    if (info.getInsufficientProducts() != null) {
+                        allInsufficientProducts.addAll(info.getInsufficientProducts());
+                    }
+                }
+                
+                if (!allMissingProducts.isEmpty()) {
+                    errorMessage.append(". Thiếu sản phẩm: ").append(String.join(", ", allMissingProducts));
+                }
+                if (!allInsufficientProducts.isEmpty()) {
+                    errorMessage.append(". Không đủ số lượng: ").append(String.join(", ", allInsufficientProducts));
+                }
+                
                 return CreateBookingResponse.builder()
                         .status("FAILED")
-                        .message("Các dịch vụ đã chọn không có đủ hàng tại chi nhánh này")
+                        .message(errorMessage.toString())
                         .build();
             }
+            
+            log.info("Found {} available services out of {} selected services", 
+                    availableServices.size(), services.size());
 
             // 6. Parse dateTime và check availability
             LocalDate date = parseDate(request.getDateTime());
@@ -1124,15 +1249,26 @@ public class AiBookingAssistantService {
             
             // Map Branch sang BranchInfo
             List<GetBranchesResponse.BranchInfo> branchInfos = branches.stream()
-                    .map(branch -> GetBranchesResponse.BranchInfo.builder()
-                            .branchId(branch.getBranchId())
-                            .branchName(branch.getBranchName())
-                            .branchCode(branch.getBranchCode())
-                            .address(branch.getAddress())
-                            .phone(branch.getPhone())
-                            .email(branch.getEmail())
-                            .build())
+                    .map(branch -> {
+                        GetBranchesResponse.BranchInfo info = GetBranchesResponse.BranchInfo.builder()
+                                .branchId(branch.getBranchId())
+                                .branchName(branch.getBranchName())
+                                .branchCode(branch.getBranchCode())
+                                .address(branch.getAddress())
+                                .phone(branch.getPhone())
+                                .email(branch.getEmail())
+                                .build();
+                        // Log từng chi nhánh để debug
+                        log.info("Branch: branch_id={}, branch_name='{}', address='{}'", 
+                                info.getBranchId(), info.getBranchName(), info.getAddress());
+                        return info;
+                    })
                     .collect(Collectors.toList());
+            
+            log.info("Returning {} branches to AI: {}", branchInfos.size(), 
+                    branchInfos.stream()
+                            .map(b -> String.format("%s (%s)", b.getBranchName(), b.getAddress()))
+                            .collect(Collectors.joining(", ")));
             
             return GetBranchesResponse.builder()
                     .status("SUCCESS")
