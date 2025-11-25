@@ -34,9 +34,9 @@ app:
     secret-key: ${APP_JWT_SECRET:MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAFBXXeGg+QpSp/KgFV6znkPp2Y6ocsmQcJnKGZgCcq2g==}
     public-key: ${APP_JWT_PUBLIC:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaGAQ2Of/wi2x/Xx3wd51F/gg+wkeJtjYtX6Tq0SXtXeXYp9oUqNyW1SEF98RFvHGm3jMdbmlqvNCnOJJsFBj2Q==}
     access-token:
-      expires-in: ${APP_JWT_TOKEN_EXPIRES_IN:3600000} # 60 minutes in milliseconds
+      expires-in: ${APP_JWT_TOKEN_EXPIRES_IN:604800000} # 7 days in milliseconds
     refresh-token:
-      expires-in: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN:86400000} # 24 hours in milliseconds
+      expires-in: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN:8467200000} # 14 days in milliseconds
     remember-me:
       expires-in: ${APP_JWT_REMEMBER_ME_EXPIRES_IN:604800000} # 7 days in milliseconds
     otp:

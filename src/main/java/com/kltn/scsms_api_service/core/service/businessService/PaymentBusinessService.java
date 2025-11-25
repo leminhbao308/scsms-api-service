@@ -8,6 +8,7 @@ import com.kltn.scsms_api_service.core.entity.Payment;
 import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentMethod;
 import com.kltn.scsms_api_service.core.entity.enumAttribute.PaymentStatus;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.service.entityService.PaymentEntityService;
 import com.kltn.scsms_api_service.core.service.entityService.SalesOrderEntityService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
@@ -19,10 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
-import vn.payos.type.CheckoutResponseData;
-import vn.payos.type.ItemData;
-import vn.payos.type.PaymentData;
-import vn.payos.type.PaymentLinkData;
+import vn.payos.model.v2.paymentRequests.*;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -61,7 +59,7 @@ public class PaymentBusinessService {
             }
             
             // 2. Calculate total amount
-            int totalAmount = calculateOrderAmount(salesOrder);
+            long totalAmount = calculateOrderAmount(salesOrder);
             
             // 3. Create payment based on method
             PaymentMethod paymentMethod = request.getPaymentMethod();
@@ -81,13 +79,13 @@ public class PaymentBusinessService {
     /**
      * Create PayOS payment link
      */
-    private PaymentResponse createPayOSPayment(SalesOrder salesOrder, int totalAmount, InitiatePaymentRequest request) {
+    private PaymentResponse createPayOSPayment(SalesOrder salesOrder, long totalAmount, InitiatePaymentRequest request) {
         try {
             // Generate unique order code
             long orderCode = System.currentTimeMillis();
             
             // Create item list for PayOS
-            List<ItemData> items = salesOrder.getLines().stream()
+            List<PaymentLinkItem> items = salesOrder.getLines().stream()
                 .map(line -> {
                     String itemName;
                     if (line.isProductItem() && line.getProduct() != null) {
@@ -105,31 +103,31 @@ public class PaymentBusinessService {
                         itemName = "Unknown Item";
                     }
                     
-                    return ItemData.builder()
+                    return PaymentLinkItem.builder()
                         .name(itemName)
                         .quantity(line.getQuantity().intValue())
-                        .price(line.getUnitPrice().intValue())
+                        .price(line.getUnitPrice().longValue())
                         .build();
                 })
                 .toList();
             
             // Create payment data
-            PaymentData paymentData = PaymentData.builder()
+            CreatePaymentLinkRequest paymentRequest = CreatePaymentLinkRequest.builder()
                 .orderCode(orderCode)
                 .amount(totalAmount)
                 .description(fromUuidToBase36(salesOrder.getId()))
                 .items(items)
-                .returnUrl(request.getReturnUrl() != null ? request.getReturnUrl() : baseUrl + "/payment/return")
-                .cancelUrl(request.getCancelUrl() != null ? request.getCancelUrl() : baseUrl + "/payment/cancel")
+                .cancelUrl(request.getCancelUrl())
+                .returnUrl(request.getReturnUrl())
                 .build();
             
             // Create payment link with PayOS
-            CheckoutResponseData paymentLink = payOS.createPaymentLink(paymentData);
+            CreatePaymentLinkResponse paymentLink = payOS.paymentRequests().create(paymentRequest);
             
             // Save payment record
             Payment payment = Payment.builder()
                 .salesOrder(salesOrder)
-                .amount(totalAmount)
+                .amount((int) totalAmount)
                 .paymentURL(paymentLink.getCheckoutUrl())
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(PaymentMethod.BANK)
@@ -144,7 +142,7 @@ public class PaymentBusinessService {
             return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .salesOrder(soMapper.toSaleOrderInfoDto(salesOrder))
-                .amount(totalAmount)
+                .amount((int) totalAmount)
                 .paymentURL(paymentLink.getCheckoutUrl())
                 .orderCode(orderCode)
                 .status(PaymentStatus.PENDING)
@@ -161,10 +159,10 @@ public class PaymentBusinessService {
     /**
      * Create direct payment (Cash, Bank Transfer)
      */
-    private PaymentResponse createDirectPayment(SalesOrder salesOrder, int totalAmount, PaymentMethod paymentMethod) {
+    private PaymentResponse createDirectPayment(SalesOrder salesOrder, long totalAmount, PaymentMethod paymentMethod) {
         Payment payment = Payment.builder()
             .salesOrder(salesOrder)
-            .amount(totalAmount)
+            .amount((int) totalAmount)
             .status(PaymentStatus.PENDING)
             .paymentMethod(paymentMethod)
             .description("Direct payment for order #" + salesOrder.getId())
@@ -175,7 +173,7 @@ public class PaymentBusinessService {
         return PaymentResponse.builder()
             .paymentId(payment.getPaymentId())
             .salesOrder(soMapper.toSaleOrderInfoDto(salesOrder))
-            .amount(totalAmount)
+            .amount((int) totalAmount)
             .status(PaymentStatus.PENDING)
             .paymentMethod(paymentMethod)
             .build();
@@ -229,31 +227,42 @@ public class PaymentBusinessService {
     public PaymentStatusResponse verifyPayment(Long orderCode) {
         try {
             // Get payment info from PayOS
-            PaymentLinkData paymentInfo = payOS.getPaymentLinkInformation(orderCode);
+            PaymentLink paymentInfo = payOS.paymentRequests().get(orderCode);
             
             // Find payment by order code
             Payment payment = paymentES.findByOrderCode(orderCode);
             
-            if (payment == null) {
+            if (payment == null || paymentInfo == null) {
                 throw new ClientSideException(ErrorCode.NOT_FOUND, "Payment not found for order code: " + orderCode);
             }
             
             // Update payment status
-            String payosStatus = paymentInfo.getStatus();
+            PaymentLinkStatus payosStatus = paymentInfo.getStatus();
             
             switch (payosStatus) {
-                case "PAID" -> {
+                case PAID -> {
                     payment.setStatus(PaymentStatus.COMPLETED);
                     payment.setPaidAt(LocalDateTime.now());
                 }
-                case "CANCELLED" -> {
+                case CANCELLED -> {
                     payment.setStatus(PaymentStatus.CANCELED);
                     payment.setCancelledAt(LocalDateTime.now());
                 }
-                case "EXPIRED" -> payment.setStatus(PaymentStatus.EXPIRED);
+                case EXPIRED -> payment.setStatus(PaymentStatus.EXPIRED);
+                default -> {
+                    payment.setStatus(PaymentStatus.PENDING);
+                }
             }
             
             payment = paymentES.save(payment);
+            
+            // Update sales order status if payment completed
+            if (payment.getStatus() == PaymentStatus.COMPLETED) {
+                payment.getSalesOrder().setStatus(SalesStatus.CONFIRMED);
+            } else if (payment.getStatus() == PaymentStatus.CANCELED) {
+                payment.getSalesOrder().setStatus(SalesStatus.CANCELLED);
+            }
+            soES.update(payment.getSalesOrder());
             
             return buildPaymentStatusResponse(payment, "Payment verified successfully");
             
@@ -297,7 +306,7 @@ public class PaymentBusinessService {
         // If PayOS payment, cancel on PayOS side
         if (payment.getPaymentMethod() == PaymentMethod.BANK && payment.getOrderCode() != null) {
             try {
-                payOS.cancelPaymentLink(payment.getOrderCode(), "User requested cancellation");
+                payOS.paymentRequests().cancel(payment.getOrderCode(), "User requested cancellation");
             } catch (Exception e) {
                 log.error("Error cancelling PayOS payment: ", e);
             }
@@ -326,12 +335,12 @@ public class PaymentBusinessService {
     
     // Helper methods
     
-    private int calculateOrderAmount(SalesOrder salesOrder) {
+    private long calculateOrderAmount(SalesOrder salesOrder) {
         // Only count non-free items (exclude free items from promotions)
         return salesOrder.getLines().stream()
             .filter(line -> !Boolean.TRUE.equals(line.getIsFreeItem())) // Exclude free items
-            .mapToInt(line -> line.getUnitPrice().multiply(
-                java.math.BigDecimal.valueOf(line.getQuantity())).intValue())
+            .mapToLong(line -> line.getUnitPrice().multiply(
+                java.math.BigDecimal.valueOf(line.getQuantity())).longValue())
             .sum();
     }
     

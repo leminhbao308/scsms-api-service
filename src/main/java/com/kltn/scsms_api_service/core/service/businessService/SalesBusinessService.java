@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -212,5 +214,25 @@ public class SalesBusinessService {
                     StockRefType.SALE_RETURN);
         });
         return sr;
+    }
+    
+    public List<SalesOrder> getSalesOrdersByDateAndBranch(
+        LocalDateTime fromDate,
+        LocalDateTime toDate,
+        UUID branchId) {
+        
+        log.info("Fetching sales orders for report - From: {}, To: {}, Branch: {}",
+            fromDate, toDate, branchId);
+        
+        // Query fulfilled orders within date range
+        List<SalesOrder> orders = salesOrderEntityService.findSalesOrdersForReport(
+            fromDate,
+            toDate,
+            branchId,
+            SalesStatus.FULFILLED);
+        
+        log.info("Found {} fulfilled sales orders for report", orders.size());
+        
+        return orders;
     }
 }

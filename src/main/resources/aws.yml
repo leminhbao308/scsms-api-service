@@ -1,6 +1,6 @@
 aws:
-  access-key-id: ${AWS_ACCESS_KEY_ID:}
-  secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+  access-key-id: ${AWS_ACCESS_KEY_ID:AKIA6JQ45COK7QW3OGVK}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY: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}
   region: ${AWS_REGION:ap-southeast-2}
   s3:
     bucket-name: ${AWS_S3_BUCKET_NAME:scsms-s3-service}

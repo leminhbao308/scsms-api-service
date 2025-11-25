@@ -1,6 +1,7 @@
 package com.kltn.scsms_api_service.core.controllers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.paymentManagement.request.InitiatePaymentRequest;
 import com.kltn.scsms_api_service.core.dto.paymentManagement.response.PaymentResponse;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
@@ -27,16 +28,26 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -108,6 +119,7 @@ public class SalesOrdersController {
      * Create draft order and initiate payment (Combined endpoint for POS)
      */
     @PostMapping("/so/create-and-pay")
+    @Transactional
     @Operation(summary = "Create order and initiate payment", description = "Create sales order, confirm, fulfill, and initiate payment in one call")
     public ResponseEntity<ApiResponse<CreateAndPayResponse>> createAndPay(@RequestBody CreateAndPayRequest req) {
         try {
@@ -242,8 +254,11 @@ public class SalesOrdersController {
             } else if (req.getEarnedPoints() != null && req.getEarnedPoints() > 0) {
                 log.warn("Loyalty points ({}) not credited - customer is null or guest", req.getEarnedPoints());
             }
+            
+            // 5. Fullfill order
+            so = salesBS.fulfill(so.getId());
 
-            // 5. Initiate payment
+            // 6. Initiate payment
             PaymentResponse paymentResponse = null;
             if (req.getPaymentMethod() != null && !req.getPaymentMethod().equals(PaymentMethod.CASH)) {
                 InitiatePaymentRequest paymentRequest = InitiatePaymentRequest.builder()
@@ -271,7 +286,7 @@ public class SalesOrdersController {
                 }
             }
 
-            // 5. Build response
+            // 7. Build response
             SaleOrderInfoDto soDto = soMapper.toSaleOrderInfoDto(so);
 
             CreateAndPayResponse response = CreateAndPayResponse.builder()
@@ -596,6 +611,578 @@ public class SalesOrdersController {
                         promotionId, e.getMessage());
             }
         }
+    }
+    
+    @GetMapping("/so/export-sales-report")
+    @SwaggerOperation(summary = "Export sales report to Excel", description = "Export sales revenue report with date range and branch filters, grouped by sales staff")
+    public ResponseEntity<byte[]> exportSalesReport(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+        @RequestParam(required = false) UUID branchId) {
+        
+        try {
+            // Get filtered sales orders (only FULFILLED and CONFIRMED orders count as revenue)
+            List<SalesOrder> salesOrders = salesBS.getSalesOrdersByDateAndBranch(
+                fromDate.atStartOfDay(),
+                toDate.atTime(23, 59, 59),
+                branchId);
+            
+            // Group by sales staff and date
+            Map<String, StaffSalesSummary> staffSalesMap = new LinkedHashMap<>();
+            
+            for (SalesOrder so : salesOrders) {
+                // Only count FULFILLED orders for revenue
+                if (so.getStatus() != SalesStatus.FULFILLED) {
+                    continue;
+                }
+                
+                // Get sales staff info (from createdBy or assigned staff)
+                String staffName = so.getCreatedBy() != null ? so.getCreatedBy() : "SYSTEM";
+                
+                String saleDate = so.getCreatedDate() != null
+                    ? so.getCreatedDate().toLocalDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    : LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                
+                String key = staffName + "|" + saleDate;
+                
+                StaffSalesSummary summary = staffSalesMap.getOrDefault(key, new StaffSalesSummary());
+                summary.staffName = staffName;
+                summary.saleDate = saleDate;
+                
+                // Calculate order amounts
+                BigDecimal discountAmount = so.getTotalDiscountAmount() != null
+                    ? so.getTotalDiscountAmount()
+                    : BigDecimal.ZERO;
+                
+                BigDecimal revenueBeforeDiscount = so.getOriginalAmount() != null
+                    ? so.getOriginalAmount()
+                    : BigDecimal.ZERO;
+                
+                BigDecimal revenueAfterDiscount = so.getFinalAmount() != null
+                    ? so.getFinalAmount()
+                    : BigDecimal.ZERO;
+                
+                summary.totalDiscount = summary.totalDiscount.add(discountAmount);
+                summary.revenueBeforeDiscount = summary.revenueBeforeDiscount.add(revenueBeforeDiscount);
+                summary.revenueAfterDiscount = summary.revenueAfterDiscount.add(revenueAfterDiscount);
+                
+                staffSalesMap.put(key, summary);
+            }
+            
+            // Group by staff for subtotals
+            Map<String, List<StaffSalesSummary>> groupedByStaff = new LinkedHashMap<>();
+            for (StaffSalesSummary summary : staffSalesMap.values()) {
+                String staffKey = summary.staffName;
+                groupedByStaff.computeIfAbsent(staffKey, k -> new ArrayList<>()).add(summary);
+            }
+            
+            // Create Excel workbook
+            Workbook workbook = new XSSFWorkbook();
+            Sheet sheet = workbook.createSheet("Doanh số bán hàng");
+            
+            // Create styles
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle dataStyle = createDataStyle(workbook);
+            CellStyle numberStyle = createNumberStyle(workbook);
+            CellStyle currencyStyle = createCurrencyStyle(workbook);
+            CellStyle subtotalStyle = createSubtotalStyle(workbook);
+            
+            int rowCount = 0;
+            
+            // Create title
+            Row titleRow = sheet.createRow(rowCount++);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("DOANH SỐ BÁN HÀNG THEO NGÀY");
+            CellStyle titleStyle = createTitleStyle(workbook);
+            titleCell.setCellStyle(titleStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
+            
+            // Create info rows
+            Row dateRangeRow = sheet.createRow(rowCount++);
+            dateRangeRow.createCell(0).setCellValue(
+                "Từ ngày: " + fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                    " - Đến ngày: " + toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            
+            Row generatedRow = sheet.createRow(rowCount++);
+            generatedRow.createCell(0).setCellValue("Ngày in: " +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+            
+            if (branchId != null) {
+                Branch branch = branchES.findById(branchId)
+                    .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND,
+                        "Branch not found: " + branchId));
+                
+                Row branchRow = sheet.createRow(rowCount++);
+                branchRow.createCell(0).setCellValue("Chi nhánh: " + branch.getBranchName());
+                
+                Row branchAddressRow = sheet.createRow(rowCount++);
+                branchAddressRow.createCell(0).setCellValue(
+                    "Địa chỉ: " + (branch.getAddress() != null ? branch.getAddress() : ""));
+                
+                Row branchPhoneRow = sheet.createRow(rowCount++);
+                branchPhoneRow.createCell(0).setCellValue(
+                    "SĐT: " + (branch.getPhone() != null ? branch.getPhone() : ""));
+            } else {
+                Row branchRow = sheet.createRow(rowCount++);
+                branchRow.createCell(0).setCellValue("Phạm vi: Toàn hệ thống");
+            }
+            rowCount++; // Empty row
+            
+            // Create header row
+            Row headerRow = sheet.createRow(rowCount++);
+            String[] headers = {
+                "STT", "Tên NVBH", "Ngày", "Chiết khấu",
+                "Doanh số trước CK", "Doanh số sau CK"
+            };
+            
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            
+            // Fill data grouped by staff
+            int stt = 1;
+            BigDecimal grandTotalDiscount = BigDecimal.ZERO;
+            BigDecimal grandTotalBeforeDiscount = BigDecimal.ZERO;
+            BigDecimal grandTotalAfterDiscount = BigDecimal.ZERO;
+            
+            for (Map.Entry<String, List<StaffSalesSummary>> entry : groupedByStaff.entrySet()) {
+                String staffName = entry.getKey();
+                List<StaffSalesSummary> staffSales = entry.getValue();
+                
+                BigDecimal staffTotalDiscount = BigDecimal.ZERO;
+                BigDecimal staffTotalBeforeDiscount = BigDecimal.ZERO;
+                BigDecimal staffTotalAfterDiscount = BigDecimal.ZERO;
+                
+                // Write each date row for this staff
+                for (StaffSalesSummary summary : staffSales) {
+                    Row row = sheet.createRow(rowCount++);
+                    
+                    Cell cell0 = row.createCell(0);
+                    cell0.setCellValue(stt++);
+                    cell0.setCellStyle(dataStyle);
+                    
+                    Cell cell2 = row.createCell(1);
+                    cell2.setCellValue(staffName);
+                    cell2.setCellStyle(dataStyle);
+                    
+                    Cell cell3 = row.createCell(2);
+                    cell3.setCellValue(summary.saleDate);
+                    cell3.setCellStyle(dataStyle);
+                    
+                    Cell cell4 = row.createCell(3);
+                    cell4.setCellValue(summary.totalDiscount.doubleValue());
+                    cell4.setCellStyle(currencyStyle);
+                    
+                    Cell cell5 = row.createCell(4);
+                    cell5.setCellValue(summary.revenueBeforeDiscount.doubleValue());
+                    cell5.setCellStyle(currencyStyle);
+                    
+                    Cell cell6 = row.createCell(5);
+                    cell6.setCellValue(summary.revenueAfterDiscount.doubleValue());
+                    cell6.setCellStyle(currencyStyle);
+                    
+                    staffTotalDiscount = staffTotalDiscount.add(summary.totalDiscount);
+                    staffTotalBeforeDiscount = staffTotalBeforeDiscount.add(summary.revenueBeforeDiscount);
+                    staffTotalAfterDiscount = staffTotalAfterDiscount.add(summary.revenueAfterDiscount);
+                }
+                
+                // Write staff subtotal row
+                Row subtotalRow = sheet.createRow(rowCount++);
+                
+                Cell stCell0 = subtotalRow.createCell(0);
+                stCell0.setCellStyle(subtotalStyle);
+                
+                Cell stCell2 = subtotalRow.createCell(1);
+                stCell2.setCellValue(staffName);
+                stCell2.setCellStyle(subtotalStyle);
+                
+                Cell stCell3 = subtotalRow.createCell(2);
+                stCell3.setCellValue("Tổng cộng");
+                stCell3.setCellStyle(subtotalStyle);
+                
+                Cell stCell4 = subtotalRow.createCell(3);
+                stCell4.setCellValue(staffTotalDiscount.doubleValue());
+                stCell4.setCellStyle(subtotalStyle);
+                
+                Cell stCell5 = subtotalRow.createCell(4);
+                stCell5.setCellValue(staffTotalBeforeDiscount.doubleValue());
+                stCell5.setCellStyle(subtotalStyle);
+                
+                Cell stCell6 = subtotalRow.createCell(5);
+                stCell6.setCellValue(staffTotalAfterDiscount.doubleValue());
+                stCell6.setCellStyle(subtotalStyle);
+                
+                grandTotalDiscount = grandTotalDiscount.add(staffTotalDiscount);
+                grandTotalBeforeDiscount = grandTotalBeforeDiscount.add(staffTotalBeforeDiscount);
+                grandTotalAfterDiscount = grandTotalAfterDiscount.add(staffTotalAfterDiscount);
+            }
+            
+            // Create grand total row
+            Row grandTotalRow = sheet.createRow(rowCount);
+            
+            Cell gtCell3 = grandTotalRow.createCell(2);
+            gtCell3.setCellValue("Tổng cộng");
+            CellStyle grandTotalLabelStyle = workbook.createCellStyle();
+            grandTotalLabelStyle.cloneStyleFrom(subtotalStyle);
+            Font grandTotalFont = workbook.createFont();
+            grandTotalFont.setBold(true);
+            grandTotalFont.setFontHeightInPoints((short) 12);
+            grandTotalLabelStyle.setFont(grandTotalFont);
+            grandTotalLabelStyle.setAlignment(HorizontalAlignment.RIGHT);
+            gtCell3.setCellStyle(grandTotalLabelStyle);
+            
+            CellStyle grandTotalValueStyle = workbook.createCellStyle();
+            grandTotalValueStyle.cloneStyleFrom(subtotalStyle);
+            grandTotalValueStyle.setFont(grandTotalFont);
+            
+            Cell gtCell4 = grandTotalRow.createCell(3);
+            gtCell4.setCellValue(grandTotalDiscount.doubleValue());
+            gtCell4.setCellStyle(grandTotalValueStyle);
+            
+            Cell gtCell5 = grandTotalRow.createCell(4);
+            gtCell5.setCellValue(grandTotalBeforeDiscount.doubleValue());
+            gtCell5.setCellStyle(grandTotalValueStyle);
+            
+            Cell gtCell6 = grandTotalRow.createCell(5);
+            gtCell6.setCellValue(grandTotalAfterDiscount.doubleValue());
+            gtCell6.setCellStyle(grandTotalValueStyle);
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
+            }
+            
+            // Write to byte array
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            workbook.close();
+            
+            // Prepare response
+            String filename = String.format("DoanhSoBanHang_%s_%s_%s.xlsx",
+                fromDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                toDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+            
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            httpHeaders.setContentDispositionFormData("attachment", filename);
+            
+            return ResponseEntity.ok()
+                .headers(httpHeaders)
+                .body(outputStream.toByteArray());
+            
+        } catch (Exception e) {
+            log.error("Error exporting sales report", e);
+            throw new RuntimeException("Error exporting sales report: " + e.getMessage());
+        }
+    }
+    
+    // Add this method to SalesOrdersController.java
+    
+    @GetMapping("/so/export-returns-report")
+    @SwaggerOperation(summary = "Export sales returns report to Excel",
+        description = "Export detailed sales returns report with date range filter for entire system")
+    public ResponseEntity<byte[]> exportReturnsReport(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        
+        try {
+            // Get all sales returns within date range
+            List<SalesReturn> salesReturns = srES.getSalesReturnsByDateRange(
+                fromDate.atStartOfDay(),
+                toDate.atTime(23, 59, 59));
+            
+            log.info("Found {} sales returns for report from {} to {}",
+                salesReturns.size(), fromDate, toDate);
+            
+            // Group returns by date and sales order
+            Map<String, ReturnSummary> returnSummaryMap = new LinkedHashMap<>();
+            
+            BigDecimal grandTotalReturnValue = BigDecimal.ZERO;
+            long grandTotalItems = 0;
+            
+            for (SalesReturn sr : salesReturns) {
+                String returnDate = sr.getCreatedDate() != null
+                    ? sr.getCreatedDate().toLocalDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    : LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                
+                String key = returnDate + "|" + sr.getId().toString();
+                
+                ReturnSummary summary = new ReturnSummary();
+                summary.returnDate = returnDate;
+                summary.returnId = sr.getId().toString();
+                summary.salesOrderId = sr.getSalesOrder().getId().toString();
+                summary.reason = sr.getReason() != null ? sr.getReason() : "N/A";
+                summary.branchName = sr.getBranch() != null ? sr.getBranch().getBranchName() : "N/A";
+                summary.customerName = sr.getSalesOrder().getCustomer() != null
+                    ? sr.getSalesOrder().getCustomer().getFullName()
+                    : "Guest";
+                
+                // Calculate return value based on returned items
+                BigDecimal returnValue = BigDecimal.ZERO;
+                long totalItems = 0;
+                
+                for (SalesReturnLine line : sr.getLines()) {
+                    // Find original order line to get unit price
+                    SalesOrderLine originalLine = sr.getSalesOrder().getLines().stream()
+                        .filter(sol -> sol.getProduct() != null &&
+                            sol.getProduct().getProductId().equals(line.getProduct().getProductId()))
+                        .findFirst()
+                        .orElse(null);
+                    
+                    if (originalLine != null) {
+                        // Calculate using discount ratio from original order
+                        BigDecimal discountRatio = BigDecimal.ONE;
+                        if (sr.getSalesOrder().getOriginalAmount() != null &&
+                            sr.getSalesOrder().getFinalAmount() != null &&
+                            sr.getSalesOrder().getOriginalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                            discountRatio = sr.getSalesOrder().getFinalAmount()
+                                .divide(sr.getSalesOrder().getOriginalAmount(), 4, RoundingMode.HALF_UP);
+                        }
+                        
+                        BigDecimal lineReturnValue = originalLine.getUnitPrice()
+                            .multiply(BigDecimal.valueOf(line.getQuantity()))
+                            .multiply(discountRatio)
+                            .setScale(0, RoundingMode.HALF_UP);
+                        
+                        returnValue = returnValue.add(lineReturnValue);
+                    }
+                    
+                    totalItems += line.getQuantity();
+                }
+                
+                summary.returnValue = returnValue;
+                summary.totalItems = totalItems;
+                
+                grandTotalReturnValue = grandTotalReturnValue.add(returnValue);
+                grandTotalItems += totalItems;
+                
+                returnSummaryMap.put(key, summary);
+            }
+            
+            // Create Excel workbook
+            Workbook workbook = new XSSFWorkbook();
+            Sheet sheet = workbook.createSheet("Báo cáo trả hàng");
+            
+            // Create styles
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle dataStyle = createDataStyle(workbook);
+            CellStyle currencyStyle = createCurrencyStyle(workbook);
+            CellStyle totalStyle = createSubtotalStyle(workbook);
+            
+            int rowCount = 0;
+            
+            // Create title
+            Row titleRow = sheet.createRow(rowCount++);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("BÁO CÁO TRẢ HÀNG");
+            CellStyle titleStyle = createTitleStyle(workbook);
+            titleCell.setCellStyle(titleStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
+            
+            // Create info rows
+            Row dateRangeRow = sheet.createRow(rowCount++);
+            dateRangeRow.createCell(0).setCellValue(
+                "Từ ngày: " + fromDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                    " - Đến ngày: " + toDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            
+            Row generatedRow = sheet.createRow(rowCount++);
+            generatedRow.createCell(0).setCellValue("Ngày in: " +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+            
+            Row scopeRow = sheet.createRow(rowCount++);
+            scopeRow.createCell(0).setCellValue("Phạm vi: Toàn hệ thống");
+            
+            rowCount++; // Empty row
+            
+            // Create header row
+            Row headerRow = sheet.createRow(rowCount++);
+            String[] headers = {
+                "STT", "Ngày trả", "Mã trả hàng", "Mã đơn hàng",
+                "Khách hàng", "Chi nhánh", "Lý do", "Số lượng SP", "Giá trị trả"
+            };
+            
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            
+            // Fill data
+            int stt = 1;
+            for (ReturnSummary summary : returnSummaryMap.values()) {
+                Row row = sheet.createRow(rowCount++);
+                
+                Cell cell0 = row.createCell(0);
+                cell0.setCellValue(stt++);
+                cell0.setCellStyle(dataStyle);
+                
+                Cell cell1 = row.createCell(1);
+                cell1.setCellValue(summary.returnDate);
+                cell1.setCellStyle(dataStyle);
+                
+                Cell cell2 = row.createCell(2);
+                cell2.setCellValue(summary.returnId);
+                cell2.setCellStyle(dataStyle);
+                
+                Cell cell3 = row.createCell(3);
+                cell3.setCellValue(summary.salesOrderId);
+                cell3.setCellStyle(dataStyle);
+                
+                Cell cell4 = row.createCell(4);
+                cell4.setCellValue(summary.customerName);
+                cell4.setCellStyle(dataStyle);
+                
+                Cell cell5 = row.createCell(5);
+                cell5.setCellValue(summary.branchName);
+                cell5.setCellStyle(dataStyle);
+                
+                Cell cell6 = row.createCell(6);
+                cell6.setCellValue(summary.reason);
+                cell6.setCellStyle(dataStyle);
+                
+                Cell cell7 = row.createCell(7);
+                cell7.setCellValue(summary.totalItems);
+                cell7.setCellStyle(dataStyle);
+                
+                Cell cell8 = row.createCell(8);
+                cell8.setCellValue(summary.returnValue.doubleValue());
+                cell8.setCellStyle(currencyStyle);
+            }
+            
+            // Create grand total row
+            Row grandTotalRow = sheet.createRow(rowCount);
+            
+            Cell gtCell6 = grandTotalRow.createCell(6);
+            gtCell6.setCellValue("Tổng cộng");
+            gtCell6.setCellStyle(totalStyle);
+            
+            Cell gtCell7 = grandTotalRow.createCell(7);
+            gtCell7.setCellValue(grandTotalItems);
+            gtCell7.setCellStyle(totalStyle);
+            
+            Cell gtCell8 = grandTotalRow.createCell(8);
+            gtCell8.setCellValue(grandTotalReturnValue.doubleValue());
+            gtCell8.setCellStyle(totalStyle);
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
+            }
+            
+            // Write to byte array
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            workbook.close();
+            
+            // Prepare response
+            String filename = String.format("BaoCaoTraHang_%s_%s_%s.xlsx",
+                fromDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                toDate.format(DateTimeFormatter.ofPattern("ddMMyyyy")),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+            
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            httpHeaders.setContentDispositionFormData("attachment", filename);
+            
+            return ResponseEntity.ok()
+                .headers(httpHeaders)
+                .body(outputStream.toByteArray());
+            
+        } catch (Exception e) {
+            log.error("Error exporting sales returns report", e);
+            throw new RuntimeException("Error exporting sales returns report: " + e.getMessage());
+        }
+    }
+    
+    // Helper class for return summary
+    private static class ReturnSummary {
+        String returnDate = "";
+        String returnId = "";
+        String salesOrderId = "";
+        String customerName = "";
+        String branchName = "";
+        String reason = "";
+        long totalItems = 0;
+        BigDecimal returnValue = BigDecimal.ZERO;
+    }
+    
+    // Helper methods for creating styles
+    private CellStyle createTitleStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 16);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        return style;
+    }
+    
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 11);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+    
+    private CellStyle createDataStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createNumberStyle(Workbook workbook) {
+        CellStyle style = createDataStyle(workbook);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0"));
+        return style;
+    }
+    
+    private CellStyle createCurrencyStyle(Workbook workbook) {
+        CellStyle style = createDataStyle(workbook);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0"));
+        style.setAlignment(HorizontalAlignment.RIGHT);
+        return style;
+    }
+    
+    private CellStyle createSubtotalStyle(Workbook workbook) {
+        CellStyle style = createDataStyle(workbook);
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0"));
+        style.setAlignment(HorizontalAlignment.RIGHT);
+        return style;
+    }
+    
+    // Inner class to hold staff sales summary
+    private static class StaffSalesSummary {
+        String staffName = "";
+        String saleDate = "";
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        BigDecimal revenueBeforeDiscount = BigDecimal.ZERO;
+        BigDecimal revenueAfterDiscount = BigDecimal.ZERO;
     }
 
     // ===== DTOs =====
