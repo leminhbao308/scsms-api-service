@@ -12,6 +12,7 @@ import com.kltn.scsms_api_service.core.service.entityService.PermissionService;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import com.kltn.scsms_api_service.core.service.entityService.S3FileService;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.core.entity.S3File;
 import com.kltn.scsms_api_service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class UserManagementService {
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final S3FileService s3FileService;
+    private final WebSocketService webSocketService;
     
     public Page<UserInfoDto> getAllUsers(UserFilterParam userFilterParam) {
         
@@ -78,6 +80,15 @@ public class UserManagementService {
         User createdUser = userService.saveUser(newUser);
         
         log.info("Created new user with email: {}", createdUser.getEmail());
+        
+        // Notify WebSocket clients about user creation
+        try {
+            webSocketService.notifyCustomerReload();
+            log.info("WebSocket: User creation notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send user creation notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
         
         return userMapper.toUserInfoDto(createdUser);
     }
@@ -147,6 +158,15 @@ public class UserManagementService {
         // Save updated user
         User updatedUser = userService.saveUser(existingUser);
         
+        // Notify WebSocket clients about user update
+        try {
+            webSocketService.notifyCustomerReload();
+            log.info("WebSocket: User update notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send user update notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
+        
         return userMapper.toUserInfoDto(updatedUser);
     }
     
@@ -156,6 +176,15 @@ public class UserManagementService {
             new ClientSideException(ErrorCode.NOT_FOUND, "User with ID " + uuid + " not found."));
         
         userService.deleteUser(existingUser);
+        
+        // Notify WebSocket clients about user deletion
+        try {
+            webSocketService.notifyCustomerReload();
+            log.info("WebSocket: User deletion notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send user deletion notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
     }
     
     public UserInfoDto getUserById(UUID userId) {
@@ -221,6 +250,15 @@ public class UserManagementService {
             //         log.warn("Failed to delete old avatar from S3: {}", oldAvatarUrl, e);
             //     }
             // }
+            
+            // Notify WebSocket clients about avatar upload
+            try {
+                webSocketService.notifyCustomerReload();
+                log.info("WebSocket: Avatar upload notification sent");
+            } catch (Exception ex) {
+                log.error("WebSocket: Failed to send avatar upload notification: {}", ex.getMessage(), ex);
+                // Don't fail the operation if WebSocket notification fails
+            }
             
             return userMapper.toUserInfoDto(updatedUser);
             

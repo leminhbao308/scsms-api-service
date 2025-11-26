@@ -174,6 +174,11 @@ public class AuthService {
         
         user.setPassword(passwordEncoder.encode(newPassword));
         userService.saveUser(user);
+        
+        // Revoke all existing tokens to force logout on all devices
+        // This is a security measure: when password changes, all sessions should be invalidated
+        tokenService.revokeAllUserTokens(user.getUserId());
+        log.info("Password changed and all tokens revoked for userId: {}", user.getUserId());
     }
     
     /**
@@ -203,7 +208,10 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userService.saveUser(user);
         
-        log.info("Password reset successfully for phone number: {}", phoneNumber);
+        // Revoke all existing tokens to force logout on all devices
+        // This is a security measure: when password is reset, all sessions should be invalidated
+        tokenService.revokeAllUserTokens(user.getUserId());
+        log.info("Password reset and all tokens revoked for phone number: {}, userId: {}", phoneNumber, user.getUserId());
     }
     
     private String extractTokenFromHeader(String authHeader) {
