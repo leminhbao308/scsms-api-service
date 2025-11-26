@@ -11,6 +11,12 @@ import java.util.UUID;
 public interface VehicleModelRepository extends JpaRepository<VehicleModel, UUID> {
     List<VehicleModel> findAllByIsActiveAndIsDeleted(boolean isActive, boolean isDeleted, Sort sort);
     
+    List<VehicleModel> findAllByBrandIdAndIsActiveAndIsDeleted(UUID brandId, boolean isActive, boolean isDeleted, Sort sort);
+    
+    List<VehicleModel> findAllByTypeIdAndIsActiveAndIsDeleted(UUID typeId, boolean isActive, boolean isDeleted, Sort sort);
+    
+    List<VehicleModel> findAllByBrandIdAndTypeIdAndIsActiveAndIsDeleted(UUID brandId, UUID typeId, boolean isActive, boolean isDeleted, Sort sort);
+    
     Optional<VehicleModel> findByModelId(UUID modelId);
     
     Optional<VehicleModel> findByModelCode(String modelCode);

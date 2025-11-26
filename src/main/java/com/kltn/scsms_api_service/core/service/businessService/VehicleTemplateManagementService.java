@@ -173,6 +173,21 @@ public class VehicleTemplateManagementService {
             .toList();
     }
     
+    /**
+     * Get vehicle models for dropdown with optional filters
+     * 
+     * @param brandId Optional brand ID to filter models
+     * @param typeId Optional type ID to filter models
+     * @return List of filtered vehicle model dropdown responses
+     */
+    public List<VehicleModelDropdownResponse> getAllVehicleModelsForDropdown(UUID brandId, UUID typeId) {
+        List<VehicleModel> vehicleModels = vehicleModelService.getAllActiveVehicleModelsWithFilters(
+            brandId, typeId, true, false);
+        
+        return vehicleModels.stream().map(vehicleModelMapper::toVehicleModelDropdownResponse)
+            .toList();
+    }
+    
     public VehicleModelInfoDto getVehicleModelById(UUID modelId) {
         VehicleModel vehicleModel = vehicleModelService.getVehicleModelById(modelId);
         

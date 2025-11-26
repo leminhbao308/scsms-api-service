@@ -16,6 +16,7 @@ import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleMod
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.response.VehicleTypeDropdownResponse;
 import com.kltn.scsms_api_service.core.service.businessService.VehicleTemplateManagementService;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -108,12 +109,17 @@ public class VehicleTemplateManagementController {
     @GetMapping(ApiConstant.GET_ALL_VEHICLE_MODELS_DROPDOWN_API)
     @SwaggerOperation(
             summary = "Get all vehicle models for dropdown",
-            description = "Retrieve a list of all vehicle models for populating dropdowns, without pagination.")
+            description = "Retrieve a list of all vehicle models for populating dropdowns, without pagination. " +
+                    "Can be filtered by brandId and/or typeId. Both parameters are optional.")
 //    @RequireRole(roles = {"ADMIN", "MANAGER", "TECHNICIAN"})
-    public ResponseEntity<ApiResponse<List<VehicleModelDropdownResponse>>> getAllVehicleModelsForDropdown() {
-        log.info("Fetching all vehicle models for dropdown");
+    public ResponseEntity<ApiResponse<List<VehicleModelDropdownResponse>>> getAllVehicleModelsForDropdown(
+            @Parameter(description = "Optional brand ID to filter models") 
+            @RequestParam(name = "brand_id", required = false) UUID brandId,
+            @Parameter(description = "Optional type ID to filter models") 
+            @RequestParam(name = "type_id", required = false) UUID typeId) {
+        log.info("Fetching vehicle models for dropdown with filters - brandId: {}, typeId: {}", brandId, typeId);
 
-        List<VehicleModelDropdownResponse> vehicleModels = vehicleTemplateManagementService.getAllVehicleModelsForDropdown();
+        List<VehicleModelDropdownResponse> vehicleModels = vehicleTemplateManagementService.getAllVehicleModelsForDropdown(brandId, typeId);
 
         return ResponseBuilder.success("Vehicle models for dropdown fetched successfully", vehicleModels);
     }

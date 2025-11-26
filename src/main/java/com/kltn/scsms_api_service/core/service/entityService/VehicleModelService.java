@@ -76,6 +76,42 @@ public class VehicleModelService {
             (Sort.by(Sort.Direction.ASC, "modelName")));
     }
     
+    /**
+     * Get all active vehicle models with optional filters for brand and/or type
+     * Used for dropdown filtering
+     * 
+     * @param brandId Optional brand ID filter
+     * @param typeId Optional type ID filter
+     * @param isActive Active status filter
+     * @param isDeleted Deleted status filter
+     * @return List of filtered vehicle models
+     */
+    public List<VehicleModel> getAllActiveVehicleModelsWithFilters(UUID brandId, UUID typeId, boolean isActive, boolean isDeleted) {
+        log.info("Getting active vehicle models with filters - brandId: {}, typeId: {}", brandId, typeId);
+        
+        Sort sort = Sort.by(Sort.Direction.ASC, "modelName");
+        
+        // Filter by both brand and type
+        if (brandId != null && typeId != null) {
+            return vehicleModelRepository.findAllByBrandIdAndTypeIdAndIsActiveAndIsDeleted(
+                brandId, typeId, isActive, isDeleted, sort);
+        }
+        // Filter by brand only
+        else if (brandId != null) {
+            return vehicleModelRepository.findAllByBrandIdAndIsActiveAndIsDeleted(
+                brandId, isActive, isDeleted, sort);
+        }
+        // Filter by type only
+        else if (typeId != null) {
+            return vehicleModelRepository.findAllByTypeIdAndIsActiveAndIsDeleted(
+                typeId, isActive, isDeleted, sort);
+        }
+        // No filters - return all
+        else {
+            return vehicleModelRepository.findAllByIsActiveAndIsDeleted(isActive, isDeleted, sort);
+        }
+    }
+    
     public VehicleModel getVehicleModelById(UUID modelId) {
         return vehicleModelRepository.findByModelId(modelId)
             .orElseThrow(() -> new ClientSideException(ErrorCode.NOT_FOUND, "Vehicle model not found with ID: " + modelId));
