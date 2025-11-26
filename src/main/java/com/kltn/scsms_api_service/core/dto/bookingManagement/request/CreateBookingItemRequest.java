@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -26,6 +27,18 @@ public class CreateBookingItemRequest {
     
     @JsonProperty("service_description")
     private String serviceDescription;
+    
+    /**
+     * Giá đơn vị của dịch vụ (từ price book hoặc snapshot tại thời điểm booking)
+     */
+    @JsonProperty("unit_price")
+    private BigDecimal unitPrice;
+    
+    /**
+     * Thời gian dự kiến hoàn thành dịch vụ (phút)
+     */
+    @JsonProperty("duration_minutes")
+    private Integer durationMinutes;
     
     /**
      * Operation type cho update booking items
