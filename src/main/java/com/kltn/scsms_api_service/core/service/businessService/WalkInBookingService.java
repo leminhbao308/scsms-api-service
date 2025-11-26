@@ -11,6 +11,7 @@ import com.kltn.scsms_api_service.core.service.entityService.BookingService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
 import com.kltn.scsms_api_service.core.service.entityService.VehicleProfileService;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class WalkInBookingService {
     private final ServiceBayService serviceBayService;
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
+    private final WebSocketService webSocketService;
 
     /**
      * Tạo walk-in booking
@@ -118,10 +120,16 @@ public class WalkInBookingService {
             log.info("Saved walk-in booking to database: bookingId={}, scheduledStartAt={}, scheduledEndAt={}",
                     booking.getBookingId(), scheduledStartAt, scheduledEndAt);
 
-            // 7. Tính queue position (dựa trên số booking trước đó)
+            // 7. Load booking với details để gửi WebSocket notification
+            Booking bookingWithDetails = bookingService.getByIdWithDetails(booking.getBookingId());
+
+            // 8. Gửi WebSocket notification với structured event
+            webSocketService.notifyBookingCreated(bookingWithDetails);
+
+            // 9. Tính queue position (dựa trên số booking trước đó)
             int queuePosition = calculateQueuePosition(request.getAssignedBayId(), bookingDate, scheduledStartAt);
 
-            // 8. Tính thời gian chờ ước tính
+            // 10. Tính thời gian chờ ước tính
             LocalDateTime now = LocalDateTime.now();
             long estimatedWaitMinutes = java.time.Duration.between(now, scheduledStartAt).toMinutes();
             int estimatedWaitTime = Math.max(0, (int) estimatedWaitMinutes);
