@@ -6,6 +6,7 @@ import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.CreateVehic
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.request.UpdateVehicleProfileRequest;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.entityService.*;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.mapper.VehicleProfileMapper;
@@ -29,6 +30,7 @@ public class VehicleProfileManagementService {
     private final VehicleBrandService vehicleBrandService;
     private final VehicleTypeService vehicleTypeService;
     private final VehicleModelService vehicleModelService;
+    private final WebSocketService webSocketService;
     
     public Page<VehicleProfileInfoDto> getAllVehicleProfiles(VehicleProfileFilterParam VehicleProfileFilterParam) {
         Page<VehicleProfile> vehicleProfilePage = vehicleProfileService.getAllVehicleProfilesWithFilters(VehicleProfileFilterParam);
@@ -47,6 +49,15 @@ public class VehicleProfileManagementService {
         validateVehicleProfileRequest(request.getVehicleModelId(), request.getVehicleBrandId(), request.getVehicleTypeId());
         
         VehicleProfile newProfile = vehicleProfileService.saveVehicleProfile(vehicleProfileMapper.toEntity(request));
+        
+        // Notify WebSocket clients about vehicle profile creation
+        try {
+            webSocketService.notifyVehicleProfileReload();
+            log.info("WebSocket: Vehicle profile creation notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send vehicle profile creation notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
         
         return vehicleProfileMapper.toVehicleProfileInfoDto(newProfile);
     }
@@ -101,11 +112,29 @@ public class VehicleProfileManagementService {
         // Save updated model
         VehicleProfile updatedModel = vehicleProfileService.saveVehicleProfile(existingProfile);
         
+        // Notify WebSocket clients about vehicle profile update
+        try {
+            webSocketService.notifyVehicleProfileReload();
+            log.info("WebSocket: Vehicle profile update notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send vehicle profile update notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
+        
         return vehicleProfileMapper.toVehicleProfileInfoDto(updatedModel);
     }
     
     public void deleteVehicleProfile(UUID uuid) {
         vehicleProfileService.softDeleteVehicleProfile(uuid);
+        
+        // Notify WebSocket clients about vehicle profile deletion
+        try {
+            webSocketService.notifyVehicleProfileReload();
+            log.info("WebSocket: Vehicle profile deletion notification sent");
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send vehicle profile deletion notification: {}", ex.getMessage(), ex);
+            // Don't fail the operation if WebSocket notification fails
+        }
     }
     
     private void validateVehicleProfileRequest(UUID modelId, UUID brandId, UUID typeId) {
