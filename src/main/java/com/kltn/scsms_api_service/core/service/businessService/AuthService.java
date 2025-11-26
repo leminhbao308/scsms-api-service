@@ -246,6 +246,10 @@ public class AuthService {
         // This is a security measure: when password is reset, all sessions should be invalidated
         tokenService.revokeAllUserTokens(user.getUserId());
         log.info("Password reset and all tokens revoked for phone number: {}, userId: {}", phoneNumber, user.getUserId());
+        
+        // Notify all devices via WebSocket to logout
+        // This ensures that if user is logged in on other devices, they will be logged out
+        webSocketService.notifyPasswordChanged(user.getUserId().toString());
     }
     
     private String extractTokenFromHeader(String authHeader) {
