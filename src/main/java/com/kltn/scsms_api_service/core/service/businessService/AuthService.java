@@ -19,6 +19,7 @@ import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.core.service.entityService.RoleService;
 import com.kltn.scsms_api_service.core.service.entityService.TokenService;
 import com.kltn.scsms_api_service.core.service.entityService.UserService;
+import com.kltn.scsms_api_service.core.service.websocket.WebSocketService;
 import com.kltn.scsms_api_service.core.entity.Token;
 import com.kltn.scsms_api_service.core.dto.auth.response.SessionInfoDto;
 import com.kltn.scsms_api_service.exception.ClientSideException;
@@ -48,6 +49,7 @@ public class AuthService {
     private final UserService userService;
     private final TokenService tokenService;
     private final RoleService roleService;
+    private final WebSocketService webSocketService;
     
     public ApiResponse<?> login(@Valid LoginRequest request, HttpServletRequest httpRequest) {
         // Validate that either email or phoneNumber is provided
@@ -161,6 +163,7 @@ public class AuthService {
     public void changePassword(@Valid ChangePasswordRequest request, HttpServletRequest httpRequest) {
         String token = extractTokenFromHeader(httpRequest.getHeader("Authorization"));
         String userId = tokenService.getUserIdFromToken(token);
+        String currentDeviceId = tokenService.getDeviceIdFromToken(token);
         
         String currentPassword = request.getCurrentPassword();
         String newPassword = request.getNewPassword();
@@ -175,10 +178,41 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userService.saveUser(user);
         
-        // Revoke all existing tokens to force logout on all devices
-        // This is a security measure: when password changes, all sessions should be invalidated
-        tokenService.revokeAllUserTokens(user.getUserId());
-        log.info("Password changed and all tokens revoked for userId: {}", user.getUserId());
+        // Revoke tokens of all OTHER devices (keep current device logged in)
+        // This is a security measure: when password changes, other sessions should be invalidated
+        if (currentDeviceId != null && !currentDeviceId.trim().isEmpty()) {
+            // Get all active ACCESS tokens
+            List<Token> activeAccessTokens = tokenService.getActiveTokensByUser(
+                user.getUserId(), TokenType.ACCESS);
+            
+            // Get all active REFRESH tokens
+            List<Token> activeRefreshTokens = tokenService.getActiveTokensByUser(
+                user.getUserId(), TokenType.REFRESH);
+            
+            // Revoke all ACCESS tokens except current device
+            for (Token tokenEntity : activeAccessTokens) {
+                if (tokenEntity.getDeviceId() != null && !tokenEntity.getDeviceId().equals(currentDeviceId)) {
+                    tokenService.revokeTokenByValue(tokenEntity.getToken());
+                }
+            }
+            
+            // Revoke all REFRESH tokens except current device
+            for (Token tokenEntity : activeRefreshTokens) {
+                if (tokenEntity.getDeviceId() != null && !tokenEntity.getDeviceId().equals(currentDeviceId)) {
+                    tokenService.revokeTokenByValue(tokenEntity.getToken());
+                }
+            }
+            
+            log.info("Password changed and tokens revoked for other devices (keeping deviceId: {}) for userId: {}", 
+                currentDeviceId, user.getUserId());
+        } else {
+            // Fallback: if no device ID, revoke all tokens (backward compatibility)
+            tokenService.revokeAllUserTokens(user.getUserId());
+            log.info("Password changed and all tokens revoked (no device ID) for userId: {}", user.getUserId());
+        }
+        
+        // Notify other devices via WebSocket to logout
+        webSocketService.notifyPasswordChanged(userId);
     }
     
     /**

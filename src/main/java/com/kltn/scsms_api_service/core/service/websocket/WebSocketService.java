@@ -30,11 +30,13 @@ public class WebSocketService {
     public static final String TOPIC_VEHICLE_PROFILES = "/topic/vehicle-profiles";
     public static final String TOPIC_CUSTOMERS = "/topic/customers";
     public static final String TOPIC_TRACKINGS = "/topic/trackings";
+    public static final String TOPIC_AUTH = "/topic/auth";
 
     // Message constants
     public static final String MESSAGE_RELOAD_BOOKING = "RELOAD_BOOKING";
     public static final String MESSAGE_RELOAD_VEHICLE_PROFILE = "RELOAD_VEHICLE_PROFILE";
     public static final String MESSAGE_RELOAD_CUSTOMER = "RELOAD_CUSTOMER";
+    public static final String MESSAGE_PASSWORD_CHANGED = "PASSWORD_CHANGED";
 
     /**
      * Notify tất cả clients về thay đổi booking
@@ -90,6 +92,23 @@ public class WebSocketService {
             log.debug("WebSocket: Notification sent to user {} successfully", userId);
         } catch (Exception ex) {
             log.error("WebSocket: Failed to send notification to user {}: {}", userId, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Notify user that password has been changed
+     * Sends notification to all devices of the user (except the current device)
+     * This will trigger logout on other devices
+     */
+    public void notifyPasswordChanged(String userId) {
+        try {
+            log.info("WebSocket: Sending password changed notification to user {}", userId);
+            // Send to user-specific topic so all their devices receive it
+            String destination = "/topic/auth/" + userId;
+            messagingTemplate.convertAndSend(destination, MESSAGE_PASSWORD_CHANGED);
+            log.debug("WebSocket: Password changed notification sent to user {} successfully", userId);
+        } catch (Exception ex) {
+            log.error("WebSocket: Failed to send password changed notification to user {}: {}", userId, ex.getMessage(), ex);
         }
     }
 
