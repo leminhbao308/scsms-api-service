@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -39,6 +41,19 @@ public class CreateBookingResponse {
     private BookingDetails bookingDetails;
     
     /**
+     * State tracking - Bước hiện tại trong quy trình đặt lịch
+     * Giúp AI biết đang ở bước nào và cần làm gì tiếp theo
+     */
+    @JsonProperty("state")
+    private BookingState state;
+    
+    /**
+     * Bước bị lỗi (nếu có)
+     */
+    @JsonProperty("failed_step")
+    private Integer failedStep;
+    
+    /**
      * Chi tiết booking
      */
     @Data
@@ -63,6 +78,54 @@ public class CreateBookingResponse {
         
         @JsonProperty("total_price")
         private Long totalPrice;
+    }
+    
+    /**
+     * State tracking cho quy trình đặt lịch
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BookingState {
+        /**
+         * Bước hiện tại (1-7)
+         */
+        @JsonProperty("current_step")
+        private Integer currentStep;
+        
+        /**
+         * Dữ liệu đã có
+         */
+        @JsonProperty("has_vehicle_id")
+        private Boolean hasVehicleId;
+        
+        @JsonProperty("has_date_time")
+        private Boolean hasDateTime;
+        
+        @JsonProperty("has_branch_id")
+        private Boolean hasBranchId;
+        
+        @JsonProperty("has_service_type")
+        private Boolean hasServiceType;
+        
+        @JsonProperty("has_bay_id")
+        private Boolean hasBayId;
+        
+        @JsonProperty("has_time_slot")
+        private Boolean hasTimeSlot;
+        
+        /**
+         * Dữ liệu còn thiếu
+         */
+        @JsonProperty("missing_data")
+        private List<String> missingData;
+        
+        /**
+         * Thông báo cho AI về bước tiếp theo cần làm
+         */
+        @JsonProperty("next_action")
+        private String nextAction;
     }
 }
 

@@ -102,9 +102,29 @@ public class IntegratedBookingService {
             // 5. Lưu booking
             Booking savedBooking = bookingService.save(booking);
             
-            // 6. Tạo booking items
-            if (request.getBookingItems() != null && !request.getBookingItems().isEmpty()) {
+            // 6. Tạo booking items (BẮT BUỘC phải có ít nhất 1 dịch vụ)
+            log.info("Checking booking items - count: {}, isNull: {}", 
+                request.getBookingItems() != null ? request.getBookingItems().size() : 0,
+                request.getBookingItems() == null);
+            
+            if (request.getBookingItems() == null || request.getBookingItems().isEmpty()) {
+                log.error("Booking items is null or empty for booking: {}", savedBooking.getBookingId());
+                throw new ClientSideException(ErrorCode.BAD_REQUEST, 
+                    "Booking items are required. At least one service must be selected.");
+            }
+            
+            log.info("Creating {} booking items for booking: {}", 
+                request.getBookingItems().size(), savedBooking.getBookingId());
+            
+            try {
                 createBookingItems(savedBooking, request);
+                log.info("Successfully created {} booking items for booking: {}", 
+                    request.getBookingItems().size(), savedBooking.getBookingId());
+            } catch (Exception e) {
+                log.error("Error creating booking items for booking {}: {}", 
+                    savedBooking.getBookingId(), e.getMessage(), e);
+                throw new ClientSideException(ErrorCode.SYSTEM_ERROR, 
+                    "Failed to create booking items: " + e.getMessage());
             }
             
             log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
@@ -298,38 +318,90 @@ public class IntegratedBookingService {
      * Tạo booking items với giá từ price book
      */
     private void createBookingItems(Booking booking, CreateBookingWithScheduleRequest request) {
+        log.info("Starting to create booking items for booking: {} ({} items)", 
+            booking.getBookingId(), request.getBookingItems().size());
+        
+        int successCount = 0;
+        int failCount = 0;
+        
         for (CreateBookingItemRequest itemRequest : request.getBookingItems()) {
-            // Lấy giá từ price book
-            BigDecimal unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
-            
-            // Get duration from Service entity
-            Integer durationMinutes = 60; // Default
             try {
-                com.kltn.scsms_api_service.core.entity.Service serviceEntity = serviceService.getById(itemRequest.getServiceId());
-                if (serviceEntity.getEstimatedDuration() != null) {
-                    durationMinutes = serviceEntity.getEstimatedDuration();
+                log.info("Processing booking item - serviceId: {}, serviceName: '{}'", 
+                    itemRequest.getServiceId(), itemRequest.getServiceName());
+                
+                // Validate serviceId
+                if (itemRequest.getServiceId() == null) {
+                    log.error("ServiceId is null for booking item: {}", itemRequest.getServiceName());
+                    failCount++;
+                    continue;
                 }
+                
+                // Lấy giá từ price book
+                BigDecimal unitPrice;
+                try {
+                    unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
+                    log.info("Resolved price for service {}: {}", itemRequest.getServiceId(), unitPrice);
+                } catch (Exception e) {
+                    log.error("Error resolving price for service {}: {}", itemRequest.getServiceId(), e.getMessage(), e);
+                    throw e;
+                }
+                
+                // Get duration from Service entity
+                Integer durationMinutes = 60; // Default
+                try {
+                    com.kltn.scsms_api_service.core.entity.Service serviceEntity = serviceService.getById(itemRequest.getServiceId());
+                    if (serviceEntity.getEstimatedDuration() != null) {
+                        durationMinutes = serviceEntity.getEstimatedDuration();
+                    }
+                    log.info("Service duration for {}: {} minutes", itemRequest.getServiceId(), durationMinutes);
+                } catch (Exception e) {
+                    log.warn("Could not get duration from Service entity for serviceId: {}, using default 60 minutes", itemRequest.getServiceId());
+                }
+                
+                // Convert to BookingItem entity
+                BookingItem bookingItem = BookingItem.builder()
+                    .booking(booking)
+                    .serviceId(itemRequest.getServiceId())
+                    .serviceName(itemRequest.getServiceName())
+                    .serviceDescription(itemRequest.getServiceDescription())
+                    .unitPrice(unitPrice) // From price book
+                    .durationMinutes(durationMinutes)
+                    .itemStatus(BookingItem.ItemStatus.PENDING)
+                    .isActive(true)
+                    .isDeleted(false)
+                    .build();
+                
+                // Save booking item
+                BookingItem savedItem = bookingItemService.save(bookingItem);
+                log.info("Successfully created booking item - itemId: {}, service: '{}' (ID: {}), price: {}", 
+                    savedItem.getBookingItemId(), itemRequest.getServiceName(), itemRequest.getServiceId(), unitPrice);
+                successCount++;
+                
             } catch (Exception e) {
-                log.warn("Could not get duration from Service entity for serviceId: {}, using default 60 minutes", itemRequest.getServiceId());
+                log.error("Error creating booking item for service {} (ID: {}): {}", 
+                    itemRequest.getServiceName(), itemRequest.getServiceId(), e.getMessage(), e);
+                failCount++;
+                // Continue với item tiếp theo thay vì throw exception ngay
+                // Nhưng nếu tất cả đều fail thì sẽ throw exception ở cuối
             }
-            
-            // Convert to BookingItem entity
-            BookingItem bookingItem = BookingItem.builder()
-                .booking(booking)
-                .serviceId(itemRequest.getServiceId())
-                .serviceName(itemRequest.getServiceName())
-                .serviceDescription(itemRequest.getServiceDescription())
-                .unitPrice(unitPrice) // From price book
-                .durationMinutes(durationMinutes)
-                .itemStatus(BookingItem.ItemStatus.PENDING)
-                .isActive(true)
-                .isDeleted(false)
-                .build();
-            
-            bookingItemService.save(bookingItem);
-            log.info("Created booking item for service {} with price from price book: {}", 
-                itemRequest.getServiceName(), unitPrice);
         }
+        
+        // Nếu không có item nào được tạo thành công, throw exception
+        if (successCount == 0) {
+            log.error("Failed to create any booking items for booking: {} ({} failed)", 
+                booking.getBookingId(), failCount);
+            throw new ClientSideException(ErrorCode.SYSTEM_ERROR, 
+                "Failed to create booking items. All " + failCount + " items failed.");
+        }
+        
+        // Nếu có một số item fail, log warning nhưng không throw exception
+        if (failCount > 0) {
+            log.warn("Created {} booking items successfully, {} items failed for booking: {}", 
+                successCount, failCount, booking.getBookingId());
+        }
+        
+        log.info("Completed creating booking items - success: {}, failed: {}, total: {}", 
+            successCount, failCount, request.getBookingItems().size());
     }
     
     /**

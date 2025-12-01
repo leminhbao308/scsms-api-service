@@ -20,9 +20,13 @@ spring:
 logging:
   sensitive-fields: ${SENSITIVE_DATA:accessToken, refreshToken, phoneNumber,email}
   level:
-    com.kltn.scsms_api_service: TRACE
-    root: warn
-    web: debug
+    com.kltn.scsms_api_service: INFO
+    root: WARN
+    web: INFO
+    # Tắt log DEBUG của Spring Web Client để không log prompt (rất dài)
+    org.springframework.web.client.DefaultRestClient: WARN
+    org.springframework.web.client.RestClient: WARN
+    org.springframework.ai.openai: INFO
     # Enable STOMP protocol logging để debug WebSocket connection issues
     org.springframework.messaging.simp: DEBUG
     org.springframework.web.socket: DEBUG

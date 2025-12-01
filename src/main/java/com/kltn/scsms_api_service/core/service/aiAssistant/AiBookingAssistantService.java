@@ -11,6 +11,7 @@ import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehic
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam;
 import com.kltn.scsms_api_service.core.dto.bookingSchedule.AvailableTimeRangesResponse;
 import com.kltn.scsms_api_service.core.dto.bookingSchedule.TimeRangeDto;
+import com.kltn.scsms_api_service.core.dto.bookingSchedule.WorkingHoursDto;
 import com.kltn.scsms_api_service.core.dto.branchServiceFilter.BranchServiceFilterResult;
 import com.kltn.scsms_api_service.core.dto.branchServiceFilter.ServiceAvailabilityInfo;
 import com.kltn.scsms_api_service.core.entity.Service;
@@ -59,7 +60,21 @@ import org.springframework.data.domain.Page;
 @Transactional(readOnly = true, noRollbackFor = { ClientSideException.class })
 public class AiBookingAssistantService {
 
+    // Giờ làm việc mặc định của hệ thống: 8:00 sáng đến 18:00 chiều
+    private static final LocalTime DEFAULT_WORKING_HOURS_START = LocalTime.of(8, 0);
+    private static final LocalTime DEFAULT_WORKING_HOURS_END = LocalTime.of(18, 0);
+
     private final BookingTimeRangeService bookingTimeRangeService;
+    
+    /**
+     * Tạo WorkingHoursDto mặc định với giờ làm việc 8:00 - 18:00
+     */
+    private WorkingHoursDto getDefaultWorkingHours() {
+        return WorkingHoursDto.builder()
+                .start(DEFAULT_WORKING_HOURS_START)
+                .end(DEFAULT_WORKING_HOURS_END)
+                .build();
+    }
     private final BranchServiceFilterService branchServiceFilterService;
     private final ServiceBayService serviceBayService;
     private final ServiceService serviceService;
@@ -73,9 +88,30 @@ public class AiBookingAssistantService {
 
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
         long startTime = System.currentTimeMillis();
+        log.info("=== CHECK AVAILABILITY START ===");
         log.info("AI Function: checkAvailability() called with request: {}", request);
+        log.info("Request details - branch_id: '{}', branch_name: '{}', service_type: '{}', date_time: '{}'",
+                request.getBranchId(), request.getBranchName(), request.getServiceType(), request.getDateTime());
 
         try {
+            // STEP-BY-STEP VALIDATION: Kiểm tra dữ liệu theo từng bước
+            AvailabilityResponse validationError = validateCheckAvailabilitySteps(request);
+            if (validationError != null) {
+                log.warn("=== VALIDATION FAILED ===");
+                log.warn("Step: {}, Missing data: {}, Message: {}", 
+                        validationError.getState() != null ? validationError.getState().getCurrentStep() : "unknown",
+                        validationError.getState() != null ? validationError.getState().getMissingData() : "unknown",
+                        validationError.getMessage());
+                return validationError;
+            }
+            
+            // Log state tracking
+            AvailabilityResponse.BookingState state = buildAvailabilityState(request);
+            log.info("=== STATE TRACKING ===");
+            log.info("Current step: {}, Has vehicle: {}, Has date: {}, Has branch: {}, Has service: {}, Has bay: {}, Has time: {}",
+                    state.getCurrentStep(), state.getHasVehicleId(), state.getHasDateTime(), 
+                    state.getHasBranchId(), state.getHasServiceType(), state.getHasBayId(), state.getHasTimeSlot());
+            log.info("Missing data: {}, Next action: {}", state.getMissingData(), state.getNextAction());
             // 1. Parse và validate service
             // Kiểm tra số lượng services trước khi parse để tránh tự động chọn service đầu
             // tiên
@@ -126,6 +162,7 @@ public class AiBookingAssistantService {
                                 .suggestions(new ArrayList<>())
                                 .availableBays(new ArrayList<>())
                                 .suggestedServices(suggestedServices)
+                                .state(buildAvailabilityState(request))
                                 .build();
                     }
                 }
@@ -172,6 +209,7 @@ public class AiBookingAssistantService {
                             .suggestions(new ArrayList<>())
                             .availableBays(new ArrayList<>())
                             .suggestedServices(suggestedServices)
+                            .state(buildAvailabilityState(request))
                             .build();
                 } else {
                     // Không có serviceType, trả về lỗi
@@ -181,6 +219,7 @@ public class AiBookingAssistantService {
                             .suggestions(new ArrayList<>())
                             .availableBays(new ArrayList<>())
                             .suggestedServices(new ArrayList<>())
+                            .state(buildAvailabilityState(request))
                             .build();
                 }
             }
@@ -222,49 +261,172 @@ public class AiBookingAssistantService {
                         .suggestedServices(new ArrayList<>())
                         .build();
             }
+            
+            // CRITICAL: Validate date không được trong quá khứ
+            LocalDate today = LocalDate.now();
+            if (date.isBefore(today)) {
+                log.warn("User attempted to check availability in the past: {} (today: {})", date, today);
+                return AvailabilityResponse.builder()
+                        .status("FULL")
+                        .message("Không thể kiểm tra lịch trong quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.")
+                        .suggestions(new ArrayList<>())
+                        .availableBays(new ArrayList<>())
+                        .suggestedServices(new ArrayList<>())
+                        .build();
+            }
+            
+            log.info("Date validation passed in checkAvailability: {} (today: {})", date, today);
 
             // 3. Parse branch (nếu có branch_id hoặc branch_name)
-            UUID branchId = null;
+            UUID parsedBranchId = null;
+            log.info("Parsing branch - branch_id from request: '{}', branch_name from request: '{}'", 
+                    request.getBranchId(), request.getBranchName());
+            
             if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
                 try {
-                    branchId = UUID.fromString(request.getBranchId());
+                    parsedBranchId = UUID.fromString(request.getBranchId());
+                    log.info("Successfully parsed branch_id to UUID: {}", parsedBranchId);
+                    
+                    // CRITICAL: Validate branch tồn tại ngay sau khi parse
+                    Branch testBranch = branchService.findById(parsedBranchId).orElse(null);
+                    if (testBranch == null) {
+                        log.error("CRITICAL: Parsed branch_id '{}' does not exist in database! This UUID is invalid. Attempting fallback...", parsedBranchId);
+                        
+                        // Fallback: Try to find by name if provided
+                        Branch branchByName = null;
+                        if (request.getBranchName() != null && !request.getBranchName().trim().isEmpty()) {
+                            log.info("Attempting to find branch by name as fallback: '{}'", request.getBranchName());
+                            branchByName = findBranchByNameOrAddress(request.getBranchName().trim());
+                        }
+                        
+                        // Nếu vẫn không tìm thấy, thử tìm tất cả branches active để gợi ý
+                        if (branchByName == null) {
+                            log.warn("Branch not found by ID '{}' or name '{}'. Returning error with branch suggestions.", 
+                                    parsedBranchId, request.getBranchName());
+                            
+                            // Lấy danh sách tất cả branches để gợi ý
+                            List<Branch> allBranches = branchService.findAllActiveBranches();
+                            String branchList = allBranches.stream()
+                                    .map(b -> String.format("- %s (ID: %s)", b.getBranchName(), b.getBranchId()))
+                                    .collect(Collectors.joining("\n"));
+                            
+                            return AvailabilityResponse.builder()
+                                    .status("FULL")
+                                    .message(String.format(
+                                            "Không tìm thấy chi nhánh với ID: %s. UUID này không tồn tại trong hệ thống.\n\n" +
+                                            "Vui lòng chọn lại chi nhánh từ danh sách sau:\n%s\n\n" +
+                                            "LƯU Ý: Khi gọi checkAvailability(), bạn PHẢI dùng branch_id (UUID) từ lần chọn chi nhánh gần nhất, " +
+                                            "KHÔNG được dùng branch_id từ response cũ hoặc tự bịa ra.",
+                                            parsedBranchId, branchList))
+                                    .suggestions(new ArrayList<>())
+                                    .availableBays(new ArrayList<>())
+                                    .suggestedServices(new ArrayList<>())
+                                    .build();
+                        } else {
+                            // Tìm thấy branch theo tên, dùng UUID đúng
+                            parsedBranchId = branchByName.getBranchId();
+                            log.warn("Found branch by name '{}' with correct UUID: {}. Using this UUID instead of invalid UUID '{}'.", 
+                                    branchByName.getBranchName(), parsedBranchId, request.getBranchId());
+                        }
+                    } else {
+                        log.info("Branch validation passed: branch_id={}, branch_name='{}'", 
+                                parsedBranchId, testBranch.getBranchName());
+                    }
                 } catch (IllegalArgumentException e) {
                     log.warn("Invalid branch_id format: '{}'. Will try to find by name.", request.getBranchId());
                 }
             }
-            if (branchId == null && request.getBranchName() != null && !request.getBranchName().trim().isEmpty()) {
+            if (parsedBranchId == null && request.getBranchName() != null && !request.getBranchName().trim().isEmpty()) {
                 // Tìm branch theo tên với logic matching linh hoạt hơn
+                log.info("Finding branch by name: '{}'", request.getBranchName());
                 Branch branch = findBranchByNameOrAddress(request.getBranchName().trim());
 
                 if (branch == null) {
+                    log.error("Branch not found by name: '{}'", request.getBranchName());
                     return AvailabilityResponse.builder()
                             .status("FULL")
                             .message("Không tìm thấy chi nhánh: " + request.getBranchName()
-                                    + ". Vui lòng kiểm tra lại tên chi nhánh.")
+                                    + ". Vui lòng kiểm tra lại tên chi nhánh hoặc chọn từ danh sách.")
                             .suggestions(new ArrayList<>())
                             .availableBays(new ArrayList<>())
                             .suggestedServices(new ArrayList<>())
                             .build();
                 }
 
-                branchId = branch.getBranchId();
-                log.info("Parsed branch_name '{}' to branch_id: {} ({})", 
-                        request.getBranchName(), branchId, branch.getBranchName());
+                parsedBranchId = branch.getBranchId();
+                log.info("Found branch by name '{}' -> branch_id: {}, branch_name: '{}'", 
+                        request.getBranchName(), parsedBranchId, branch.getBranchName());
+            }
+            
+            if (parsedBranchId == null) {
+                log.error("CRITICAL: Cannot parse branch - both branch_id and branch_name are null or invalid");
+                return AvailabilityResponse.builder()
+                        .status("FULL")
+                        .message("Vui lòng cung cấp branch_id hoặc branch_name. Bạn muốn đặt lịch ở chi nhánh nào?")
+                        .suggestions(new ArrayList<>())
+                        .availableBays(new ArrayList<>())
+                        .suggestedServices(new ArrayList<>())
+                        .build();
+            }
+            
+            // Final reference để sử dụng trong lambda
+            final UUID branchId = parsedBranchId;
+            
+            // Variables để lưu inventory warning (nếu có) - khai báo ở ngoài scope để dùng sau
+            String inventoryWarning = null;
+            List<AvailabilityResponse.SuggestedServiceInfo> suggestedServicesForInventory = new ArrayList<>();
+            
+            // CRITICAL: Validate branch tồn tại ngay từ đầu (nếu có branchId)
+            Branch validatedBranch = null;
+            if (branchId != null) {
+                validatedBranch = branchService.findById(branchId).orElse(null);
+                if (validatedBranch == null) {
+                    log.error("CRITICAL: Branch not found with branch_id: {} (from request: branch_id='{}', branch_name='{}')", 
+                            branchId, request.getBranchId(), request.getBranchName());
+                    return AvailabilityResponse.builder()
+                            .status("FULL")
+                            .message("Không tìm thấy chi nhánh với ID: " + branchId + 
+                                    ". Có thể UUID không đúng hoặc chi nhánh đã bị xóa. " +
+                                    "Vui lòng chọn lại chi nhánh từ danh sách hoặc liên hệ admin.")
+                            .suggestions(new ArrayList<>())
+                            .availableBays(new ArrayList<>())
+                            .suggestedServices(new ArrayList<>())
+                            .build();
+                }
+                
+                log.info("Branch validation passed: branch_id={}, branch_name='{}'", 
+                        branchId, validatedBranch.getBranchName());
             }
 
-            if (branchId != null) {
+            if (branchId != null && validatedBranch != null) {
+                
                 // Check inventory cho service đã chọn - QUAN TRỌNG: Kiểm tra tồn kho sản phẩm
                 // Sử dụng batch-check-services để kiểm tra service cụ thể
                 long inventoryCheckStart = System.currentTimeMillis();
-                log.info("Checking inventory for selected service '{}' at branch {} using batch-check", 
-                        finalService.getServiceName(), branchId);
+                log.info("Checking inventory for selected service '{}' at branch {} (name: '{}') using batch-check", 
+                        finalService.getServiceName(), branchId, validatedBranch.getBranchName());
                 
                 // Gọi batch-check-services với service đã chọn
                 List<UUID> serviceIdsToCheck = new ArrayList<>();
                 serviceIdsToCheck.add(finalService.getServiceId());
                 
-                BranchServiceFilterResult filterResult = branchServiceFilterService
-                        .checkMultipleServicesAvailability(branchId, serviceIdsToCheck, true);
+                BranchServiceFilterResult filterResult;
+                try {
+                    filterResult = branchServiceFilterService
+                            .checkMultipleServicesAvailability(branchId, serviceIdsToCheck, true);
+                } catch (ClientSideException e) {
+                    if (e.getCode() == ErrorCode.NOT_FOUND && e.getMessage().contains("Branch not found")) {
+                        log.error("CRITICAL: Branch not found in checkMultipleServicesAvailability: branch_id={}", branchId);
+                        return AvailabilityResponse.builder()
+                                .status("FULL")
+                                .message("Không tìm thấy chi nhánh. Vui lòng chọn lại chi nhánh hoặc liên hệ admin.")
+                                .suggestions(new ArrayList<>())
+                                .availableBays(new ArrayList<>())
+                                .suggestedServices(new ArrayList<>())
+                                .build();
+                    }
+                    throw e; // Re-throw other exceptions
+                }
                 
                 long inventoryCheckEnd = System.currentTimeMillis();
                 log.info("Inventory check completed in {} ms", (inventoryCheckEnd - inventoryCheckStart));
@@ -290,8 +452,9 @@ public class AiBookingAssistantService {
                         }
                     }
                     
-                    log.warn("Selected service '{}' is not available at branch {} due to inventory issues: {}", 
+                    log.warn("⚠️ Selected service '{}' is not available at branch {} due to inventory issues: {}", 
                             finalService.getServiceName(), branchId, errorMessage);
+                    log.warn("⚠️ BUT: Will continue to check bay availability anyway, so user can see available bays and choose another service");
                     
                     // Lấy danh sách services available tại branch để gợi ý
                     BranchServiceFilterResult allAvailableServices = branchServiceFilterService
@@ -326,53 +489,85 @@ public class AiBookingAssistantService {
                                     .filter(s -> s != null)
                                     .collect(Collectors.toList());
                     
-                    // Nếu có services available khác, yêu cầu chọn lại
-                    if (!availableServiceSuggestions.isEmpty()) {
-                        errorMessage += ". Vui lòng chọn dịch vụ khác từ danh sách sau:";
-                        
-                        return AvailabilityResponse.builder()
-                                .status("NEEDS_SERVICE_SELECTION")
-                                .message(errorMessage)
-                                .suggestions(new ArrayList<>())
-                                .availableBays(new ArrayList<>())
-                                .suggestedServices(availableServiceSuggestions)
-                                .build();
-                    } else {
-                        // Không có service nào available
-                        return AvailabilityResponse.builder()
-                                .status("FULL")
-                                .message(errorMessage + ". Hiện tại không có dịch vụ nào khả dụng tại chi nhánh này.")
-                                .suggestions(new ArrayList<>())
-                                .availableBays(new ArrayList<>())
-                                .suggestedServices(new ArrayList<>())
-                                .build();
-                    }
+                    // LƯU Ý: KHÔNG return ngay, mà tiếp tục check bay
+                    // Sau đó sẽ return với availableBays + suggestedServices + warning message
+                    // Store inventory warning để dùng sau
+                    inventoryWarning = errorMessage;
+                    suggestedServicesForInventory = availableServiceSuggestions;
+                    
+                    // Continue to check bays, will handle inventory warning later
+                    // (We'll add this to the response after checking bays)
+                } else {
+                    log.info("✅ Selected service '{}' passed inventory check at branch {}", 
+                            finalService.getServiceName(), branchId);
                 }
-                
-                log.info("Selected service '{}' passed inventory check at branch {}", 
-                        finalService.getServiceName(), branchId);
             }
 
-            // 4. Lấy service bays
-            List<ServiceBay> serviceBays;
-            if (branchId != null) {
-                // Lấy bays của branch cụ thể có allow_booking = true
-                serviceBays = serviceBayService.findBookingAllowedBaysByBranch(branchId);
-            } else {
-                // Lấy tất cả bays có allow_booking = true
-                serviceBays = serviceBayService.findAll().stream()
-                        .filter(ServiceBay::isAvailableForBooking)
-                        .collect(Collectors.toList());
-            }
-
-            if (serviceBays.isEmpty()) {
+            // 4. Lấy service bays - BẮT BUỘC phải có branchId (theo quy trình, khách đã chọn chi nhánh ở STEP 5-6)
+            if (branchId == null) {
+                log.error("branchId is null when getting service bays. This should not happen if user has selected a branch.");
                 return AvailabilityResponse.builder()
                         .status("FULL")
-                        .message("Không có service bay nào cho phép đặt lịch")
+                        .message("Vui lòng chọn chi nhánh trước khi xem danh sách bay. Bạn muốn đặt lịch ở chi nhánh nào?")
                         .suggestions(new ArrayList<>())
                         .availableBays(new ArrayList<>())
                         .suggestedServices(new ArrayList<>())
                         .build();
+            }
+            
+            // CRITICAL: Validate branch tồn tại trước khi lấy bays (reuse validatedBranch nếu đã có)
+            Branch branchForBays = validatedBranch;
+            if (branchForBays == null && branchId != null) {
+                branchForBays = branchService.findById(branchId).orElse(null);
+                if (branchForBays == null) {
+                    log.error("CRITICAL: Branch not found when getting service bays: branch_id={} (from request: branch_id='{}', branch_name='{}')", 
+                            branchId, request.getBranchId(), request.getBranchName());
+                    return AvailabilityResponse.builder()
+                            .status("FULL")
+                            .message("Không tìm thấy chi nhánh với ID: " + branchId + 
+                                    ". Có thể UUID không đúng hoặc chi nhánh đã bị xóa. " +
+                                    "Vui lòng chọn lại chi nhánh từ danh sách hoặc liên hệ admin.")
+                            .suggestions(new ArrayList<>())
+                            .availableBays(new ArrayList<>())
+                            .suggestedServices(new ArrayList<>())
+                            .build();
+                }
+            }
+            
+            // QUAN TRỌNG: Chỉ lấy bays của branch đã chọn, KHÔNG lấy toàn bộ hệ thống
+            log.info("Getting service bays for branch: '{}' (branch_id: {})", 
+                branchForBays != null ? branchForBays.getBranchName() : "Unknown", branchId);
+            
+            List<ServiceBay> serviceBays = serviceBayService.findBookingAllowedBaysByBranch(branchId);
+            
+            log.info("Found {} booking-allowed bays for branch: {}", serviceBays.size(), branchId);
+            
+            if (serviceBays.isEmpty()) {
+                String branchName = branchForBays != null ? branchForBays.getBranchName() : "chi nhánh này";
+                log.warn("No booking-allowed bays found for branch: '{}' (branch_id: {})", branchName, branchId);
+                return AvailabilityResponse.builder()
+                        .status("FULL")
+                        .message("Không có service bay nào cho phép đặt lịch tại " + branchName)
+                        .suggestions(new ArrayList<>())
+                        .availableBays(new ArrayList<>())
+                        .suggestedServices(new ArrayList<>())
+                        .build();
+            }
+            
+            // Validate tất cả bays đều thuộc branch đã chọn (double check)
+            List<ServiceBay> invalidBays = serviceBays.stream()
+                    .filter(bay -> bay.getBranch() == null || !bay.getBranch().getBranchId().equals(branchId))
+                    .collect(Collectors.toList());
+            
+            if (!invalidBays.isEmpty()) {
+                log.error("CRITICAL: Found {} bays that do not belong to branch {}: {}", 
+                    invalidBays.size(), branchId, 
+                    invalidBays.stream().map(ServiceBay::getBayName).collect(Collectors.joining(", ")));
+                // Filter out invalid bays
+                serviceBays = serviceBays.stream()
+                        .filter(bay -> bay.getBranch() != null && bay.getBranch().getBranchId().equals(branchId))
+                        .collect(Collectors.toList());
+                log.info("Filtered out invalid bays. Remaining {} valid bays for branch: {}", serviceBays.size(), branchId);
             }
 
             // 5. Lấy available time ranges cho mỗi bay
@@ -386,20 +581,57 @@ public class AiBookingAssistantService {
             List<AvailabilityResponse.AvailableBayInfo> availableBays = serviceBays.parallelStream()
                     .map(bay -> {
                         try {
+                            log.debug("Checking bay: {} (ID: {}) for date: {}, serviceDuration: {} minutes", 
+                                    bay.getBayName(), bay.getBayId(), finalDate, finalServiceDuration);
+                            
                             AvailableTimeRangesResponse timeRangesResponse = bookingTimeRangeService
                                     .getAvailableTimeRanges(bay.getBayId(), finalDate);
+
+                            log.info("Bay {} - Raw time ranges from API: {}", bay.getBayName(), 
+                                    timeRangesResponse.getAvailableTimeRanges().stream()
+                                            .map(r -> {
+                                                long duration = java.time.Duration.between(r.getStartTime(), r.getEndTime()).toMinutes();
+                                                return String.format("%s - %s (duration: %d min)", 
+                                                        r.getStartTime(), r.getEndTime(), duration);
+                                            })
+                                            .collect(Collectors.joining(", ")));
 
                             // Filter ranges đủ lớn cho service duration
                             List<TimeRangeDto> suitableRanges = filterRangesByDuration(
                                     timeRangesResponse.getAvailableTimeRanges(),
                                     finalServiceDuration);
 
+                            log.info("Bay {} - Suitable ranges (duration >= {} min): {} ranges", 
+                                    bay.getBayName(), finalServiceDuration, suitableRanges.size());
+                            if (!suitableRanges.isEmpty()) {
+                                log.info("Bay {} - Suitable range details: {}", 
+                                        bay.getBayName(),
+                                        suitableRanges.stream()
+                                                .map(r -> {
+                                                    long duration = java.time.Duration.between(r.getStartTime(), r.getEndTime()).toMinutes();
+                                                    return String.format("%s - %s (duration: %d min)", 
+                                                            r.getStartTime(), r.getEndTime(), duration);
+                                                })
+                                                .collect(Collectors.joining(", ")));
+                            } else {
+                                log.warn("Bay {} - NO suitable ranges found! All ranges are too small for {} minutes service", 
+                                        bay.getBayName(), finalServiceDuration);
+                            }
+
                             if (!suitableRanges.isEmpty()) {
                                 // Convert time ranges thành slots
                                 List<String> slots = convertTimeRangesToSlots(
                                         suitableRanges,
-                                        timeRangesResponse.getWorkingHours(),
+                                        getDefaultWorkingHours(),
                                         finalServiceDuration);
+
+                                log.info("Bay {} - Converted {} suitable ranges to {} slots: {}", 
+                                        bay.getBayName(), suitableRanges.size(), slots.size(), slots);
+                                
+                                if (slots.isEmpty()) {
+                                    log.error("CRITICAL: Bay {} has {} suitable ranges but 0 slots generated! This should not happen!", 
+                                            bay.getBayName(), suitableRanges.size());
+                                }
 
                                 if (!slots.isEmpty()) {
                                     // Lấy thông tin branch từ bay
@@ -415,8 +647,24 @@ public class AiBookingAssistantService {
                                             .status(bay.getStatus() != null ? bay.getStatus().name() : null)
                                             .availableSlots(slots)
                                             .build();
-                                }
+                            } else {
+                                log.warn("⚠️ Bay {} - No slots generated from {} suitable ranges! This is a bug!", 
+                                        bay.getBayName(), suitableRanges.size());
+                                log.warn("  - Suitable ranges: {}", suitableRanges);
+                                log.warn("  - Service duration: {} minutes", finalServiceDuration);
                             }
+                        } else {
+                            log.warn("⚠️ Bay {} - No suitable ranges found (all ranges too small for {} minutes duration)", 
+                                    bay.getBayName(), finalServiceDuration);
+                            log.warn("  - Raw time ranges count: {}", timeRangesResponse.getAvailableTimeRanges().size());
+                            if (!timeRangesResponse.getAvailableTimeRanges().isEmpty()) {
+                                log.warn("  - Largest range duration: {} minutes", 
+                                        timeRangesResponse.getAvailableTimeRanges().stream()
+                                                .mapToLong(r -> java.time.Duration.between(r.getStartTime(), r.getEndTime()).toMinutes())
+                                                .max()
+                                                .orElse(0));
+                            }
+                        }
                         } catch (ClientSideException e) {
                             // Xử lý exception khi branch đóng cửa
                             if (e.getCode() == ErrorCode.BRANCH_CLOSED) {
@@ -426,7 +674,7 @@ public class AiBookingAssistantService {
                                 log.warn("Error getting time ranges for bay {}: {}", bay.getBayId(), e.getMessage());
                             }
                         } catch (Exception e) {
-                            log.warn("Error getting time ranges for bay {}: {}", bay.getBayId(), e.getMessage());
+                            log.error("Error getting time ranges for bay {}: {}", bay.getBayId(), e.getMessage(), e);
                         }
                         return null;
                     })
@@ -441,6 +689,21 @@ public class AiBookingAssistantService {
             long bayCheckEnd = System.currentTimeMillis();
             log.info("Bay availability check completed in {} ms. Found {} available bays", 
                     (bayCheckEnd - bayCheckStart), availableBays.size());
+            
+            // Log chi tiết khi không có bay trống
+            if (availableBays.isEmpty() && !serviceBays.isEmpty()) {
+                log.warn("⚠️ NO AVAILABLE BAYS FOUND - Debugging info:");
+                log.warn("  - Total service bays checked: {}", serviceBays.size());
+                log.warn("  - Service: {} (duration: {} minutes)", service.getServiceName(), serviceDuration);
+                log.warn("  - Branch: {} (branch_id: {})", 
+                        branchForBays != null ? branchForBays.getBranchName() : "Unknown", branchId);
+                log.warn("  - Date: {}", date);
+                log.warn("  - Possible reasons:");
+                log.warn("    1. All bays have no suitable time ranges (duration < {} minutes)", serviceDuration);
+                log.warn("    2. All bays are fully booked");
+                log.warn("    3. Branch is closed on this date");
+                log.warn("    4. Time ranges are filtered out by working hours");
+            }
             
             // Check if all bays failed due to branch closed
             String branchClosedMessage = null;
@@ -460,17 +723,31 @@ public class AiBookingAssistantService {
 
             // Nếu tất cả bays đều bị lỗi do branch đóng cửa, trả về message phù hợp
             if (availableBays.isEmpty() && branchClosedMessage != null) {
+                AvailabilityResponse.BookingState errorState = buildAvailabilityState(request);
                 return AvailabilityResponse.builder()
                         .status("FULL")
                         .message(branchClosedMessage)
                         .suggestions(new ArrayList<>())
                         .availableBays(new ArrayList<>())
                         .suggestedServices(new ArrayList<>())
+                        .state(errorState)
                         .build();
             }
 
             // 6. Build response
             if (availableBays.isEmpty()) {
+                AvailabilityResponse.BookingState errorState = buildAvailabilityState(request);
+                
+                // Log chi tiết lý do tại sao không có bay trống
+                log.error("❌ RETURNING FULL STATUS - No available bays found");
+                log.error("  - Service: {} (ID: {}, duration: {} minutes)", 
+                        service.getServiceName(), service.getServiceId(), serviceDuration);
+                log.error("  - Branch: {} (ID: {})", 
+                        branchForBays != null ? branchForBays.getBranchName() : "Unknown", branchId);
+                log.error("  - Date: {}", date);
+                log.error("  - Total service bays in branch: {}", serviceBays.size());
+                log.error("  - This should NOT happen if there are available time slots in the database");
+                
                 return AvailabilityResponse.builder()
                         .status("FULL")
                         .message("Không có slot trống phù hợp cho dịch vụ '" + service.getServiceName() +
@@ -478,6 +755,7 @@ public class AiBookingAssistantService {
                         .suggestions(new ArrayList<>())
                         .availableBays(new ArrayList<>())
                         .suggestedServices(new ArrayList<>())
+                        .state(errorState)
                         .build();
             }
 
@@ -509,28 +787,319 @@ public class AiBookingAssistantService {
             log.info("checkAvailability() completed in {} ms. Found {} available bays with {} total slots", 
                     (endTime - startTime), availableBays.size(), allSuggestions.size());
             
+            // Build state tracking - dùng lại state đã khai báo ở đầu method
+            // Update state: đã có bay_id từ availableBays
+            if (!availableBays.isEmpty()) {
+                state = AvailabilityResponse.BookingState.builder()
+                        .currentStep(6) // STEP 6: Chọn giờ
+                        .hasVehicleId(state.getHasVehicleId())
+                        .hasDateTime(state.getHasDateTime())
+                        .hasBranchId(state.getHasBranchId())
+                        .hasServiceType(state.getHasServiceType())
+                        .hasBayId(true) // Đã có danh sách bay
+                        .hasTimeSlot(false)
+                        .missingData(List.of("time_slot"))
+                        .nextAction(getNextActionForStep(6))
+                        .build();
+            }
+            
+            // Build response message - nếu có inventory warning, thêm vào message
+            String responseMessage = "Tìm thấy " + allSuggestions.size() + " khung giờ trống phù hợp";
+            if (inventoryWarning != null && !inventoryWarning.isEmpty()) {
+                responseMessage = inventoryWarning + ". " + responseMessage + ". Bạn có thể chọn dịch vụ khác từ danh sách gợi ý.";
+                log.info("⚠️ Including inventory warning in response: {}", inventoryWarning);
+            }
+            
             return AvailabilityResponse.builder()
                     .status("AVAILABLE")
                     .slot(specificSlot)
                     .suggestions(allSuggestions)
                     .availableBays(availableBays)
-                    .message("Tìm thấy " + allSuggestions.size() + " khung giờ trống phù hợp")
-                    .suggestedServices(new ArrayList<>())
+                    .message(responseMessage)
+                    .suggestedServices(suggestedServicesForInventory) // Include suggested services if inventory check failed
+                    .state(state)
                     .build();
 
         } catch (Exception e) {
             long endTime = System.currentTimeMillis();
             log.error("Error in checkAvailability() after {} ms: {}", (endTime - startTime), e.getMessage(), e);
+            AvailabilityResponse.BookingState state = buildAvailabilityState(request);
             return AvailabilityResponse.builder()
                     .status("FULL")
                     .message("Có lỗi xảy ra khi kiểm tra slot: " + e.getMessage())
                     .suggestions(new ArrayList<>())
                     .availableBays(new ArrayList<>())
                     .suggestedServices(new ArrayList<>())
+                    .state(state)
                     .build();
         }
     }
 
+    /**
+     * Tìm branch theo UUID ID
+     */
+    public Branch findBranchById(UUID branchId) {
+        return branchService.findById(branchId).orElse(null);
+    }
+    
+    /**
+     * Build state tracking từ request
+     * Giúp AI biết đang ở bước nào và cần làm gì tiếp theo
+     */
+    private AvailabilityResponse.BookingState buildAvailabilityState(AvailabilityRequest request) {
+        boolean hasVehicleId = false; // checkAvailability không có vehicle_id
+        boolean hasDateTime = request.getDateTime() != null && !request.getDateTime().trim().isEmpty();
+        boolean hasBranchId = request.getBranchId() != null && !request.getBranchId().trim().isEmpty();
+        boolean hasBranchName = request.getBranchName() != null && !request.getBranchName().trim().isEmpty();
+        boolean hasServiceType = request.getServiceType() != null && !request.getServiceType().trim().isEmpty();
+        boolean hasBayId = false; // checkAvailability không có bay_id
+        boolean hasTimeSlot = false; // checkAvailability không có time_slot
+        
+        // Xác định current_step dựa trên dữ liệu có
+        int currentStep = 1;
+        List<String> missingData = new ArrayList<>();
+        
+        if (!hasServiceType) {
+            currentStep = 4; // STEP 4: Chọn dịch vụ
+            missingData.add("service_type");
+        } else if (!hasDateTime) {
+            currentStep = 2; // STEP 2: Chọn ngày
+            missingData.add("date_time");
+        } else if (!hasBranchId && !hasBranchName) {
+            currentStep = 3; // STEP 3: Chọn chi nhánh
+            missingData.add("branch_id hoặc branch_name");
+        } else {
+            currentStep = 5; // STEP 5: Chọn bay (đang check availability)
+        }
+        
+        String nextAction = getNextActionForStep(currentStep);
+        
+        return AvailabilityResponse.BookingState.builder()
+                .currentStep(currentStep)
+                .hasVehicleId(hasVehicleId)
+                .hasDateTime(hasDateTime)
+                .hasBranchId(hasBranchId || hasBranchName)
+                .hasServiceType(hasServiceType)
+                .hasBayId(hasBayId)
+                .hasTimeSlot(hasTimeSlot)
+                .missingData(missingData)
+                .nextAction(nextAction)
+                .build();
+    }
+    
+    /**
+     * Build state tracking từ createBooking request
+     */
+    private CreateBookingResponse.BookingState buildCreateBookingState(CreateBookingRequest request) {
+        // Tối ưu: Chấp nhận vehicle_id HOẶC vehicle_license_plate
+        boolean hasVehicleId = request.getVehicleId() != null && !request.getVehicleId().trim().isEmpty();
+        boolean hasVehicleLicensePlate = request.getVehicleLicensePlate() != null && !request.getVehicleLicensePlate().trim().isEmpty();
+        boolean hasVehicle = hasVehicleId || hasVehicleLicensePlate;
+        
+        boolean hasDateTime = request.getDateTime() != null && !request.getDateTime().trim().isEmpty();
+        boolean hasBranchId = request.getBranchId() != null && !request.getBranchId().trim().isEmpty();
+        boolean hasBranchName = request.getBranchName() != null && !request.getBranchName().trim().isEmpty();
+        // serviceType có thể là String hoặc List<String>
+        boolean hasServiceType = request.getServiceType() != null && 
+                (request.getServiceType() instanceof String ? 
+                    !((String) request.getServiceType()).trim().isEmpty() : 
+                    request.getServiceType() instanceof List && !((List<?>) request.getServiceType()).isEmpty());
+        boolean hasBayId = request.getBayId() != null && !request.getBayId().trim().isEmpty();
+        boolean hasBayName = request.getBayName() != null && !request.getBayName().trim().isEmpty();
+        boolean hasTimeSlot = hasDateTime && request.getDateTime().contains("T");
+        
+        // Xác định current_step dựa trên dữ liệu có
+        int currentStep = 1;
+        List<String> missingData = new ArrayList<>();
+        
+        if (!hasVehicle) {
+            currentStep = 1;
+            missingData.add("vehicle_id hoặc vehicle_license_plate");
+        } else if (!hasDateTime) {
+            currentStep = 2;
+            missingData.add("date_time");
+        } else if (!hasBranchId && !hasBranchName) {
+            currentStep = 3;
+            missingData.add("branch_id hoặc branch_name");
+        } else if (!hasServiceType) {
+            currentStep = 4;
+            missingData.add("service_type");
+        } else if (!hasBayId && !hasBayName) {
+            currentStep = 5;
+            missingData.add("bay_id hoặc bay_name");
+        } else if (!hasTimeSlot) {
+            currentStep = 6;
+            missingData.add("time_slot (date_time phải có giờ)");
+        } else {
+            currentStep = 7; // Đã đủ dữ liệu, có thể tạo booking
+        }
+        
+        String nextAction = getNextActionForStep(currentStep);
+        
+        return CreateBookingResponse.BookingState.builder()
+                .currentStep(currentStep)
+                .hasVehicleId(hasVehicle) // Updated: chấp nhận vehicle_id hoặc license_plate
+                .hasDateTime(hasDateTime)
+                .hasBranchId(hasBranchId || hasBranchName)
+                .hasServiceType(hasServiceType)
+                .hasBayId(hasBayId || hasBayName)
+                .hasTimeSlot(hasTimeSlot)
+                .missingData(missingData)
+                .nextAction(nextAction)
+                .build();
+    }
+    
+    /**
+     * Lấy next action cho từng step
+     */
+    private String getNextActionForStep(int step) {
+        switch (step) {
+            case 1:
+                return "Gọi getCustomerVehicles() và yêu cầu user chọn xe";
+            case 2:
+                return "Yêu cầu user chọn ngày đặt lịch";
+            case 3:
+                return "Gọi getBranches() và yêu cầu user chọn chi nhánh";
+            case 4:
+                return "Yêu cầu user chọn dịch vụ";
+            case 5:
+                return "Gọi checkAvailability() và yêu cầu user chọn bay";
+            case 6:
+                return "Yêu cầu user chọn giờ từ danh sách available slots";
+            case 7:
+                return "Xác nhận thông tin và gọi createBooking()";
+            default:
+                return "Kiểm tra lại dữ liệu";
+        }
+    }
+    
+    /**
+     * Validate step-by-step cho checkAvailability
+     * Trả về null nếu pass, trả về error response nếu fail
+     */
+    private AvailabilityResponse validateCheckAvailabilitySteps(AvailabilityRequest request) {
+        // STEP 4: Chọn dịch vụ
+        if (request.getServiceType() == null || request.getServiceType().trim().isEmpty()) {
+            return AvailabilityResponse.builder()
+                    .status("MISSING_DATA")
+                    .message("Bạn cần chọn dịch vụ trước. (STEP 4: Chọn dịch vụ)")
+                    .suggestions(new ArrayList<>())
+                    .availableBays(new ArrayList<>())
+                    .suggestedServices(new ArrayList<>())
+                    .state(buildAvailabilityState(request))
+                    .build();
+        }
+        
+        // STEP 2: Chọn ngày
+        if (request.getDateTime() == null || request.getDateTime().trim().isEmpty()) {
+            return AvailabilityResponse.builder()
+                    .status("MISSING_DATA")
+                    .message("Bạn cần chọn ngày đặt lịch trước. (STEP 2: Chọn ngày)")
+                    .suggestions(new ArrayList<>())
+                    .availableBays(new ArrayList<>())
+                    .suggestedServices(new ArrayList<>())
+                    .state(buildAvailabilityState(request))
+                    .build();
+        }
+        
+        // STEP 3: Chọn chi nhánh
+        if ((request.getBranchId() == null || request.getBranchId().trim().isEmpty()) &&
+            (request.getBranchName() == null || request.getBranchName().trim().isEmpty())) {
+            return AvailabilityResponse.builder()
+                    .status("MISSING_DATA")
+                    .message("Bạn cần chọn chi nhánh trước. (STEP 3: Chọn chi nhánh)")
+                    .suggestions(new ArrayList<>())
+                    .availableBays(new ArrayList<>())
+                    .suggestedServices(new ArrayList<>())
+                    .state(buildAvailabilityState(request))
+                    .build();
+        }
+        
+        return null; // Pass validation
+    }
+    
+    /**
+     * Validate step-by-step cho createBooking
+     * Trả về null nếu pass, trả về error response nếu fail
+     */
+    private CreateBookingResponse validateCreateBookingSteps(CreateBookingRequest request) {
+        // STEP 1: Chọn xe - Chấp nhận vehicle_id HOẶC vehicle_license_plate
+        boolean hasVehicleInfo = (request.getVehicleId() != null && !request.getVehicleId().trim().isEmpty()) ||
+                                 (request.getVehicleLicensePlate() != null && !request.getVehicleLicensePlate().trim().isEmpty());
+        if (!hasVehicleInfo) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu thông tin xe (vehicle_id hoặc vehicle_license_plate). Bạn cần hoàn thành STEP 1 (Chọn xe) trước.")
+                    .state(state)
+                    .failedStep(1)
+                    .build();
+        }
+        
+        // STEP 2: Chọn ngày
+        if (request.getDateTime() == null || request.getDateTime().trim().isEmpty()) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu date_time. Bạn cần hoàn thành STEP 2 (Chọn ngày) trước.")
+                    .state(state)
+                    .failedStep(2)
+                    .build();
+        }
+        
+        // STEP 3: Chọn chi nhánh
+        if ((request.getBranchId() == null || request.getBranchId().trim().isEmpty()) &&
+            (request.getBranchName() == null || request.getBranchName().trim().isEmpty())) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu branch_id hoặc branch_name. Bạn cần hoàn thành STEP 3 (Chọn chi nhánh) trước.")
+                    .state(state)
+                    .failedStep(3)
+                    .build();
+        }
+        
+        // STEP 4: Chọn dịch vụ
+        boolean hasServiceType = request.getServiceType() != null && 
+                (request.getServiceType() instanceof String ? 
+                    !((String) request.getServiceType()).trim().isEmpty() : 
+                    request.getServiceType() instanceof List && !((List<?>) request.getServiceType()).isEmpty());
+        if (!hasServiceType) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu service_type. Bạn cần hoàn thành STEP 4 (Chọn dịch vụ) trước.")
+                    .state(state)
+                    .failedStep(4)
+                    .build();
+        }
+        
+        // STEP 5: Chọn bay
+        if ((request.getBayId() == null || request.getBayId().trim().isEmpty()) &&
+            (request.getBayName() == null || request.getBayName().trim().isEmpty())) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu bay_id hoặc bay_name. Bạn cần hoàn thành STEP 5 (Chọn bay) trước.")
+                    .state(state)
+                    .failedStep(5)
+                    .build();
+        }
+        
+        // STEP 6: Chọn giờ
+        if (request.getDateTime() == null || !request.getDateTime().contains("T")) {
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            return CreateBookingResponse.builder()
+                    .status("FAILED")
+                    .message("Thiếu time_slot. date_time phải có giờ (format: YYYY-MM-DDTHH:mm). Bạn cần hoàn thành STEP 6 (Chọn giờ) trước.")
+                    .state(state)
+                    .failedStep(6)
+                    .build();
+        }
+        
+        return null; // Pass validation
+    }
+    
     /**
      * Tìm branch theo tên hoặc địa chỉ với logic matching linh hoạt
      * Hỗ trợ các trường hợp:
@@ -684,6 +1253,8 @@ public class AiBookingAssistantService {
     /**
      * Convert time ranges thành slots (8:00, 8:30, 9:00, ...)
      * Tương tự như frontend BookingScheduleService.convertTimeRangesToSlots()
+     * 
+     * QUAN TRỌNG: Làm tròn rangeStart về phút tròn (00 hoặc 30) để đảm bảo slots đúng format
      */
     private List<String> convertTimeRangesToSlots(
             List<TimeRangeDto> timeRanges,
@@ -695,31 +1266,103 @@ public class AiBookingAssistantService {
         for (TimeRangeDto range : timeRanges) {
             LocalTime rangeStart = range.getStartTime();
             LocalTime rangeEnd = range.getEndTime();
+            
+            log.debug("Converting range to slots: {} - {}, serviceDuration: {} minutes", 
+                    rangeStart, rangeEnd, serviceDurationMinutes);
 
-            LocalTime current = rangeStart;
+            // QUAN TRỌNG: Làm tròn rangeStart về phút tròn (00 hoặc 30) để tạo slots
+            // Logic: Làm tròn XUỐNG về slot gần nhất, sau đó check xem slot đó có fit trong range không
+            // Ví dụ: 08:30:01 → làm tròn xuống 08:30:00, check slot 08:30:00 + 30min = 09:00:00 có fit trong range 08:30:01-18:00:00 không → CÓ → dùng 08:30:00
+            // Ví dụ: 08:31:00 → làm tròn xuống 08:30:00, check slot 08:30:00 + 30min = 09:00:00 có fit trong range 08:31:00-18:00:00 không → CÓ → dùng 08:30:00
+            // Ví dụ: 08:30:00 → dùng luôn 08:30:00
+            
+            int startMinute = rangeStart.getMinute();
+            int roundedDownMinute = (startMinute / slotIntervalMinutes) * slotIntervalMinutes;
+            LocalTime roundedDown = rangeStart.withMinute(roundedDownMinute).withSecond(0).withNano(0);
+            
+            // Check xem slot làm tròn xuống có fit trong range không
+            // Slot fit nếu: slotStart + serviceDuration <= rangeEnd
+            LocalTime testSlotEnd = roundedDown.plusMinutes(serviceDurationMinutes);
+            boolean roundedDownFits = !testSlotEnd.isAfter(rangeEnd);
+            
+            LocalTime roundedStart;
+            if (roundedDownFits && !roundedDown.isAfter(rangeEnd)) {
+                // Slot làm tròn xuống fit trong range → dùng nó
+                roundedStart = roundedDown;
+                log.debug("Rounded DOWN rangeStart from {} to {} (slot {} + {}min = {} fits in range)", 
+                        rangeStart, roundedStart, roundedStart, serviceDurationMinutes, testSlotEnd);
+            } else {
+                // Slot làm tròn xuống không fit → làm tròn LÊN slot tiếp theo
+                roundedStart = roundedDown.plusMinutes(slotIntervalMinutes);
+                log.debug("Rounded UP rangeStart from {} to {} (rounded down slot {} + {}min = {} does not fit in range)", 
+                        rangeStart, roundedStart, roundedDown, serviceDurationMinutes, testSlotEnd);
+            }
+            
+            // Đảm bảo roundedStart không vượt quá rangeEnd
+            if (!roundedStart.isBefore(rangeEnd)) {
+                log.debug("Rounded start {} is after or equal to rangeEnd {}, skipping range", roundedStart, rangeEnd);
+                continue;
+            }
+            
+            log.debug("Rounded rangeStart from {} to {}", rangeStart, roundedStart);
+
+            LocalTime current = roundedStart;
             while (current.isBefore(rangeEnd)) {
                 LocalTime slotEnd = current.plusMinutes(serviceDurationMinutes);
 
                 // Check nếu slot + duration fit trong range
+                // QUAN TRỌNG: slotEnd phải <= rangeEnd (không vượt quá)
                 if (!slotEnd.isAfter(rangeEnd)) {
                     String slotTime = current.format(DateTimeFormatter.ofPattern("HH:mm"));
                     if (!slots.contains(slotTime)) {
                         slots.add(slotTime);
+                        log.debug("Added slot: {} (slotEnd: {})", slotTime, slotEnd);
                     }
+                } else {
+                    log.debug("Slot {} (slotEnd: {}) does not fit in range (rangeEnd: {}), stopping", 
+                            current, slotEnd, rangeEnd);
+                    break; // Slot tiếp theo cũng sẽ không fit, dừng lại
                 }
 
                 current = current.plusMinutes(slotIntervalMinutes);
             }
         }
 
-        return slots.stream().sorted().collect(Collectors.toList());
+        List<String> sortedSlots = slots.stream().sorted().collect(Collectors.toList());
+        log.debug("Converted {} time ranges to {} slots: {}", timeRanges.size(), sortedSlots.size(), sortedSlots);
+        return sortedSlots;
     }
 
     @Transactional
     public CreateBookingResponse createBooking(CreateBookingRequest request) {
+        long startTime = System.currentTimeMillis();
+        log.info("=== CREATE BOOKING START ===");
         log.info("AI Function: createBooking() called with request: {}", request);
+        log.info("Request details - branch_id: '{}', branch_name: '{}', bay_id: '{}', bay_name: '{}', vehicle_id: '{}', service_type: '{}', date_time: '{}'",
+                request.getBranchId(), request.getBranchName(), request.getBayId(), request.getBayName(),
+                request.getVehicleId(), request.getServiceType(), request.getDateTime());
 
         try {
+            // STEP-BY-STEP VALIDATION: Kiểm tra dữ liệu theo từng bước
+            CreateBookingResponse validationError = validateCreateBookingSteps(request);
+            if (validationError != null) {
+                log.warn("=== VALIDATION FAILED ===");
+                log.warn("Step: {}, Failed step: {}, Missing data: {}, Message: {}", 
+                        validationError.getState() != null ? validationError.getState().getCurrentStep() : "unknown",
+                        validationError.getFailedStep(),
+                        validationError.getState() != null ? validationError.getState().getMissingData() : "unknown",
+                        validationError.getMessage());
+                return validationError;
+            }
+            
+            // Log state tracking
+            CreateBookingResponse.BookingState state = buildCreateBookingState(request);
+            log.info("=== STATE TRACKING ===");
+            log.info("Current step: {}, Has vehicle: {}, Has date: {}, Has branch: {}, Has service: {}, Has bay: {}, Has time: {}",
+                    state.getCurrentStep(), state.getHasVehicleId(), state.getHasDateTime(), 
+                    state.getHasBranchId(), state.getHasServiceType(), state.getHasBayId(), state.getHasTimeSlot());
+            log.info("Missing data: {}, Next action: {}", state.getMissingData(), state.getNextAction());
+            
             // 1. Validate customer - Lấy từ SecurityContext (token authentication)
             // Ưu tiên lấy từ token, không cần phone number trong request
             User customer = null;
@@ -774,6 +1417,27 @@ public class AiBookingAssistantService {
                 try {
                     UUID vehicleId = UUID.fromString(request.getVehicleId());
                     vehicle = vehicleProfileService.getVehicleProfileById(vehicleId);
+                    
+                    if (vehicle == null) {
+                        log.error("Vehicle not found with vehicle_id: {}", vehicleId);
+                        return CreateBookingResponse.builder()
+                                .status("FAILED")
+                                .message("Không tìm thấy xe với ID: " + vehicleId + ". Vui lòng kiểm tra lại.")
+                                .build();
+                    }
+                    
+                    // CRITICAL: Validate vehicle thuộc về customer đang đặt lịch
+                    if (vehicle.getOwnerId() == null || !vehicle.getOwnerId().equals(customer.getUserId())) {
+                        log.error("CRITICAL SECURITY: Vehicle {} (owner_id: {}) does not belong to customer {} (user_id: {})",
+                                vehicle.getVehicleId(), vehicle.getOwnerId(), customer.getFullName(), customer.getUserId());
+                        return CreateBookingResponse.builder()
+                                .status("FAILED")
+                                .message("Xe này không thuộc về tài khoản của bạn. Vui lòng chọn xe khác.")
+                                .build();
+                    }
+                    
+                    log.info("Vehicle validation passed - vehicle_id: {}, license_plate: {}, owner_id: {}, customer_id: {}",
+                            vehicle.getVehicleId(), vehicle.getLicensePlate(), vehicle.getOwnerId(), customer.getUserId());
                 } catch (IllegalArgumentException e) {
                     log.warn("Invalid vehicle_id format: '{}'. Will try to find by license plate.", request.getVehicleId());
                 }
@@ -791,12 +1455,24 @@ public class AiBookingAssistantService {
                         .message("Vui lòng cung cấp thông tin xe (vehicle_id hoặc vehicle_license_plate)")
                         .build();
             }
+            
+            // Final check: vehicle không được null
+            if (vehicle == null) {
+                log.error("CRITICAL: Vehicle is null after parsing");
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Không thể xác định thông tin xe. Vui lòng thử lại.")
+                        .build();
+            }
 
             // 3. Parse branch (nếu có branch_id hoặc branch_name)
             UUID parsedBranchId = null;
+            log.info("Parsing branch - branch_id: '{}', branch_name: '{}'", request.getBranchId(), request.getBranchName());
+            
             if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
                 try {
                     parsedBranchId = UUID.fromString(request.getBranchId());
+                    log.info("Successfully parsed branch_id to UUID: {}", parsedBranchId);
                 } catch (IllegalArgumentException e) {
                     log.warn("Invalid branch_id format: '{}'. Will try to find by name.", request.getBranchId());
                 }
@@ -804,9 +1480,11 @@ public class AiBookingAssistantService {
             if (parsedBranchId == null && request.getBranchName() != null
                     && !request.getBranchName().trim().isEmpty()) {
                 // Tìm branch theo tên với logic matching linh hoạt hơn
+                log.info("Finding branch by name: '{}'", request.getBranchName());
                 Branch foundBranch = findBranchByNameOrAddress(request.getBranchName().trim());
 
                 if (foundBranch == null) {
+                    log.error("Branch not found by name: '{}'", request.getBranchName());
                     return CreateBookingResponse.builder()
                             .status("FAILED")
                             .message("Không tìm thấy chi nhánh: " + request.getBranchName()
@@ -815,6 +1493,8 @@ public class AiBookingAssistantService {
                 }
 
                 parsedBranchId = foundBranch.getBranchId();
+                log.info("Found branch by name '{}' -> branch_id: {}, branch_name: {}", 
+                    request.getBranchName(), parsedBranchId, foundBranch.getBranchName());
             }
 
             if (parsedBranchId == null) {
@@ -833,34 +1513,58 @@ public class AiBookingAssistantService {
 
             // Parse bay (nếu có bay_id hoặc bay_name)
             UUID parsedBayId = null;
+            log.info("Parsing bay - bay_id: '{}', bay_name: '{}', branch_id: {}", 
+                request.getBayId(), request.getBayName(), branchId);
+            
             if (request.getBayId() != null && !request.getBayId().trim().isEmpty()) {
                 try {
                     parsedBayId = UUID.fromString(request.getBayId());
+                    log.info("Successfully parsed bay_id to UUID: {}", parsedBayId);
                 } catch (IllegalArgumentException e) {
                     log.warn("Invalid bay_id format: '{}'. Will try to find by name.", request.getBayId());
                 }
             }
             if (parsedBayId == null && request.getBayName() != null && !request.getBayName().trim().isEmpty()) {
-                // Tìm bay theo tên, ưu tiên tìm trong branch đã chọn
-                ServiceBay foundBay = serviceBayService.getByBayName(request.getBayName())
+                // QUAN TRỌNG: Chỉ tìm bay trong branch đã chọn, KHÔNG tìm toàn bộ hệ thống
+                // Vì có thể có nhiều bay cùng tên ở các branch khác nhau
+                log.info("Finding bay by name '{}' in branch '{}' ({})", 
+                    request.getBayName(), branch.getBranchName(), branchId);
+                
+                // Ưu tiên tìm exact match trong branch đã chọn
+                List<ServiceBay> baysInBranch = serviceBayService.getByBranch(branchId);
+                ServiceBay foundBay = baysInBranch.stream()
+                        .filter(bay -> bay.getBayName() != null 
+                                && bay.getBayName().equalsIgnoreCase(request.getBayName().trim()))
+                        .findFirst()
                         .orElseGet(() -> {
                             // Nếu không tìm thấy exact match, thử search by keyword trong branch
+                            log.info("Exact match not found, searching by keyword in branch");
                             List<ServiceBay> bays = serviceBayService.searchByKeywordInBranch(branchId,
-                                    request.getBayName());
-                            return bays.isEmpty() ? null : bays.get(0);
+                                    request.getBayName().trim());
+                            if (!bays.isEmpty()) {
+                                log.info("Found {} bay(s) by keyword search", bays.size());
+                                return bays.get(0);
+                            }
+                            return null;
                         });
 
                 if (foundBay == null) {
+                    log.error("Bay not found by name '{}' in branch '{}' ({})", 
+                        request.getBayName(), branch.getBranchName(), branchId);
                     return CreateBookingResponse.builder()
                             .status("FAILED")
                             .message("Không tìm thấy bay: " + request.getBayName() +
-                                    (branch != null ? " ở chi nhánh " + branch.getBranchName() : "") +
+                                    " ở chi nhánh " + branch.getBranchName() +
                                     ". Vui lòng kiểm tra lại tên bay.")
                             .build();
                 }
 
-                // Validate bay thuộc branch đã chọn
-                if (foundBay.getBranch() != null && !foundBay.getBranch().getBranchId().equals(branchId)) {
+                // Validate bay thuộc branch đã chọn (double check)
+                if (foundBay.getBranch() == null || !foundBay.getBranch().getBranchId().equals(branchId)) {
+                    log.error("Bay '{}' (ID: {}) does not belong to branch '{}' (ID: {}). Bay's branch: {}", 
+                        foundBay.getBayName(), foundBay.getBayId(), 
+                        branch.getBranchName(), branchId,
+                        foundBay.getBranch() != null ? foundBay.getBranch().getBranchName() : "null");
                     return CreateBookingResponse.builder()
                             .status("FAILED")
                             .message("Bay '" + request.getBayName() + "' không thuộc chi nhánh "
@@ -869,7 +1573,9 @@ public class AiBookingAssistantService {
                 }
 
                 parsedBayId = foundBay.getBayId();
-                log.info("Parsed bay_name '{}' to bay_id: {}", request.getBayName(), parsedBayId);
+                log.info("Found bay by name '{}' -> bay_id: {}, bay_name: {}, branch: {}", 
+                    request.getBayName(), parsedBayId, foundBay.getBayName(), 
+                    foundBay.getBranch() != null ? foundBay.getBranch().getBranchName() : "null");
             }
 
             if (parsedBayId == null) {
@@ -883,20 +1589,30 @@ public class AiBookingAssistantService {
 
             // Validate bay
             ServiceBay bay = serviceBayService.getById(bayId);
+            log.info("Validating bay - bay_id: {}, bay_name: '{}', branch_id: {}", 
+                bayId, bay.getBayName(), branchId);
+            
             if (!bay.isAvailableForBooking()) {
+                log.error("Bay '{}' (ID: {}) does not allow booking", bay.getBayName(), bayId);
                 return CreateBookingResponse.builder()
                         .status("FAILED")
                         .message("Service bay '" + bay.getBayName() + "' không cho phép đặt lịch")
                         .build();
             }
 
-            // Validate bay thuộc branch
-            if (bay.getBranch() != null && !bay.getBranch().getBranchId().equals(branchId)) {
+            // Validate bay thuộc branch (final check)
+            if (bay.getBranch() == null || !bay.getBranch().getBranchId().equals(branchId)) {
+                log.error("CRITICAL: Bay '{}' (ID: {}) does not belong to branch '{}' (ID: {}). Bay's branch: {}", 
+                    bay.getBayName(), bayId, branch.getBranchName(), branchId,
+                    bay.getBranch() != null ? bay.getBranch().getBranchName() + " (ID: " + bay.getBranch().getBranchId() + ")" : "null");
                 return CreateBookingResponse.builder()
                         .status("FAILED")
                         .message("Bay '" + bay.getBayName() + "' không thuộc chi nhánh " + branch.getBranchName())
                         .build();
             }
+            
+            log.info("Bay validation passed - bay: '{}' (ID: {}), branch: '{}' (ID: {})", 
+                bay.getBayName(), bayId, branch.getBranchName(), branchId);
 
             // 4. Parse services
             List<Service> services = parseServices(request.getServiceType());
@@ -975,20 +1691,48 @@ public class AiBookingAssistantService {
                         .message("Không thể parse ngày: " + request.getDateTime())
                         .build();
             }
+            
+            // CRITICAL: Validate date không được trong quá khứ
+            LocalDate today = LocalDate.now();
+            if (date.isBefore(today)) {
+                log.warn("User attempted to book in the past: {} (today: {})", date, today);
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Không thể đặt lịch trong quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.")
+                        .build();
+            }
+            
+            log.info("Date validation passed: {} (today: {})", date, today);
 
             // Parse start time từ dateTime
-            LocalTime startTime = parseTime(request.getDateTime());
-            if (startTime == null) {
+            LocalTime bookingStartTime = parseTime(request.getDateTime());
+            if (bookingStartTime == null) {
                 return CreateBookingResponse.builder()
                         .status("FAILED")
                         .message("Không thể parse giờ: " + request.getDateTime())
                         .build();
             }
+            
+            log.info("Parsed booking start time: {}", bookingStartTime);
 
             // Tính total duration
             int totalDuration = availableServices.stream()
                     .mapToInt(s -> s.getEstimatedDuration() != null ? s.getEstimatedDuration() : 0)
                     .sum();
+            
+            // CRITICAL: Validate totalDuration > 0
+            if (totalDuration <= 0) {
+                log.error("CRITICAL: Total duration is invalid: {} minutes. Services: {}",
+                        totalDuration, availableServices.stream()
+                                .map(s -> s.getServiceName() + " (duration: " + s.getEstimatedDuration() + ")")
+                                .collect(Collectors.joining(", ")));
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Thời lượng dịch vụ không hợp lệ. Vui lòng chọn dịch vụ khác.")
+                        .build();
+            }
+            
+            log.info("Total service duration calculated: {} minutes for {} services", totalDuration, availableServices.size());
 
             // Check availability trước khi tạo
             AvailabilityRequest availabilityRequest = AvailabilityRequest.builder()
@@ -1012,6 +1756,13 @@ public class AiBookingAssistantService {
             }
 
             // 8. Build booking items
+            if (availableServices.isEmpty()) {
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Không có dịch vụ nào được chọn. Vui lòng chọn ít nhất một dịch vụ.")
+                        .build();
+            }
+            
             List<CreateBookingItemRequest> bookingItems = availableServices.stream()
                     .map(service -> CreateBookingItemRequest.builder()
                             .serviceId(service.getServiceId())
@@ -1019,6 +1770,34 @@ public class AiBookingAssistantService {
                             .serviceDescription(service.getDescription())
                             .build())
                     .collect(Collectors.toList());
+            
+            // CRITICAL: Validate tất cả services có trong bookingItems
+            if (bookingItems.size() != availableServices.size()) {
+                log.error("CRITICAL: Booking items count mismatch. Expected: {}, Actual: {}",
+                        availableServices.size(), bookingItems.size());
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Lỗi khi tạo danh sách dịch vụ. Vui lòng thử lại.")
+                        .build();
+            }
+            
+            // CRITICAL: Validate tất cả bookingItems có serviceId
+            List<CreateBookingItemRequest> invalidItems = bookingItems.stream()
+                    .filter(item -> item.getServiceId() == null)
+                    .collect(Collectors.toList());
+            if (!invalidItems.isEmpty()) {
+                log.error("CRITICAL: Found {} booking items without serviceId: {}",
+                        invalidItems.size(),
+                        invalidItems.stream().map(CreateBookingItemRequest::getServiceName).collect(Collectors.joining(", ")));
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Một số dịch vụ không có ID hợp lệ. Vui lòng thử lại.")
+                        .build();
+            }
+            
+            log.info("Built {} booking items for services: {}", 
+                bookingItems.size(), 
+                bookingItems.stream().map(CreateBookingItemRequest::getServiceName).collect(Collectors.joining(", ")));
 
             // 9. Tính tổng giá từ bảng giá
             BigDecimal totalPrice;
@@ -1034,16 +1813,142 @@ public class AiBookingAssistantService {
             }
 
             // 10. Build CreateBookingWithScheduleRequest
-            LocalDateTime scheduledStartAt = LocalDateTime.of(date, startTime);
+            LocalDateTime scheduledStartAt = LocalDateTime.of(date, bookingStartTime);
             LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(totalDuration);
 
-            // Validate vehicle không null (đã được validate ở trên, nhưng check lại để an toàn)
+            // 10.1. Validate time range của bay có đủ lớn cho total duration
+            try {
+                AvailableTimeRangesResponse timeRangesResponse = bookingTimeRangeService
+                        .getAvailableTimeRanges(bayId, date);
+                
+                LocalTime startTimeLocal = scheduledStartAt.toLocalTime();
+                LocalTime endTimeLocal = scheduledEndAt.toLocalTime();
+                
+                // CRITICAL: Validate scheduledEndAt không vượt quá working hours mặc định (18:00)
+                if (endTimeLocal.isAfter(DEFAULT_WORKING_HOURS_END)) {
+                    log.warn("Service end time {} exceeds default working hours end {} for bay {} on date {}",
+                            endTimeLocal, DEFAULT_WORKING_HOURS_END, bayId, date);
+                    return CreateBookingResponse.builder()
+                            .status("FAILED")
+                            .message(String.format(
+                                    "Thời gian kết thúc dịch vụ (%s) vượt quá giờ làm việc của hệ thống (%s). " +
+                                    "Vui lòng chọn thời gian sớm hơn.",
+                                    endTimeLocal.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    DEFAULT_WORKING_HOURS_END.format(DateTimeFormatter.ofPattern("HH:mm"))))
+                            .build();
+                }
+                
+                // CRITICAL: Validate scheduledStartAt không trước working hours start mặc định (8:00)
+                if (startTimeLocal.isBefore(DEFAULT_WORKING_HOURS_START)) {
+                    log.warn("Service start time {} is before default working hours start {} for bay {} on date {}",
+                            startTimeLocal, DEFAULT_WORKING_HOURS_START, bayId, date);
+                    return CreateBookingResponse.builder()
+                            .status("FAILED")
+                            .message(String.format(
+                                    "Thời gian bắt đầu dịch vụ (%s) trước giờ làm việc của hệ thống (%s). " +
+                                    "Vui lòng chọn thời gian sau %s.",
+                                    startTimeLocal.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    DEFAULT_WORKING_HOURS_START.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    DEFAULT_WORKING_HOURS_START.format(DateTimeFormatter.ofPattern("HH:mm"))))
+                            .build();
+                }
+                
+                // Kiểm tra xem có time range nào chứa scheduledStartAt đến scheduledEndAt không
+                boolean fitsInTimeRange = timeRangesResponse.getAvailableTimeRanges().stream()
+                        .anyMatch(range -> {
+                            LocalTime rangeStart = range.getStartTime();
+                            LocalTime rangeEnd = range.getEndTime();
+                            
+                            // Check nếu scheduledStartAt >= rangeStart và scheduledEndAt <= rangeEnd
+                            return !startTimeLocal.isBefore(rangeStart) 
+                                    && !endTimeLocal.isAfter(rangeEnd);
+                        });
+                
+                if (!fitsInTimeRange) {
+                    log.warn("Service duration {} minutes does not fit in any available time range for bay {} on date {}. " +
+                            "Start: {}, End: {}", totalDuration, bayId, date, startTimeLocal, endTimeLocal);
+                    
+                    // Lấy các time ranges phù hợp với total duration
+                    List<TimeRangeDto> suitableRanges = filterRangesByDuration(
+                            timeRangesResponse.getAvailableTimeRanges(),
+                            totalDuration);
+                    
+                    if (suitableRanges.isEmpty()) {
+                        return CreateBookingResponse.builder()
+                                .status("FAILED")
+                                .message(String.format(
+                                        "Không có khung giờ nào đủ lớn cho dịch vụ (thời lượng: %d phút) tại bay '%s' vào ngày %s. " +
+                                        "Vui lòng chọn bay hoặc thời gian khác.",
+                                        totalDuration, bay.getBayName(), date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))))
+                                .build();
+                    }
+                    
+                    // Convert suitable ranges thành slots để gợi ý
+                    List<String> suggestedSlots = convertTimeRangesToSlots(
+                            suitableRanges,
+                            getDefaultWorkingHours(),
+                            totalDuration);
+                    
+                    String suggestionsText = !suggestedSlots.isEmpty() 
+                            ? "Các khung giờ khả dụng: " + String.join(", ", suggestedSlots)
+                            : "Vui lòng chọn khung giờ khác.";
+                    
+                    return CreateBookingResponse.builder()
+                            .status("FAILED")
+                            .message(String.format(
+                                    "Khung giờ %s không đủ lớn cho dịch vụ (thời lượng: %d phút) tại bay '%s'. %s",
+                                    startTimeLocal.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    totalDuration, bay.getBayName(), suggestionsText))
+                            .build();
+                }
+                
+                log.info("Time range validation passed: scheduledStartAt={}, scheduledEndAt={}, totalDuration={} minutes",
+                        scheduledStartAt, scheduledEndAt, totalDuration);
+            } catch (Exception e) {
+                log.error("Error validating time range for bay {} on date {}: {}", bayId, date, e.getMessage(), e);
+                // Không fail booking nếu có lỗi trong validation, chỉ log warning
+                // Vì có thể có edge cases mà validation này không cover được
+            }
+
+            // CRITICAL: Final validation - vehicle không được null (defensive check)
+            // Note: Vehicle đã được validate ở trên, nhưng đây là double-check cuối cùng trước khi tạo booking
             if (vehicle == null) {
+                log.error("CRITICAL: Vehicle is null at final validation step");
                 return CreateBookingResponse.builder()
                         .status("FAILED")
                         .message("Vui lòng cung cấp thông tin xe (vehicle_id hoặc vehicle_license_plate)")
                         .build();
             }
+            
+            // CRITICAL: Final validation - vehicle phải thuộc về customer
+            if (!vehicle.getOwnerId().equals(customer.getUserId())) {
+                log.error("CRITICAL SECURITY: Final check failed - Vehicle {} owner {} does not match customer {}",
+                        vehicle.getVehicleId(), vehicle.getOwnerId(), customer.getUserId());
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Xe này không thuộc về tài khoản của bạn. Vui lòng chọn xe khác.")
+                        .build();
+            }
+            
+            // CRITICAL: Double-check bay availability ngay trước khi tạo booking (tránh race condition)
+            // Đây là lần check cuối cùng trước khi commit transaction
+            boolean isBayAvailable = serviceBayService.isBayAvailableInTimeRange(bayId, scheduledStartAt, scheduledEndAt);
+            if (!isBayAvailable) {
+                log.error("CRITICAL RACE CONDITION: Bay {} is no longer available in time range {} - {} (checked at last moment before booking)",
+                        bayId, scheduledStartAt, scheduledEndAt);
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message(String.format(
+                                "Bay '%s' không còn trống trong khung giờ %s - %s. Có thể có người khác đã đặt trước. " +
+                                "Vui lòng chọn khung giờ khác.",
+                                bay.getBayName(),
+                                scheduledStartAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                                scheduledEndAt.format(DateTimeFormatter.ofPattern("HH:mm"))))
+                        .build();
+            }
+            
+            log.info("Final bay availability check passed: bay_id={}, scheduledStartAt={}, scheduledEndAt={}",
+                    bayId, scheduledStartAt, scheduledEndAt);
 
             CreateBookingWithScheduleRequest createRequest = CreateBookingWithScheduleRequest.builder()
                     .customerId(customer.getUserId())
@@ -1061,7 +1966,7 @@ public class AiBookingAssistantService {
                     .selectedSchedule(ScheduleSelectionRequest.builder()
                             .bayId(bayId)
                             .date(date)
-                            .startTime(startTime)
+                            .startTime(bookingStartTime)
                             .serviceDurationMinutes(totalDuration)
                             .build())
                     .bookingItems(bookingItems)
@@ -1074,14 +1979,106 @@ public class AiBookingAssistantService {
                     .notes(request.getNotes())
                     .build();
 
-            // 10. Gọi IntegratedBookingService
+            // Build state tracking - đã đủ dữ liệu, ở STEP 7
+            CreateBookingResponse.BookingState bookingState = buildCreateBookingState(request);
+            
+            // 10. Log thông tin trước khi tạo booking - CRITICAL DATA VALIDATION
+            log.info("=== FINAL DATA VALIDATION BEFORE CREATING BOOKING ===");
+            log.info("Customer: {} (ID: {}, Phone: {})", customer.getFullName(), customer.getUserId(), customer.getPhoneNumber());
+            log.info("Vehicle: {} (ID: {}, License: {}, Owner: {})", 
+                    vehicle.getLicensePlate(), vehicle.getVehicleId(), vehicle.getLicensePlate(), vehicle.getOwnerId());
+            log.info("Branch: '{}' (ID: {})", branch.getBranchName(), branchId);
+            log.info("Bay: '{}' (ID: {}, Branch: {})", bay.getBayName(), bayId, 
+                    bay.getBranch() != null ? bay.getBranch().getBranchName() : "null");
+            log.info("Services: {}", availableServices.stream()
+                    .map(s -> s.getServiceName() + " (ID: " + s.getServiceId() + ", Duration: " + 
+                            (s.getEstimatedDuration() != null ? s.getEstimatedDuration() : "null") + " min)")
+                    .collect(Collectors.joining(", ")));
+            log.info("Booking items count: {} (must match services count: {})", bookingItems.size(), availableServices.size());
+            log.info("Total duration: {} minutes", totalDuration);
+            log.info("Scheduled time: {} - {} ({} minutes)", 
+                    scheduledStartAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                    scheduledEndAt.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    totalDuration);
+            log.info("Total price: {} VNĐ", totalPrice);
+            
+            // CRITICAL: Final validation - đảm bảo tất cả data đúng
+            if (!customer.getUserId().equals(vehicle.getOwnerId())) {
+                log.error("CRITICAL DATA INCONSISTENCY: Customer {} does not own vehicle {}", customer.getUserId(), vehicle.getVehicleId());
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Dữ liệu không hợp lệ: Xe không thuộc về khách hàng. Vui lòng thử lại.")
+                        .state(bookingState)
+                        .failedStep(7)
+                        .build();
+            }
+            
+            if (!bay.getBranch().getBranchId().equals(branchId)) {
+                log.error("CRITICAL DATA INCONSISTENCY: Bay {} belongs to branch {} but request has branch {}",
+                        bayId, bay.getBranch().getBranchId(), branchId);
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Dữ liệu không hợp lệ: Bay không thuộc chi nhánh đã chọn. Vui lòng thử lại.")
+                        .state(bookingState)
+                        .failedStep(5)
+                        .build();
+            }
+            
+            if (bookingItems.size() != availableServices.size()) {
+                log.error("CRITICAL DATA INCONSISTENCY: Booking items count {} does not match services count {}",
+                        bookingItems.size(), availableServices.size());
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Dữ liệu không hợp lệ: Số lượng dịch vụ không khớp. Vui lòng thử lại.")
+                        .state(bookingState)
+                        .failedStep(4)
+                        .build();
+            }
+            
+            log.info("=== ALL VALIDATIONS PASSED - PROCEEDING TO CREATE BOOKING ===");
+            
+            // 11. Gọi IntegratedBookingService
             BookingInfoDto booking = integratedBookingService.createBookingWithSlot(createRequest);
+            
+            if (booking == null || booking.getBookingId() == null) {
+                log.error("CRITICAL: Booking creation returned null or invalid booking");
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Không thể tạo booking. Vui lòng thử lại sau.")
+                        .state(bookingState)
+                        .failedStep(7)
+                        .build();
+            }
+            
+            log.info("=== BOOKING CREATED SUCCESSFULLY ===");
+            log.info("Booking created successfully - booking_code: {}, booking_id: {}", 
+                booking.getBookingCode(), booking.getBookingId());
+            log.info("Final booking details - Branch: {}, Bay: {}, Services: {}, Time: {} - {}, Price: {} VNĐ",
+                    branch.getBranchName(), bay.getBayName(), 
+                    availableServices.stream().map(Service::getServiceName).collect(Collectors.joining(", ")),
+                    scheduledStartAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                    scheduledEndAt.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    booking.getTotalPrice() != null ? booking.getTotalPrice() : totalPrice);
 
-            // 11. Build response
+            // 11. Build response với state tracking
+            // Update state: booking đã hoàn thành
+            CreateBookingResponse.BookingState successState = CreateBookingResponse.BookingState.builder()
+                    .currentStep(7)
+                    .hasVehicleId(true)
+                    .hasDateTime(true)
+                    .hasBranchId(true)
+                    .hasServiceType(true)
+                    .hasBayId(true)
+                    .hasTimeSlot(true)
+                    .missingData(new ArrayList<>())
+                    .nextAction("Booking đã hoàn thành")
+                    .build();
+            
             return CreateBookingResponse.builder()
                     .status("SUCCESS")
                     .bookingCode(booking.getBookingCode())
                     .message("Đặt lịch thành công!")
+                    .state(successState)
                     .bookingDetails(CreateBookingResponse.BookingDetails.builder()
                             .dateTime(scheduledStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                             .serviceName(availableServices.stream()
@@ -1095,17 +2092,26 @@ public class AiBookingAssistantService {
                     .build();
 
         } catch (ClientSideException e) {
-            log.error("Client error in createBooking(): {}", e.getMessage());
+            long endTime = System.currentTimeMillis();
+            log.error("=== CREATE BOOKING FAILED (Client Error) ===");
+            log.error("Error after {} ms: {}", (endTime - startTime), e.getMessage());
+            log.error("Error code: {}, Request: {}", e.getCode(), request);
             return CreateBookingResponse.builder()
                     .status("FAILED")
                     .message(e.getMessage())
                     .build();
         } catch (Exception e) {
-            log.error("Error in createBooking(): {}", e.getMessage(), e);
+            long endTime = System.currentTimeMillis();
+            log.error("=== CREATE BOOKING FAILED (System Error) ===");
+            log.error("Error after {} ms: {}", (endTime - startTime), e.getMessage(), e);
+            log.error("Request that caused error: {}", request);
             return CreateBookingResponse.builder()
                     .status("FAILED")
-                    .message("Có lỗi xảy ra khi tạo booking: " + e.getMessage())
+                    .message("Có lỗi xảy ra khi tạo booking: " + e.getMessage() + ". Vui lòng thử lại sau.")
                     .build();
+        } finally {
+            long endTime = System.currentTimeMillis();
+            log.info("=== CREATE BOOKING END (Total time: {} ms) ===", (endTime - startTime));
         }
     }
 

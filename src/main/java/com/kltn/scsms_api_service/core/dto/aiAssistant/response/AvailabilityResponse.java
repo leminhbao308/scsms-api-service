@@ -59,6 +59,14 @@ public class AvailabilityResponse {
     private List<SuggestedServiceInfo> suggestedServices;
     
     /**
+     * State tracking - Bước hiện tại trong quy trình đặt lịch
+     * Giúp AI biết đang ở bước nào và cần làm gì tiếp theo
+     * Format: {"current_step": 3, "required_data": ["branch_id"], "missing_data": ["branch_id"]}
+     */
+    @JsonProperty("state")
+    private BookingState state;
+    
+    /**
      * Thông tin bay có slot trống
      */
     @Data
@@ -113,6 +121,61 @@ public class AvailabilityResponse {
         
         @JsonProperty("price")
         private java.math.BigDecimal price;
+    }
+    
+    /**
+     * State tracking cho quy trình đặt lịch
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BookingState {
+        /**
+         * Bước hiện tại (1-7):
+         * 1: Chọn xe
+         * 2: Chọn ngày
+         * 3: Chọn chi nhánh
+         * 4: Chọn dịch vụ
+         * 5: Chọn bay
+         * 6: Chọn giờ
+         * 7: Xác nhận và tạo booking
+         */
+        @JsonProperty("current_step")
+        private Integer currentStep;
+        
+        /**
+         * Dữ liệu đã có
+         */
+        @JsonProperty("has_vehicle_id")
+        private Boolean hasVehicleId;
+        
+        @JsonProperty("has_date_time")
+        private Boolean hasDateTime;
+        
+        @JsonProperty("has_branch_id")
+        private Boolean hasBranchId;
+        
+        @JsonProperty("has_service_type")
+        private Boolean hasServiceType;
+        
+        @JsonProperty("has_bay_id")
+        private Boolean hasBayId;
+        
+        @JsonProperty("has_time_slot")
+        private Boolean hasTimeSlot;
+        
+        /**
+         * Dữ liệu còn thiếu cho bước hiện tại
+         */
+        @JsonProperty("missing_data")
+        private List<String> missingData;
+        
+        /**
+         * Thông báo cho AI về bước tiếp theo cần làm
+         */
+        @JsonProperty("next_action")
+        private String nextAction;
     }
 }
 
