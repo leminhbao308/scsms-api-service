@@ -3,7 +3,6 @@ package com.kltn.scsms_api_service.configs.aiAssistant;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -35,33 +34,22 @@ public class AiAssistantConfig {
       String todayStr = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
       String tomorrowStr = tomorrow.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
       String todayDisplay = today.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-      String tomorrowDisplay = tomorrow.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+      @SuppressWarnings("unused")
+      String tomorrowDisplay = tomorrow.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")); // Giữ lại để dùng sau này nếu cần
 
       // Format template với các giá trị động
-      // Tổng cộng có 13 chỗ %s trong template:
-      // - Line 407: NGÀY HIỆN TẠI: %s (%s) - 2 chỗ
-      // - Line 408: NGÀY MAI: %s (%s) - 2 chỗ
-      // - Line 411: "sáng mai" → dateTime = "%sT08:00:00" - 1 chỗ
-      // - Line 412: "chiều mai" → dateTime = "%sT14:00:00" - 1 chỗ
-      // - Line 413: "chiều nay" → dateTime = "%sT14:00:00" - 1 chỗ
-      // - Line 414: "sáng nay" → dateTime = "%sT08:00:00" - 1 chỗ
-      // - Line 415: "ngày mai", "mai" → dateTime = "%sT08:00:00" - 1 chỗ
-      // - Line 544: Ví dụ parse → dateTime = "%sT08:00:00" - 1 chỗ
-      // - Line 565: Ví dụ checkAvailability → date_time="%sT08:00:00" - 1 chỗ
-      // - Line 606: 📅 Ngày: Sáng mai (%s) - 1 chỗ
-      // - Line 624: ✅ Đặt lịch thành công! ... sáng mai (%s) - 1 chỗ
+      // Tổng cộng có 9 chỗ %s trong template:
+      // - Line 2: "Thời gian hiện tại: %s (%s)" - 2 chỗ (todayStr, todayDisplay)
+      // - Line 10: "nếu hôm nay là %s, thì 'mai' là %s" - 2 chỗ (todayStr, tomorrowStr)
+      // - Line 11: "dùng ngày hiện tại (%s)" - 1 chỗ (todayStr)
+      // - Line 12: "dùng ngày mai (%s) với giờ 08:00:00 → '%sT08:00:00'" - 2 chỗ (tomorrowStr, tomorrowStr)
+      // - Line 13: "dùng ngày mai (%s) với giờ 14:00:00 → '%sT14:00:00'" - 2 chỗ (tomorrowStr, tomorrowStr)
       return String.format(promptTemplate,
-          todayStr, todayDisplay, // Line 407: NGÀY HIỆN TẠI: %s (%s)
-          tomorrowStr, tomorrowDisplay, // Line 408: NGÀY MAI: %s (%s)
-          tomorrowStr, // Line 411: "sáng mai" hoặc "ngày mai" → dateTime = "%sT08:00:00"
-          tomorrowStr, // Line 412: "chiều mai" → dateTime = "%sT14:00:00"
-          todayStr, // Line 413: "chiều nay" hoặc "hôm nay" → dateTime = "%sT14:00:00"
-          todayStr, // Line 414: "sáng nay" → dateTime = "%sT08:00:00"
-          tomorrowStr, // Line 415: "ngày mai", "mai" → dateTime = "%sT08:00:00"
-          tomorrowStr, // Line 544: Ví dụ: Parse "sáng mai" → dateTime = "%sT08:00:00"
-          tomorrowStr, // Line 565: Ví dụ: checkAvailability date_time="%sT08:00:00"
-          tomorrowDisplay, // Line 606: Ví dụ: 📅 Ngày: Sáng mai (%s)
-          tomorrowDisplay // Line 624: Ví dụ: "✅ Đặt lịch thành công! ... sáng mai (%s)"
+          todayStr, todayDisplay, // Line 2: "Thời gian hiện tại: %s (%s)"
+          todayStr, tomorrowStr, // Line 10: "nếu hôm nay là %s, thì 'mai' là %s"
+          todayStr, // Line 11: "dùng ngày hiện tại (%s)"
+          tomorrowStr, tomorrowStr, // Line 12: "dùng ngày mai (%s) với giờ 08:00:00 → '%sT08:00:00'"
+          tomorrowStr, tomorrowStr // Line 13: "dùng ngày mai (%s) với giờ 14:00:00 → '%sT14:00:00'"
       );
     } catch (IOException e) {
       throw new RuntimeException("Không thể đọc file prompt template: " + PROMPT_TEMPLATE_CLASSPATH, e);
@@ -79,13 +67,5 @@ public class AiAssistantConfig {
         .defaultAdvisors(new SimpleLoggerAdvisor())
         .defaultFunctions("checkAvailability", "createBooking", "getCustomerVehicles", "getBranches")
         .build();
-  }
-
-  /**
-   * Tạo System Prompt Template (optional - để dynamic prompt nếu cần)
-   */
-  @Bean
-  public PromptTemplate systemPromptTemplate() {
-    return new PromptTemplate(getSystemPrompt());
   }
 }

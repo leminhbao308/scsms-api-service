@@ -22,6 +22,7 @@ import com.kltn.scsms_api_service.core.dto.bookingManagement.request.CreateBooki
 import com.kltn.scsms_api_service.core.entity.Branch;
 import com.kltn.scsms_api_service.core.entity.User;
 import com.kltn.scsms_api_service.core.entity.VehicleProfile;
+import com.kltn.scsms_api_service.core.service.businessService.BookingPricingService;
 import com.kltn.scsms_api_service.core.service.businessService.BookingTimeRangeService;
 import com.kltn.scsms_api_service.core.service.businessService.BranchServiceFilterService;
 import com.kltn.scsms_api_service.core.service.businessService.IntegratedBookingService;
@@ -67,6 +68,7 @@ public class AiBookingAssistantService {
     private final VehicleProfileService vehicleProfileService;
     private final BranchService branchService;
     private final PricingBusinessService pricingBusinessService;
+    private final BookingPricingService bookingPricingService;
 
 
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
@@ -120,8 +122,7 @@ public class AiBookingAssistantService {
 
                         return AvailabilityResponse.builder()
                                 .status("NEEDS_SERVICE_SELECTION")
-                                .message("Tìm thấy " + foundServices.size() + " dịch vụ liên quan đến '"
-                                        + request.getServiceType() + "'. Vui lòng chọn dịch vụ cụ thể:")
+                                .message(null)
                                 .suggestions(new ArrayList<>())
                                 .availableBays(new ArrayList<>())
                                 .suggestedServices(suggestedServices)
@@ -167,7 +168,7 @@ public class AiBookingAssistantService {
 
                     return AvailabilityResponse.builder()
                             .status("NEEDS_SERVICE_SELECTION")
-                            .message("Vui lòng chọn dịch vụ cụ thể từ danh sách sau:")
+                            .message(null)
                             .suggestions(new ArrayList<>())
                             .availableBays(new ArrayList<>())
                             .suggestedServices(suggestedServices)
@@ -223,7 +224,14 @@ public class AiBookingAssistantService {
             }
 
             // 3. Parse branch (nếu có branch_id hoặc branch_name)
-            UUID branchId = request.getBranchId();
+            UUID branchId = null;
+            if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
+                try {
+                    branchId = UUID.fromString(request.getBranchId());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid branch_id format: '{}'. Will try to find by name.", request.getBranchId());
+                }
+            }
             if (branchId == null && request.getBranchName() != null && !request.getBranchName().trim().isEmpty()) {
                 // Tìm branch theo tên với logic matching linh hoạt hơn
                 Branch branch = findBranchByNameOrAddress(request.getBranchName().trim());
@@ -531,7 +539,7 @@ public class AiBookingAssistantService {
      * - Substring match trên address
      * - Keyword matching (ví dụ: "Premium" từ "Premium - 416 Thảo Điền")
      */
-    private Branch findBranchByNameOrAddress(String searchString) {
+    public Branch findBranchByNameOrAddress(String searchString) {
         if (searchString == null || searchString.trim().isEmpty()) {
             return null;
         }
@@ -712,42 +720,63 @@ public class AiBookingAssistantService {
         log.info("AI Function: createBooking() called with request: {}", request);
 
         try {
-            // 1. Validate customer - Tự động lấy từ SecurityContext nếu không có trong
-            // request
+            // 1. Validate customer - Lấy từ SecurityContext (token authentication)
+            // Ưu tiên lấy từ token, không cần phone number trong request
             User customer = null;
-            String customerPhone = request.getCustomerPhone();
-
-            // Nếu không có customerPhone trong request, tự động lấy từ SecurityContext
-            if (customerPhone == null || customerPhone.trim().isEmpty()) {
-                LoginUserInfo currentUser = PermissionUtils.getCurrentUser();
-                if (currentUser != null && currentUser.getPhone() != null && !currentUser.getPhone().trim().isEmpty()) {
-                    customerPhone = currentUser.getPhone().trim();
-                    log.info("Auto-detected customerPhone from SecurityContext: {}", customerPhone);
-                }
-            }
-
-            if (customerPhone != null && !customerPhone.trim().isEmpty()) {
-                customer = userService.findByPhoneNumber(customerPhone)
-                        .orElse(null);
-
-                if (customer == null) {
+            LoginUserInfo currentUser = PermissionUtils.getCurrentUser();
+            
+            if (currentUser != null && currentUser.getSub() != null) {
+                // Đã đăng nhập - lấy customer từ userId trong token
+                try {
+                    UUID customerId = UUID.fromString(currentUser.getSub());
+                    customer = userService.findById(customerId)
+                            .orElse(null);
+                    if (customer == null) {
+                        log.warn("Customer not found with userId from token: {}", customerId);
+                        return CreateBookingResponse.builder()
+                                .status("FAILED")
+                                .message("Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại.")
+                                .build();
+                    }
+                    log.info("Customer found from token: {} ({})", customer.getFullName(), customer.getPhoneNumber());
+                } catch (IllegalArgumentException e) {
+                    log.error("Invalid userId format in token: {}", currentUser.getSub());
                     return CreateBookingResponse.builder()
                             .status("FAILED")
-                            .message("Không tìm thấy khách hàng với số điện thoại: " + customerPhone +
-                                    ". Vui lòng đăng ký tài khoản trước.")
+                            .message("Token không hợp lệ. Vui lòng đăng nhập lại.")
                             .build();
                 }
             } else {
-                return CreateBookingResponse.builder()
-                        .status("FAILED")
-                        .message("Vui lòng đăng nhập để đặt lịch")
-                        .build();
+                // Fallback: Nếu không có token, thử dùng phone number từ request (cho trường hợp đặc biệt)
+                String customerPhone = request.getCustomerPhone();
+                if (customerPhone != null && !customerPhone.trim().isEmpty()) {
+                    customer = userService.findByPhoneNumber(customerPhone)
+                            .orElse(null);
+                    if (customer == null) {
+                        return CreateBookingResponse.builder()
+                                .status("FAILED")
+                                .message("Không tìm thấy khách hàng với số điện thoại: " + customerPhone +
+                                        ". Vui lòng đăng ký tài khoản trước.")
+                                .build();
+                    }
+                    log.info("Customer found from phone number: {} ({})", customer.getFullName(), customer.getPhoneNumber());
+                } else {
+                    return CreateBookingResponse.builder()
+                            .status("FAILED")
+                            .message("Vui lòng đăng nhập để đặt lịch")
+                            .build();
+                }
             }
 
             // 2. Validate vehicle
             VehicleProfile vehicle = null;
-            if (request.getVehicleId() != null) {
-                vehicle = vehicleProfileService.getVehicleProfileById(request.getVehicleId());
+            if (request.getVehicleId() != null && !request.getVehicleId().trim().isEmpty()) {
+                try {
+                    UUID vehicleId = UUID.fromString(request.getVehicleId());
+                    vehicle = vehicleProfileService.getVehicleProfileById(vehicleId);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid vehicle_id format: '{}'. Will try to find by license plate.", request.getVehicleId());
+                }
             } else if (request.getVehicleLicensePlate() != null && !request.getVehicleLicensePlate().trim().isEmpty()) {
                 // Tìm vehicle theo license plate và owner
                 // Note: Cần implement method này hoặc dùng filter
@@ -764,7 +793,14 @@ public class AiBookingAssistantService {
             }
 
             // 3. Parse branch (nếu có branch_id hoặc branch_name)
-            UUID parsedBranchId = request.getBranchId();
+            UUID parsedBranchId = null;
+            if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
+                try {
+                    parsedBranchId = UUID.fromString(request.getBranchId());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid branch_id format: '{}'. Will try to find by name.", request.getBranchId());
+                }
+            }
             if (parsedBranchId == null && request.getBranchName() != null
                     && !request.getBranchName().trim().isEmpty()) {
                 // Tìm branch theo tên với logic matching linh hoạt hơn
@@ -779,8 +815,6 @@ public class AiBookingAssistantService {
                 }
 
                 parsedBranchId = foundBranch.getBranchId();
-                log.info("Parsed branch_name '{}' to branch_id: {} ({})", 
-                        request.getBranchName(), parsedBranchId, foundBranch.getBranchName());
             }
 
             if (parsedBranchId == null) {
@@ -798,7 +832,14 @@ public class AiBookingAssistantService {
                             "Branch not found with ID: " + branchId));
 
             // Parse bay (nếu có bay_id hoặc bay_name)
-            UUID parsedBayId = request.getBayId();
+            UUID parsedBayId = null;
+            if (request.getBayId() != null && !request.getBayId().trim().isEmpty()) {
+                try {
+                    parsedBayId = UUID.fromString(request.getBayId());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid bay_id format: '{}'. Will try to find by name.", request.getBayId());
+                }
+            }
             if (parsedBayId == null && request.getBayName() != null && !request.getBayName().trim().isEmpty()) {
                 // Tìm bay theo tên, ưu tiên tìm trong branch đã chọn
                 ServiceBay foundBay = serviceBayService.getByBayName(request.getBayName())
@@ -871,9 +912,6 @@ public class AiBookingAssistantService {
                     .map(Service::getServiceId)
                     .collect(Collectors.toList());
             
-            log.info("Checking inventory for {} selected services at branch {} using batch-check", 
-                    serviceIdsToCheck.size(), branchId);
-            
             BranchServiceFilterResult filterResult = branchServiceFilterService
                     .checkMultipleServicesAvailability(branchId, serviceIdsToCheck, true);
 
@@ -928,9 +966,6 @@ public class AiBookingAssistantService {
                         .message(errorMessage.toString())
                         .build();
             }
-            
-            log.info("Found {} available services out of {} selected services", 
-                    availableServices.size(), services.size());
 
             // 6. Parse dateTime và check availability
             LocalDate date = parseDate(request.getDateTime());
@@ -959,7 +994,7 @@ public class AiBookingAssistantService {
             AvailabilityRequest availabilityRequest = AvailabilityRequest.builder()
                     .serviceType(services.get(0).getServiceName()) // Dùng service đầu tiên để check
                     .dateTime(request.getDateTime())
-                    .branchId(branchId)
+                    .branchId(branchId != null ? branchId.toString() : null)
                     .build();
 
             AvailabilityResponse availabilityResponse = checkAvailability(availabilityRequest);
@@ -976,12 +1011,6 @@ public class AiBookingAssistantService {
                         .build();
             }
 
-            // 7. Tính total price (tạm thời dùng giá từ service, sau này có thể dùng
-            // PriceBook)
-            // Note: Service không có price, cần lấy từ PriceBook
-            // Tạm thời set 0, backend sẽ tính lại
-            BigDecimal totalPrice = BigDecimal.ZERO;
-
             // 8. Build booking items
             List<CreateBookingItemRequest> bookingItems = availableServices.stream()
                     .map(service -> CreateBookingItemRequest.builder()
@@ -991,9 +1020,30 @@ public class AiBookingAssistantService {
                             .build())
                     .collect(Collectors.toList());
 
-            // 9. Build CreateBookingWithScheduleRequest
+            // 9. Tính tổng giá từ bảng giá
+            BigDecimal totalPrice;
+            try {
+                totalPrice = bookingPricingService.calculateBookingTotalPrice(bookingItems, null);
+                log.info("Calculated total price for booking: {} VND ({} services)", totalPrice, bookingItems.size());
+            } catch (Exception e) {
+                log.error("Error calculating booking total price: {}", e.getMessage(), e);
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Không thể tính giá dịch vụ. Vui lòng thử lại sau.")
+                        .build();
+            }
+
+            // 10. Build CreateBookingWithScheduleRequest
             LocalDateTime scheduledStartAt = LocalDateTime.of(date, startTime);
             LocalDateTime scheduledEndAt = scheduledStartAt.plusMinutes(totalDuration);
+
+            // Validate vehicle không null (đã được validate ở trên, nhưng check lại để an toàn)
+            if (vehicle == null) {
+                return CreateBookingResponse.builder()
+                        .status("FAILED")
+                        .message("Vui lòng cung cấp thông tin xe (vehicle_id hoặc vehicle_license_plate)")
+                        .build();
+            }
 
             CreateBookingWithScheduleRequest createRequest = CreateBookingWithScheduleRequest.builder()
                     .customerId(customer.getUserId())
@@ -1129,32 +1179,32 @@ public class AiBookingAssistantService {
         try {
             UUID customerId = request.getCustomerId();
 
-            // Nếu không có customerId, tìm từ customerPhone
+            // Ưu tiên lấy từ SecurityContext (token authentication) - đây là cách đúng
+            if (customerId == null) {
+                LoginUserInfo currentUser = PermissionUtils.getCurrentUser();
+                if (currentUser != null && currentUser.getSub() != null) {
+                    try {
+                        customerId = UUID.fromString(currentUser.getSub());
+                        log.info("Auto-detected customerId from SecurityContext (token): {}", customerId);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Invalid user ID format in SecurityContext: {}", currentUser.getSub());
+                    }
+                }
+            }
+
+            // Fallback: Nếu không có token, thử tìm từ customerPhone (cho trường hợp đặc biệt)
             if (customerId == null && request.getCustomerPhone() != null
                     && !request.getCustomerPhone().trim().isEmpty()) {
                 Optional<User> userOpt = userService.findByPhoneNumber(request.getCustomerPhone().trim());
                 if (userOpt.isPresent()) {
                     customerId = userOpt.get().getUserId();
+                    log.info("CustomerId found from phone number: {}", customerId);
                 } else {
                     return GetCustomerVehiclesResponse.builder()
                             .status("CUSTOMER_NOT_FOUND")
                             .message("Không tìm thấy khách hàng với số điện thoại: " + request.getCustomerPhone())
                             .vehicles(List.of())
                             .build();
-                }
-            }
-
-            // Nếu vẫn không có customerId, tự động lấy từ SecurityContext (user đã đăng
-            // nhập)
-            if (customerId == null) {
-                LoginUserInfo currentUser = PermissionUtils.getCurrentUser();
-                if (currentUser != null && currentUser.getSub() != null) {
-                    try {
-                        customerId = UUID.fromString(currentUser.getSub());
-                        log.info("Auto-detected customerId from SecurityContext: {}", customerId);
-                    } catch (IllegalArgumentException e) {
-                        log.warn("Invalid user ID format in SecurityContext: {}", currentUser.getSub());
-                    }
                 }
             }
 

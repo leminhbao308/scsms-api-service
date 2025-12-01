@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.UUID;
 
 @Data
 @Builder
@@ -35,11 +34,13 @@ public class AvailabilityRequest {
     private String dateTime;
     
     /**
-     * Branch ID (UUID) - Optional
+     * Branch ID (UUID format như '7cd17e0d-529d-48ef-9094-67103811651d') hoặc tên chi nhánh - Optional
      * Nếu không có, AI sẽ suggest tất cả branches
+     * Lưu ý: Hệ thống sẽ tự động parse - nếu là UUID thì dùng trực tiếp, nếu là tên thì tìm kiếm
+     * UUID của chi nhánh (ví dụ: '7cd17e0d-529d-48ef-9094-67103811651d'). Nếu không tìm thấy UUID, có thể để null hoặc để trống.
      */
     @JsonProperty("branch_id")
-    private UUID branchId;
+    private String branchId;
     
     /**
      * Branch name - Optional

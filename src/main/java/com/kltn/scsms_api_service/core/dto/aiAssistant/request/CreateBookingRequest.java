@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
 
 @Data
 @Builder
@@ -17,8 +16,9 @@ import java.util.UUID;
 public class CreateBookingRequest {
     
     /**
-     * Số điện thoại khách hàng - BẮT BUỘC
+     * Số điện thoại khách hàng - Optional (chỉ dùng khi không có token authentication)
      * Format: "0123456789" (không có dấu cách, dấu gạch ngang)
+     * Lưu ý: Nếu đã đăng nhập, hệ thống sẽ tự động lấy thông tin từ token, không cần truyền field này.
      */
     @JsonProperty("customer_phone")
     private String customerPhone;
@@ -40,10 +40,12 @@ public class CreateBookingRequest {
     private String dateTime;
     
     /**
-     * Branch ID - Optional (nếu có branch_name thì không cần)
+     * Branch ID (UUID format như '7cd17e0d-529d-48ef-9094-67103811651d') hoặc tên chi nhánh - Optional
+     * Lưu ý: Hệ thống sẽ tự động parse - nếu là UUID thì dùng trực tiếp, nếu là tên thì tìm kiếm
+     * UUID của chi nhánh (ví dụ: '7cd17e0d-529d-48ef-9094-67103811651d'). Nếu không tìm thấy UUID, có thể để null hoặc để trống.
      */
     @JsonProperty("branch_id")
-    private UUID branchId;
+    private String branchId;
     
     /**
      * Branch name - Optional
@@ -54,10 +56,12 @@ public class CreateBookingRequest {
     private String branchName;
     
     /**
-     * Service Bay ID - Optional (nếu có bay_name thì không cần)
+     * Service Bay ID (UUID format) hoặc tên bay - Optional
+     * Lưu ý: Hệ thống sẽ tự động parse - nếu là UUID thì dùng trực tiếp, nếu là tên thì tìm kiếm
+     * UUID của service bay. Nếu không tìm thấy UUID, có thể để null hoặc để trống.
      */
     @JsonProperty("bay_id")
-    private UUID bayId;
+    private String bayId;
     
     /**
      * Service Bay name - Optional
@@ -68,11 +72,13 @@ public class CreateBookingRequest {
     private String bayName;
     
     /**
-     * Vehicle ID - Optional
+     * Vehicle ID (UUID format) - Optional
      * Nếu không có, sẽ tìm theo licensePlate
+     * Lưu ý: Hệ thống sẽ tự động parse - nếu là UUID thì dùng trực tiếp
+     * UUID của vehicle. Nếu không tìm thấy UUID, có thể để null hoặc để trống.
      */
     @JsonProperty("vehicle_id")
-    private UUID vehicleId;
+    private String vehicleId;
     
     /**
      * Biển số xe - Optional
