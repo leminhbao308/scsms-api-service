@@ -50,7 +50,10 @@ public class AiBookingAssistantController {
         
         try {
             // 0. Extract state từ conversation history để inject vào prompt
-            ConversationState extractedState = extractStateFromHistory(request.getConversationHistory());
+            // Ưu tiên sử dụng extracted_uuids từ frontend nếu có (giảm database queries)
+            ConversationState extractedState = extractStateFromHistory(
+                    request.getConversationHistory(), 
+                    request.getExtractedUuids());
             log.info("Extracted state from history: vehicle={}, date={}, branch={}, service={}, bay={}, time={}",
                     extractedState.hasVehicle(), extractedState.hasDate(), extractedState.hasBranch(),
                     extractedState.hasService(), extractedState.hasBay(), extractedState.hasTime());
@@ -91,6 +94,15 @@ public class AiBookingAssistantController {
                         messages.add(new UserMessage(chatMessage.getContent()));
                     } else if ("assistant".equalsIgnoreCase(chatMessage.getRole())) {
                         messages.add(new AssistantMessage(chatMessage.getContent()));
+                    } else if ("tool".equalsIgnoreCase(chatMessage.getRole())) {
+                        // ToolResponse message - Spring AI sẽ tự động xử lý
+                        // Chúng ta có thể log để debug
+                        if (chatMessage.getToolResponse() != null) {
+                            log.debug("Received ToolResponse in conversation history: function={}, tool_call_id={}", 
+                                    chatMessage.getToolName(), chatMessage.getToolCallId());
+                        }
+                        // Note: Spring AI có thể không hỗ trợ ToolMessage trong conversation history
+                        // Nếu không hỗ trợ, chúng ta vẫn có extracted_uuids từ frontend
                     }
                 }
             }
@@ -217,9 +229,41 @@ public class AiBookingAssistantController {
 
     /**
      * Extract state từ conversation history để biết dữ liệu đã có
+     * Ưu tiên sử dụng extracted_uuids từ frontend nếu có
      */
-    private ConversationState extractStateFromHistory(List<ChatRequest.ChatMessage> history) {
+    private ConversationState extractStateFromHistory(
+            List<ChatRequest.ChatMessage> history, 
+            ChatRequest.ExtractedUuids extractedUuids) {
         ConversationState state = new ConversationState();
+
+        // BƯỚC 1: Ưu tiên sử dụng extracted_uuids từ frontend (nếu có)
+        // Điều này giúp tránh query database lại và đảm bảo UUIDs chính xác
+        if (extractedUuids != null) {
+            if (extractedUuids.getVehicleId() != null && !extractedUuids.getVehicleId().trim().isEmpty()) {
+                state.setHasVehicle(true);
+                state.setVehicleId(extractedUuids.getVehicleId());
+                state.setVehicleLicensePlate(extractedUuids.getVehicleLicensePlate());
+                log.info("✅ Using vehicle_id from frontend extracted_uuids: {} (license_plate: {})", 
+                        extractedUuids.getVehicleId(), extractedUuids.getVehicleLicensePlate());
+            }
+            if (extractedUuids.getBranchId() != null && !extractedUuids.getBranchId().trim().isEmpty()) {
+                state.setHasBranch(true);
+                state.setBranchId(extractedUuids.getBranchId());
+                state.setBranchName(extractedUuids.getBranchName());
+                log.info("✅ Using branch_id from frontend extracted_uuids: {} (branch_name: {})", 
+                        extractedUuids.getBranchId(), extractedUuids.getBranchName());
+            }
+            if (extractedUuids.getBayId() != null && !extractedUuids.getBayId().trim().isEmpty()) {
+                state.setHasBay(true);
+                state.setBayId(extractedUuids.getBayId());
+                state.setBayName(extractedUuids.getBayName());
+                log.info("✅ Using bay_id from frontend extracted_uuids: {} (bay_name: {})", 
+                        extractedUuids.getBayId(), extractedUuids.getBayName());
+            }
+            if (extractedUuids.getServiceType() != null && !extractedUuids.getServiceType().trim().isEmpty()) {
+                state.setHasService(true);
+            }
+        }
 
         if (history == null || history.isEmpty()) {
             return state;
@@ -494,7 +538,9 @@ public class AiBookingAssistantController {
         }
 
         // BƯỚC 2: Extract UUID từ database dựa trên license plate và branch name đã tìm được
-        extractUuidsFromDatabase(state, history);
+        // CHỈ extract những UUIDs chưa có từ extracted_uuids (tránh query database không cần thiết)
+        // Vẫn extract từ history để lấy các thông tin khác (date, service, time) và các UUIDs chưa có
+        extractUuidsFromDatabase(state, history, extractedUuids);
         
         // Log extracted IDs sau khi extract
         if (state.getVehicleId() != null) {
@@ -516,10 +562,15 @@ public class AiBookingAssistantController {
     /**
      * Extract UUID từ database dựa trên license plate và branch name đã extract từ conversation history
      * Đây là giải pháp backend-driven: Backend tự động query database để lấy UUID, không phụ thuộc vào AI
+     * CHỈ extract những UUIDs chưa có từ extracted_uuids (tránh query database không cần thiết)
      */
-    private void extractUuidsFromDatabase(ConversationState state, List<ChatRequest.ChatMessage> history) {
-        // Extract vehicle_id từ license plate
-        if (state.hasVehicle() && state.getVehicleLicensePlate() != null) {
+    private void extractUuidsFromDatabase(
+            ConversationState state, 
+            List<ChatRequest.ChatMessage> history,
+            ChatRequest.ExtractedUuids extractedUuids) {
+        // Extract vehicle_id từ license plate - CHỈ nếu chưa có từ extracted_uuids
+        if (state.hasVehicle() && state.getVehicleLicensePlate() != null && 
+            (extractedUuids == null || extractedUuids.getVehicleId() == null)) {
             try {
                 // Lấy ownerId từ SecurityContext
                 com.kltn.scsms_api_service.core.dto.token.LoginUserInfo currentUser = 
@@ -560,8 +611,9 @@ public class AiBookingAssistantController {
             }
         }
         
-        // Extract branch_id từ branch name
-        if (state.hasBranch() && state.getBranchName() != null) {
+        // Extract branch_id từ branch name - CHỈ nếu chưa có từ extracted_uuids
+        if (state.hasBranch() && state.getBranchName() != null &&
+            (extractedUuids == null || extractedUuids.getBranchId() == null)) {
             try {
                 // Normalize branch name để query database đúng
                 String normalizedBranchName = normalizeBranchName(state.getBranchName());
@@ -605,8 +657,9 @@ public class AiBookingAssistantController {
             }
         }
         
-        // Extract bay_id từ bay name và branch_id
-        if (state.hasBay() && state.getBayName() != null && state.getBranchId() != null) {
+        // Extract bay_id từ bay name và branch_id - CHỈ nếu chưa có từ extracted_uuids
+        if (state.hasBay() && state.getBayName() != null && state.getBranchId() != null &&
+            (extractedUuids == null || extractedUuids.getBayId() == null)) {
             try {
                 UUID branchId = UUID.fromString(state.getBranchId());
                 

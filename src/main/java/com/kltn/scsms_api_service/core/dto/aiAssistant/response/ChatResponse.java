@@ -41,5 +41,28 @@ public class ChatResponse {
      */
     @JsonProperty("action_type")
     private String actionType;
+    
+    /**
+     * ToolResponse từ function calls (optional)
+     * Chứa dữ liệu từ các function calls (getBranches, getCustomerVehicles, checkAvailability, createBooking)
+     * Để frontend có thể extract UUIDs và tránh mất mát dữ liệu
+     */
+    @JsonProperty("tool_responses")
+    private List<ToolResponse> toolResponses;
+    
+    /**
+     * ToolResponse chứa function name và response data
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ToolResponse {
+        @JsonProperty("function_name")
+        private String functionName;
+        
+        @JsonProperty("response_data")
+        private Object responseData; // JSON object chứa response từ function
+    }
 }
 

@@ -44,6 +44,13 @@ public class ChatRequest {
     private UUID customerId;
     
     /**
+     * Extracted UUIDs từ frontend (optional)
+     * Frontend extract UUIDs từ ToolResponse để giảm database queries
+     */
+    @JsonProperty("extracted_uuids")
+    private ExtractedUuids extractedUuids;
+    
+    /**
      * Chat message trong conversation history
      */
     @Data
@@ -52,10 +59,52 @@ public class ChatRequest {
     @AllArgsConstructor
     public static class ChatMessage {
         @JsonProperty("role")
-        private String role; // "user" hoặc "assistant"
+        private String role; // "user", "assistant", hoặc "tool"
         
         @JsonProperty("content")
         private String content;
+        
+        /**
+         * ToolResponse metadata (nếu message là tool response)
+         */
+        @JsonProperty("tool_call_id")
+        private String toolCallId;
+        
+        @JsonProperty("tool_name")
+        private String toolName;
+        
+        @JsonProperty("tool_response")
+        private Object toolResponse; // ToolResponse data (JSON object)
+    }
+    
+    /**
+     * Extracted UUIDs từ ToolResponse
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExtractedUuids {
+        @JsonProperty("vehicle_id")
+        private String vehicleId;
+        
+        @JsonProperty("vehicle_license_plate")
+        private String vehicleLicensePlate;
+        
+        @JsonProperty("branch_id")
+        private String branchId;
+        
+        @JsonProperty("branch_name")
+        private String branchName;
+        
+        @JsonProperty("bay_id")
+        private String bayId;
+        
+        @JsonProperty("bay_name")
+        private String bayName;
+        
+        @JsonProperty("service_type")
+        private String serviceType;
     }
 }
 
