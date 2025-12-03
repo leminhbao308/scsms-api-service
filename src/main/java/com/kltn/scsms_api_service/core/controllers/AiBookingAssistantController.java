@@ -20,7 +20,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -34,10 +36,10 @@ import java.util.regex.Pattern;
 public class AiBookingAssistantController {
 
     private final ChatClient aiChatClient;
-    private final com.kltn.scsms_api_service.core.service.aiAssistant.AiBookingAssistantService aiBookingAssistantService;
-    private final com.kltn.scsms_api_service.core.service.entityService.VehicleProfileService vehicleProfileService;
-    private final com.kltn.scsms_api_service.core.service.entityService.ServiceBayService serviceBayService;
-    private final com.kltn.scsms_api_service.core.service.entityService.BookingDraftService bookingDraftService;
+    private final AiBookingAssistantService aiBookingAssistantService;
+    private final VehicleProfileService vehicleProfileService;
+    private final ServiceBayService serviceBayService;
+    private final BookingDraftService bookingDraftService;
 
     @PostMapping("/chat")
     @Operation(summary = "Chat with AI booking assistant", description = "Send a message to AI assistant. AI will automatically call functions (checkAvailability, createBooking) when needed.")
@@ -61,7 +63,7 @@ public class AiBookingAssistantController {
                     : java.util.UUID.randomUUID().toString(); // Generate nếu không có
 
             // Get or create draft
-            com.kltn.scsms_api_service.core.entity.BookingDraft draft;
+            BookingDraft draft;
             if (request.getDraftId() != null) {
                 // Frontend đã gửi draft_id → Lấy draft theo ID
                 try {
@@ -80,8 +82,8 @@ public class AiBookingAssistantController {
                     draft.getDraftId(), draft.getCurrentStep(), draft.getStatus());
 
             // Set draft context vào ThreadLocal để function configs có thể access
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.setDraftId(draft.getDraftId());
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.setSessionId(sessionId);
+            DraftContextHolder.setDraftId(draft.getDraftId());
+            DraftContextHolder.setSessionId(sessionId);
 
             // ============================================================
             // PHẦN 2: EXTRACT STATE (FALLBACK - vẫn dùng để backward compatible)
@@ -110,6 +112,27 @@ public class AiBookingAssistantController {
             log.info("Extracted state (with draft): vehicle={}, date={}, branch={}, service={}, bay={}, time={}",
                     extractedState.hasVehicle(), extractedState.hasDate(), extractedState.hasBranch(),
                     extractedState.hasService(), extractedState.hasBay(), extractedState.hasTime());
+
+            // ============================================================
+            // PHẦN 3: PARSE USER MESSAGE VÀ UPDATE DRAFT TRƯỚC KHI GỌI AI
+            // ============================================================
+            // CRITICAL: Parse và update draft TRƯỚC KHI build messages để AI nhận được draft context đầy đủ
+            String userMessage = request.getMessage();
+            List<ChatRequest.ChatMessage> conversationHistory = request.getConversationHistory();
+
+            // Parse user message để detect selections (vehicle, branch, service, bay, time)
+            draft = parseUserSelectionAndUpdateDraft(draft, userMessage, conversationHistory);
+
+            // CRITICAL: Reload draft từ database sau khi update để có data mới nhất
+            // Điều này đảm bảo draft context có đầy đủ thông tin mới nhất (ví dụ: bay_id sau khi user chọn bay)
+            try {
+                draft = bookingDraftService.getDraft(draft.getDraftId());
+                log.info("Reloaded draft from database after update - current_step={}, hasVehicle={}, hasBranch={}, hasService={}, hasBay={}, hasTime={}",
+                        draft.getCurrentStep(), draft.hasVehicle(), draft.hasBranch(), draft.hasService(), draft.hasBay(), draft.hasTime());
+            } catch (Exception e) {
+                log.error("Error reloading draft from database: {}", e.getMessage(), e);
+                // Fallback: Continue with current draft object
+            }
 
             // 1. Build conversation messages từ history
             // Frontend gửi toàn bộ conversation history, backend sẽ sử dụng tất cả để AI có
@@ -145,10 +168,265 @@ public class AiBookingAssistantController {
 
             // 1.1. Add draft context message để AI biết dữ liệu đã có (ngăn lặp lại)
             // Ưu tiên dùng draft data, fallback sang extracted state
+            // CRITICAL: Draft đã được update và reload, nên draft context sẽ có đầy đủ thông tin mới nhất
             String draftContext = buildDraftContextMessage(draft, extractedState);
             if (draftContext != null && !draftContext.trim().isEmpty()) {
                 messages.add(new org.springframework.ai.chat.messages.SystemMessage(draftContext));
-                log.debug("Added draft context to messages to prevent duplicate function calls");
+                log.info("Added draft context to messages - current_step={}, hasVehicle={}, hasBranch={}, hasService={}, hasBay={}, hasTime={}",
+                        draft.getCurrentStep(), draft.hasVehicle(), draft.hasBranch(), draft.hasService(), draft.hasBay(), draft.hasTime());
+            }
+
+            // 1.2. CRITICAL: Xác định actual step TRƯỚC KHI xử lý auto-load và prevent instructions
+            // Sử dụng determineActualStep() để xác định step thực tế dựa trên data đã có
+            // CRITICAL: Draft đã được update và reload, nên actualStep sẽ chính xác
+            int actualStep = determineActualStep(draft);
+            log.info("Determined actual step: {} (draft.current_step={})", actualStep, draft.getCurrentStep());
+
+            // 1.3. CRITICAL: Auto-call getCustomerVehicles() nếu ở STEP 1 và chưa có vehicle
+            // → Tự động GỌI getCustomerVehicles() TRỰC TIẾP từ backend và inject kết quả
+            // PHẢI CHẠY TRƯỚC prevent instructions để đảm bảo load data khi cần
+            if (actualStep == 1 && !draft.hasVehicle()) {
+                log.info("Auto-calling getCustomerVehicles() directly from backend - STEP 1 (actualStep={}), no vehicle selected", actualStep);
+
+                // Gọi function trực tiếp từ backend
+                try {
+                    GetCustomerVehiclesRequest vehiclesRequest =
+                            GetCustomerVehiclesRequest.builder()
+                                    .customerId(customerId)
+                                    .build();
+
+                    GetCustomerVehiclesResponse vehiclesResponse =
+                            aiBookingAssistantService.getCustomerVehicles(vehiclesRequest);
+
+                    // Lưu response vào ThreadLocal để parse user selection sau này
+                    DraftContextHolder.setVehiclesResponse(vehiclesResponse);
+
+                    // Inject instruction để AI sử dụng kết quả đã có
+                    if (vehiclesResponse.getVehicles() != null && !vehiclesResponse.getVehicles().isEmpty()) {
+                        String autoCallInstruction = String.format("""
+                                CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                                - Backend đã TỰ ĐỘNG gọi getCustomerVehicles() và có kết quả
+                                - Danh sách xe đã được load sẵn, bạn KHÔNG cần gọi function lại
+                                - BẠN PHẢI hiển thị danh sách xe cho user ngay lập tức
+                                - Format: "1. [biển số], 2. [biển số], ..."
+                                - Sau đó hỏi: "Bạn muốn chọn xe nào? Vui lòng cho tôi biết số thứ tự hoặc biển số."
+                                - KHÔNG được hỏi lại "Bạn muốn đặt lịch không?" hoặc "Tôi sẽ lấy danh sách xe"
+                                                                
+                                DANH SÁCH XE ĐÃ LOAD:
+                                %s
+                                """, formatVehiclesList(vehiclesResponse));
+                        messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+
+                        log.info("Auto-called getCustomerVehicles() - found {} vehicles", vehiclesResponse.getVehicles().size());
+                    } else {
+                        // Không có xe
+                        String noVehiclesInstruction = """
+                                CRITICAL INSTRUCTION:
+                                - Backend đã gọi getCustomerVehicles() nhưng user chưa có xe nào
+                                - BẠN PHẢI thông báo: "Bạn chưa có xe nào trong hệ thống. Vui lòng tạo xe mới trước khi đặt lịch."
+                                - KHÔNG được hỏi lại về việc đặt lịch
+                                """;
+                        messages.add(new org.springframework.ai.chat.messages.SystemMessage(noVehiclesInstruction));
+                        log.info("Auto-called getCustomerVehicles() - no vehicles found");
+                    }
+                } catch (Exception e) {
+                    log.error("Error auto-calling getCustomerVehicles(): {}", e.getMessage(), e);
+                    // Fallback: Inject instruction để AI gọi function
+                    String autoCallInstruction = """
+                            CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                            - User đang ở STEP 1 (chọn xe) và chưa có vehicle_id
+                            - BẠN PHẢI TỰ ĐỘNG GỌI getCustomerVehicles() NGAY LẬP TỨC
+                            - KHÔNG nói "Tôi sẽ lấy danh sách xe" rồi chờ user yêu cầu
+                            - PHẢI gọi function NGAY và hiển thị danh sách xe cho user chọn
+                            - KHÔNG được hỏi lại user về việc có muốn đặt lịch không
+                            """;
+                    messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+                }
+            }
+
+            // 1.4. CRITICAL: Auto-call getBranches() nếu ở STEP 3 và chưa có branch
+            // Gọi khi: (1) đang ở STEP 3 (xác định bằng determineActualStep) VÀ (2) chưa có branch trong draft
+            // PHẢI CHẠY TRƯỚC prevent instructions để đảm bảo load data khi cần
+            if (actualStep == 3 && !draft.hasBranch()) {
+                log.info("Auto-calling getBranches() directly from backend - STEP 3 (actualStep={}), no branch selected", actualStep);
+
+                // Gọi function trực tiếp từ backend
+                try {
+                    GetBranchesRequest branchesRequest =
+                            com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest.builder()
+                                    .build();
+
+                    GetBranchesResponse branchesResponse =
+                            aiBookingAssistantService.getBranches(branchesRequest);
+
+                    // Lưu response vào ThreadLocal để parse user selection sau này
+                    DraftContextHolder.setBranchesResponse(branchesResponse);
+
+                    // Inject instruction để AI sử dụng kết quả đã có
+                    if (branchesResponse.getBranches() != null && !branchesResponse.getBranches().isEmpty()) {
+                        String autoCallInstruction = String.format("""
+                                CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                                - Backend đã TỰ ĐỘNG gọi getBranches() và có kết quả
+                                - Danh sách chi nhánh đã được load sẵn, bạn KHÔNG cần gọi function lại
+                                - BẠN PHẢI hiển thị danh sách chi nhánh cho user ngay lập tức
+                                - Format: "1. [tên chi nhánh] - [địa chỉ], 2. [tên chi nhánh] - [địa chỉ], ..."
+                                - Sau đó hỏi: "Bạn muốn chọn chi nhánh nào? Vui lòng cho tôi biết số thứ tự hoặc tên chi nhánh."
+                                - KHÔNG được hỏi lại "Bạn muốn chọn chi nhánh không?" hoặc "Tôi sẽ lấy danh sách chi nhánh"
+                                                                
+                                DANH SÁCH CHI NHÁNH ĐÃ LOAD:
+                                %s
+                                """, formatBranchesList(branchesResponse));
+                        messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+
+                        log.info("Auto-called getBranches() - found {} branches", branchesResponse.getBranches().size());
+                    } else {
+                        // Không có chi nhánh
+                        String noBranchesInstruction = """
+                                CRITICAL INSTRUCTION:
+                                - Backend đã gọi getBranches() nhưng không có chi nhánh nào
+                                - BẠN PHẢI thông báo: "Hiện tại hệ thống chưa có chi nhánh nào. Vui lòng liên hệ admin."
+                                - KHÔNG được hỏi lại về việc chọn chi nhánh
+                                """;
+                        messages.add(new org.springframework.ai.chat.messages.SystemMessage(noBranchesInstruction));
+                        log.info("Auto-called getBranches() - no branches found");
+                    }
+                } catch (Exception e) {
+                    log.error("Error auto-calling getBranches(): {}", e.getMessage(), e);
+                    // Fallback: Inject instruction để AI gọi function
+                    String autoCallInstruction = """
+                            CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                            - User đang ở STEP 3 (chọn chi nhánh) và chưa có branch_id
+                            - BẠN PHẢI TỰ ĐỘNG GỌI getBranches() NGAY LẬP TỨC
+                            - KHÔNG nói "Tôi sẽ lấy danh sách chi nhánh" rồi chờ user yêu cầu
+                            - PHẢI gọi function NGAY và hiển thị danh sách chi nhánh cho user chọn
+                            - KHÔNG được hỏi lại user về việc có muốn chọn chi nhánh không
+                            """;
+                    messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+                }
+            }
+
+            // 1.5. CRITICAL: Inject instruction mạnh để ngăn AI gọi lại function khi đã có dữ liệu
+            // CHẠY SAU auto-load để đảm bảo không conflict
+            if (draft.hasBranch()) {
+                String preventBranchCallInstruction = """
+                        ⚠️ CRITICAL - TUYỆT ĐỐI KHÔNG GỌI getBranches() ⚠️
+                        - Draft đã có branch_id và branch_name đầy đủ
+                        - BẠN ĐANG Ở STEP 4 (chọn dịch vụ), KHÔNG phải STEP 3 (chọn chi nhánh)
+                        - TUYỆT ĐỐI KHÔNG được gọi getBranches() khi draft đã có branch_id
+                        - TUYỆT ĐỐI KHÔNG được hỏi lại user về chi nhánh
+                        - Nếu user nói về dịch vụ (ví dụ: "rửa xe", "bảo dưỡng") → CHỈ gọi getServices(keyword)
+                        - Nếu user nhắc lại chi nhánh → CHỈ xác nhận lại, KHÔNG gọi getBranches()
+                        """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(preventBranchCallInstruction));
+                log.info("Injected instruction to prevent getBranches() call - branch already selected");
+            }
+
+            if (draft.hasVehicle()) {
+                String preventVehicleCallInstruction = """
+                        ⚠️ CRITICAL - TUYỆT ĐỐI KHÔNG GỌI getCustomerVehicles() ⚠️
+                        - Draft đã có vehicle_id và vehicle_license_plate đầy đủ
+                        - TUYỆT ĐỐI KHÔNG được gọi getCustomerVehicles() khi draft đã có vehicle_id
+                        - TUYỆT ĐỐI KHÔNG được hỏi lại user về xe
+                        - Nếu user nhắc lại biển số → CHỈ xác nhận lại, KHÔNG gọi getCustomerVehicles()
+                        """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(preventVehicleCallInstruction));
+                log.info("Injected instruction to prevent getCustomerVehicles() call - vehicle already selected");
+            }
+
+            // 1.6. CRITICAL: Sau khi chọn bay thành công, tự động lấy danh sách time slots và inject cho AI
+            // PHẢI CHẠY TRƯỚC KHI GỌI AI để AI có thể hiển thị time slots ngay
+            if (draft.hasBay() && !draft.hasTime()) {
+                log.info("Bay selected, loading time slots for bay_id: {}, bay_name: {}",
+                        draft.getBayId(), draft.getBayName());
+
+                // Lấy AvailabilityResponse từ ThreadLocal (từ lần gọi checkAvailability trước đó)
+                AvailabilityResponse availabilityResponse =
+                        DraftContextHolder.getAvailabilityResponse();
+
+                // Nếu không có AvailabilityResponse trong ThreadLocal → Tự động gọi checkAvailability() lại
+                if (availabilityResponse == null || availabilityResponse.getAvailableBays() == null) {
+                    log.info("No AvailabilityResponse found in ThreadLocal. Auto-calling checkAvailability() to get time slots.");
+
+                    // Lấy service_type từ draft (ưu tiên từ DraftService, fallback sang serviceType)
+                    String serviceType = null;
+                    List<DraftService> draftServices =
+                            bookingDraftService.getDraftServices(draft.getDraftId());
+                    if (!draftServices.isEmpty()) {
+                        // Lấy service đầu tiên (primary service)
+                        serviceType = draftServices.get(0).getServiceName();
+                    } else if (draft.getServiceType() != null) {
+                        serviceType = draft.getServiceType();
+                    }
+
+                    // Kiểm tra đủ dữ liệu để gọi checkAvailability()
+                    if (serviceType != null && draft.hasBranch() && draft.hasDate()) {
+                        try {
+                            // Build AvailabilityRequest từ draft data
+                            com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest availabilityRequest =
+                                    com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest.builder()
+                                            .serviceType(serviceType)
+                                            .branchId(draft.getBranchId() != null ? draft.getBranchId().toString() : null)
+                                            .branchName(draft.getBranchName())
+                                            .dateTime(draft.getDateTime() != null ? draft.getDateTime().toString() : null)
+                                            .build();
+
+                            // Gọi checkAvailability() trực tiếp từ service
+                            availabilityResponse = aiBookingAssistantService.checkAvailability(availabilityRequest);
+
+                            // Lưu response vào ThreadLocal để dùng sau này
+                            com.kltn.scsms_api_service.core.utils.DraftContextHolder.setAvailabilityResponse(availabilityResponse);
+
+                            log.info("Auto-called checkAvailability() - found {} available bays",
+                                    availabilityResponse.getAvailableBays() != null ? availabilityResponse.getAvailableBays().size() : 0);
+                        } catch (Exception e) {
+                            log.error("Error auto-calling checkAvailability(): {}", e.getMessage(), e);
+                            availabilityResponse = null;
+                        }
+                    } else {
+                        log.warn("Cannot auto-call checkAvailability(): missing required data - serviceType={}, hasBranch={}, hasDate={}",
+                                serviceType, draft.hasBranch(), draft.hasDate());
+                    }
+                }
+
+                // Tìm bay đã chọn trong availableBays và lấy time slots
+                if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+                    // Tìm bay đã chọn trong availableBays
+                    for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse.AvailableBayInfo bay :
+                            availabilityResponse.getAvailableBays()) {
+                        if (bay.getBayId() != null && bay.getBayId().equals(draft.getBayId())) {
+                            // Tìm thấy bay đã chọn
+                            List<String> timeSlots = bay.getAvailableSlots();
+                            if (timeSlots != null && !timeSlots.isEmpty()) {
+                                // Format và làm tròn thời gian (9:01 → 9:00, 9:31 → 9:30)
+                                List<String> roundedSlots = formatAndRoundTimeSlots(timeSlots);
+
+                                // Inject instruction cho AI để hiển thị danh sách time slots
+                                String timeSlotsInstruction = String.format("""
+                                        CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                                        - User đã chọn bay '%s' thành công
+                                        - Backend đã TỰ ĐỘNG gọi checkAvailability() và lấy danh sách thời gian trống từ bay này
+                                        - Danh sách thời gian đã được load sẵn, bạn KHÔNG cần gọi function lại
+                                        - BẠN PHẢI hiển thị danh sách thời gian trống cho user ngay lập tức
+                                        - Format: "1. 08:00, 2. 08:30, 3. 09:00, ..."
+                                        - Sau đó hỏi: "Bạn muốn chọn giờ nào? Vui lòng cho tôi biết số thứ tự hoặc giờ (ví dụ: 08:00)."
+                                        - KHÔNG được nói "bạn cần chọn giờ trước" hoặc "bạn muốn chọn giờ nào" mà không hiển thị danh sách
+                                                                                
+                                        DANH SÁCH THỜI GIAN TRỐNG ĐÃ LOAD:
+                                        %s
+                                        """, draft.getBayName(), formatTimeSlotsList(roundedSlots));
+                                messages.add(new org.springframework.ai.chat.messages.SystemMessage(timeSlotsInstruction));
+
+                                log.info("Injected time slots instruction - found {} slots for bay: {}",
+                                        roundedSlots.size(), draft.getBayName());
+                            } else {
+                                log.warn("Bay {} has no available slots in AvailabilityResponse", draft.getBayName());
+                            }
+                            break;
+                        }
+                    }
+                } else {
+                    log.warn("Could not get AvailabilityResponse even after auto-calling checkAvailability(). AI should call checkAvailability() manually.");
+                }
             }
 
             // Fallback: Add state context nếu draft chưa có data
@@ -158,24 +436,73 @@ public class AiBookingAssistantController {
                 log.debug("Added fallback state context to messages");
             }
 
-            // 1.2. CRITICAL: Nếu chưa có vehicle_id và user message là request đầu tiên
-            // hoặc yêu cầu đặt lịch
-            // → Tự động inject instruction để AI gọi getCustomerVehicles() NGAY
-            String userMessage = request.getMessage();
-            List<ChatRequest.ChatMessage> conversationHistory = request.getConversationHistory();
-            if (!draft.hasVehicle() && !extractedState.hasVehicle() &&
-                    (conversationHistory == null || conversationHistory.isEmpty() ||
-                            userMessage.toLowerCase().contains("đặt lịch") ||
-                            userMessage.toLowerCase().contains("muốn đặt"))) {
-                String autoCallInstruction = """
-                        CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
-                        - User chưa có vehicle_id và đang muốn đặt lịch
-                        - BẠN PHẢI TỰ ĐỘNG GỌI getCustomerVehicles() NGAY LẬP TỨC
-                        - KHÔNG nói "Tôi sẽ lấy danh sách xe" rồi chờ user yêu cầu
-                        - PHẢI gọi function NGAY và hiển thị danh sách xe cho user chọn
+            // 1.3. Validate draft data trước khi tiếp tục
+            // Kiểm tra xem draft có đủ dữ liệu và đúng bước không
+            // CRITICAL: Sử dụng actualStep thay vì draft.getCurrentStep() để validation chính xác
+            int actualStepForValidation = determineActualStep(draft);
+            String validationError = validateDraftBeforeProceeding(draft, actualStepForValidation);
+            if (validationError != null) {
+                log.warn("Draft validation failed: {}", validationError);
+                // Inject error message vào prompt để AI thông báo cho user
+                String errorInstruction = String.format("""
+                        QUAN TRỌNG - CÓ LỖI XẢY RA:
+                        - %s
+                        - BẠN PHẢI thông báo lỗi này cho user và yêu cầu user nhập lại cho chính xác
+                        - KHÔNG được tiếp tục bước tiếp theo khi có lỗi
+                        - PHẢI hỏi lại user về thông tin bị thiếu hoặc sai
+                        """, validationError);
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(errorInstruction));
+            }
+
+            // 1.4. CRITICAL: Inject instruction mạnh để ngăn AI gọi checkAvailability() khi đã có đầy đủ data
+            // Nếu draft đã complete (step 7), TUYỆT ĐỐI không được gọi checkAvailability() hoặc yêu cầu chọn bay/time
+            if (draft.isComplete() || actualStep >= 7) {
+                String preventCheckAvailabilityInstruction = """
+                        ⚠️ CRITICAL - DRAFT ĐÃ HOÀN THÀNH - TUYỆT ĐỐI KHÔNG GỌI checkAvailability() ⚠️
+                        - Draft đã có ĐẦY ĐỦ dữ liệu: vehicle, date, branch, service, bay, time
+                        - BẠN ĐANG Ở STEP 7 (hoàn thành), KHÔNG phải STEP 5 (chọn bay) hay STEP 6 (chọn giờ)
+                        - TUYỆT ĐỐI KHÔNG được gọi checkAvailability() khi draft đã complete
+                        - TUYỆT ĐỐI KHÔNG được yêu cầu user chọn bay hoặc chọn giờ
+                        - TUYỆT ĐỐI KHÔNG được nói "cần hoàn thành bước chọn bay" hoặc "cần chọn giờ"
+                        - Nếu user đã chọn đầy đủ → CHỈ hỏi xác nhận để tạo booking
+                        - Nếu user chưa xác nhận → CHỈ tóm tắt thông tin và hỏi xác nhận
                         """;
-                messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
-                log.info("Injected auto-call instruction for getCustomerVehicles()");
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(preventCheckAvailabilityInstruction));
+                log.info("Injected instruction to prevent checkAvailability() call - draft is complete");
+            }
+
+            // 1.5. Kiểm tra xác nhận trước khi cho phép createBooking
+            // Nếu user đang ở step 7 và đã có đủ dữ liệu, kiểm tra xác nhận
+            // CRITICAL: Kiểm tra cả userMessage hiện tại và conversationHistory
+            boolean isAtFinalStep = actualStep >= 7 && draft.isComplete();
+            boolean userHasConfirmed = hasUserConfirmed(userMessage, conversationHistory);
+            if (isAtFinalStep && !userHasConfirmed) {
+                // User chưa xác nhận, inject instruction để AI hỏi xác nhận
+                String confirmInstruction = """
+                        QUAN TRỌNG - CHƯA CÓ XÁC NHẬN:
+                        - User chưa xác nhận đặt lịch
+                        - Draft đã có ĐẦY ĐỦ dữ liệu: vehicle, date, branch, service, bay, time
+                        - BẠN PHẢI tóm tắt thông tin đặt lịch và hỏi xác nhận từ user
+                        - CHỈ KHI user nói "OK" hoặc "Xác nhận" → MỚI được gọi createBooking()
+                        - TUYỆT ĐỐI KHÔNG được gọi createBooking() nếu chưa có xác nhận
+                        - Nếu user message không phải là xác nhận → CHỈ hỏi lại xác nhận, KHÔNG gọi createBooking()
+                        - TUYỆT ĐỐI KHÔNG được yêu cầu user chọn bay hoặc chọn giờ khi draft đã complete
+                        """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(confirmInstruction));
+                log.info("User has not confirmed booking yet, AI should ask for confirmation");
+            } else if (isAtFinalStep && userHasConfirmed) {
+                // User đã xác nhận, inject instruction để AI gọi createBooking()
+                String confirmInstruction = """
+                        ✅ CRITICAL - USER ĐÃ XÁC NHẬN:
+                        - User đã xác nhận đặt lịch (trong message hiện tại hoặc conversation history)
+                        - Draft đã có ĐẦY ĐỦ dữ liệu: vehicle, date, branch, service, bay, time
+                        - BẠN PHẢI gọi createBooking() NGAY LẬP TỨC
+                        - KHÔNG được hỏi lại xác nhận
+                        - KHÔNG được tóm tắt lại thông tin
+                        - PHẢI gọi createBooking() với đầy đủ thông tin từ draft
+                        """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(confirmInstruction));
+                log.info("User has confirmed booking, AI should call createBooking() immediately");
             }
 
             // 2. Add current user message
@@ -244,12 +571,22 @@ public class AiBookingAssistantController {
                     aiMessage.toLowerCase().contains("bạn có muốn");
             String actionType = requiresAction ? "CONFIRM_BOOKING" : null;
 
-            // 7. Parse user message và update draft nếu user đã chọn gì đó
-            // Đây là phần quan trọng: Khi user nói "Chọn xe X" hoặc "Chi nhánh Y" → Update
-            // draft
-            draft = parseUserSelectionAndUpdateDraft(draft, userMessage, request.getConversationHistory());
+            // 7. Parse user message và update draft đã được thực hiện TRƯỚC KHI build messages (xem PHẦN 3 ở trên)
+            // Draft đã được update và reload, nên không cần parse lại ở đây
+
+            // 7.1. Auto-load time slots đã được thực hiện TRƯỚC KHI gọi AI (xem phần 1.6 ở trên)
+            // Logic đã được di chuyển lên trước khi gọi AI để đảm bảo AI nhận được instruction đúng lúc
 
             // 8. Build response với draft data
+            // CRITICAL: Reload draft một lần nữa để đảm bảo có data mới nhất trước khi trả về
+            try {
+                draft = bookingDraftService.getDraft(draft.getDraftId());
+                log.debug("Reloaded draft before building response - current_step={}, hasBay={}, hasTime={}",
+                        draft.getCurrentStep(), draft.hasBay(), draft.hasTime());
+            } catch (Exception e) {
+                log.warn("Error reloading draft before building response: {}", e.getMessage());
+                // Fallback: Continue with current draft object
+            }
             ChatResponse.DraftData draftData = ChatResponse.DraftData.builder()
                     .currentStep(draft.getCurrentStep())
                     .hasVehicle(draft.hasVehicle())
@@ -303,16 +640,16 @@ public class AiBookingAssistantController {
     @SwaggerOperation(summary = "Delete booking draft")
     public ResponseEntity<ApiResponse<Void>> clearDraft(
             @Parameter(description = "Draft ID to delete") @PathVariable UUID draftId) {
-        
+
         log.info("Deleting draft (hard delete): draft_id={}", draftId);
-        
+
         try {
             // Xóa draft thực sự khỏi database
             bookingDraftService.deleteDraft(draftId);
-            
+
             log.info("Successfully deleted draft: draft_id={}", draftId);
             return ResponseBuilder.success("Draft deleted successfully");
-            
+
         } catch (Exception e) {
             log.error("Error deleting draft: draft_id={}, error: {}", draftId, e.getMessage(), e);
             return ResponseBuilder.badRequest("Failed to delete draft: " + e.getMessage());
@@ -329,16 +666,16 @@ public class AiBookingAssistantController {
     @SwaggerOperation(summary = "Delete booking draft by session")
     public ResponseEntity<ApiResponse<Void>> clearDraftBySession(
             @Parameter(description = "Session ID to delete draft") @PathVariable String sessionId) {
-        
+
         log.info("Deleting draft by session (hard delete): session_id={}", sessionId);
-        
+
         try {
             // Xóa draft thực sự khỏi database
             bookingDraftService.deleteDraftBySession(sessionId);
-            
+
             log.info("Successfully deleted draft by session: session_id={}", sessionId);
             return ResponseBuilder.success("Draft deleted successfully");
-            
+
         } catch (Exception e) {
             log.error("Error deleting draft by session: session_id={}, error: {}", sessionId, e.getMessage(), e);
             return ResponseBuilder.badRequest("Failed to delete draft: " + e.getMessage());
@@ -803,7 +1140,7 @@ public class AiBookingAssistantController {
                 UUID branchId = UUID.fromString(state.getBranchId());
 
                 // Tìm bay theo tên trong branch đã chọn
-                List<com.kltn.scsms_api_service.core.entity.ServiceBay> baysInBranch = serviceBayService
+                List<ServiceBay> baysInBranch = serviceBayService
                         .getByBranch(branchId);
 
                 com.kltn.scsms_api_service.core.entity.ServiceBay foundBay = baysInBranch.stream()
@@ -819,7 +1156,7 @@ public class AiBookingAssistantController {
 
                 if (foundBay == null) {
                     // Thử search by keyword nếu exact match không tìm thấy
-                    List<com.kltn.scsms_api_service.core.entity.ServiceBay> bays = serviceBayService
+                    List<ServiceBay> bays = serviceBayService
                             .searchByKeywordInBranch(branchId, state.getBayName());
                     if (!bays.isEmpty()) {
                         foundBay = bays.get(0);
@@ -962,7 +1299,7 @@ public class AiBookingAssistantController {
             }
         }
 
-        return selectedBranchName != null ? new String[] { selectedBranchName, null } : null;
+        return selectedBranchName != null ? new String[]{selectedBranchName, null} : null;
     }
 
     /**
@@ -989,6 +1326,375 @@ public class AiBookingAssistantController {
         }
 
         return null;
+    }
+
+    /**
+     * Kiểm tra xem user message có phải là yêu cầu đặt lịch không
+     */
+    private boolean isBookingRequest(String userMessage, List<ChatRequest.ChatMessage> conversationHistory) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return false;
+        }
+
+        String msgLower = userMessage.toLowerCase();
+
+        // Kiểm tra các pattern phổ biến cho yêu cầu đặt lịch
+        boolean containsBookingKeywords = msgLower.contains("đặt lịch") ||
+                msgLower.contains("muốn đặt") ||
+                msgLower.contains("cần đặt") ||
+                msgLower.contains("đặt chỗ") ||
+                msgLower.contains("book") ||
+                msgLower.contains("booking") ||
+                msgLower.contains("hẹn") ||
+                msgLower.contains("lịch hẹn");
+
+        // Nếu là conversation đầu tiên (không có history), coi như yêu cầu đặt lịch
+        if ((conversationHistory == null || conversationHistory.isEmpty()) && containsBookingKeywords) {
+            return true;
+        }
+
+        // Nếu có keyword đặt lịch → là yêu cầu đặt lịch
+        if (containsBookingKeywords) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Kiểm tra xem user đã xác nhận booking chưa
+     * CRITICAL: Kiểm tra cả userMessage hiện tại và conversationHistory
+     *
+     * @param userMessage         Message hiện tại từ user (có thể null)
+     * @param conversationHistory Lịch sử hội thoại (có thể null hoặc empty)
+     * @return true nếu user đã xác nhận, false nếu chưa
+     */
+    private boolean hasUserConfirmed(String userMessage, List<ChatRequest.ChatMessage> conversationHistory) {
+        // CRITICAL: Kiểm tra userMessage hiện tại TRƯỚC (quan trọng nhất)
+        if (userMessage != null && !userMessage.trim().isEmpty()) {
+            String content = userMessage.toLowerCase().trim();
+            // Kiểm tra các pattern xác nhận trong message hiện tại
+            if (isConfirmationMessage(content)) {
+                log.info("Found user confirmation in current message: {}", userMessage);
+                return true;
+            }
+        }
+
+        // Nếu không tìm thấy trong message hiện tại, kiểm tra conversationHistory (backward compatible)
+        if (conversationHistory == null || conversationHistory.isEmpty()) {
+            return false;
+        }
+
+        // Tìm trong conversation history xem có message xác nhận từ user không
+        for (int i = conversationHistory.size() - 1; i >= 0; i--) {
+            ChatRequest.ChatMessage msg = conversationHistory.get(i);
+            if ("user".equalsIgnoreCase(msg.getRole()) && msg.getContent() != null) {
+                String content = msg.getContent().toLowerCase();
+                // Kiểm tra các pattern xác nhận
+                if (isConfirmationMessage(content)) {
+                    // Kiểm tra xem AI đã hỏi xác nhận trước đó chưa
+                    for (int j = i - 1; j >= 0 && j >= i - 5; j--) {
+                        ChatRequest.ChatMessage prevMsg = conversationHistory.get(j);
+                        if ("assistant".equalsIgnoreCase(prevMsg.getRole()) &&
+                                prevMsg.getContent() != null) {
+                            String prevContent = prevMsg.getContent().toLowerCase();
+                            if (prevContent.contains("xác nhận") ||
+                                    prevContent.contains("xin hãy xác nhận") ||
+                                    prevContent.contains("bạn có muốn")) {
+                                log.info("Found user confirmation in conversation history");
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Kiểm tra xem một message có phải là xác nhận không
+     *
+     * @param content Nội dung message (đã lowercase)
+     * @return true nếu là xác nhận, false nếu không
+     */
+    private boolean isConfirmationMessage(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            return false;
+        }
+
+        // Loại bỏ khoảng trắng thừa
+        content = content.trim();
+
+        // Kiểm tra các pattern xác nhận
+        return content.contains("ok") ||
+                content.contains("xác nhận") ||
+                content.contains("đúng") ||
+                content.contains("chính xác") ||
+                content.contains("đồng ý") ||
+                content.contains("xác nhận đặt lịch") ||
+                content.contains("tiến hành") ||
+                content.contains("được") ||
+                content.equals("ok") ||
+                content.equals("xác nhận") ||
+                content.equals("đồng ý") ||
+                content.equals("được rồi") ||
+                content.equals("được") ||
+                content.equals("yes") ||
+                content.equals("y");
+    }
+
+    /**
+     * Format danh sách xe để hiển thị cho user
+     */
+    /**
+     * Format và làm tròn thời gian (9:01 → 9:00, 9:31 → 9:30)
+     * Chỉ giữ lại các slot hợp lệ (phút là 00 hoặc 30)
+     */
+    private List<String> formatAndRoundTimeSlots(List<String> timeSlots) {
+        if (timeSlots == null || timeSlots.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> roundedSlots = new ArrayList<>();
+        for (String slot : timeSlots) {
+            if (slot == null || slot.trim().isEmpty()) {
+                continue;
+            }
+
+            try {
+                // Parse time slot (format: "HH:mm")
+                String[] parts = slot.split(":");
+                if (parts.length == 2) {
+                    int hour = Integer.parseInt(parts[0]);
+                    int minute = Integer.parseInt(parts[1]);
+
+                    // Làm tròn: 9:01 → 9:00, 9:31 → 9:30
+                    // Nếu phút <= 15 → làm tròn xuống 00
+                    // Nếu phút > 15 và <= 45 → làm tròn xuống 30
+                    // Nếu phút > 45 → làm tròn lên giờ tiếp theo với phút 00
+                    int roundedMinute;
+                    if (minute <= 15) {
+                        roundedMinute = 0;
+                    } else if (minute <= 45) {
+                        roundedMinute = 30;
+                    } else {
+                        // Làm tròn lên giờ tiếp theo
+                        hour = (hour + 1) % 24;
+                        roundedMinute = 0;
+                    }
+
+                    String roundedSlot = String.format("%02d:%02d", hour, roundedMinute);
+                    if (!roundedSlots.contains(roundedSlot)) {
+                        roundedSlots.add(roundedSlot);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Error rounding time slot: {}, error: {}", slot, e.getMessage());
+                // Nếu không parse được, giữ nguyên
+                if (!roundedSlots.contains(slot)) {
+                    roundedSlots.add(slot);
+                }
+            }
+        }
+
+        // Sort time slots
+        roundedSlots.sort(String::compareTo);
+
+        return roundedSlots;
+    }
+
+    /**
+     * Format danh sách time slots để hiển thị cho AI
+     */
+    private String formatTimeSlotsList(List<String> timeSlots) {
+        if (timeSlots == null || timeSlots.isEmpty()) {
+            return "Không có thời gian trống";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (String slot : timeSlots) {
+            sb.append(String.format("%d. %s", index++, slot));
+            if (index <= timeSlots.size()) {
+                sb.append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Format danh sách chi nhánh để hiển thị cho AI
+     */
+    private String formatBranchesList(com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse response) {
+        if (response == null || response.getBranches() == null || response.getBranches().isEmpty()) {
+            return "Không có chi nhánh nào";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse.BranchInfo branch :
+                response.getBranches()) {
+            sb.append(String.format("%d. %s - %s\n",
+                    index++,
+                    branch.getBranchName() != null ? branch.getBranchName() : "N/A",
+                    branch.getAddress() != null ? branch.getAddress() : "N/A"));
+        }
+        return sb.toString();
+    }
+
+    private String formatVehiclesList(com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse response) {
+        if (response.getVehicles() == null || response.getVehicles().isEmpty()) {
+            return "Không có xe nào";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse.VehicleInfo vehicle : response.getVehicles()) {
+            sb.append(String.format("%d. %s", index++, vehicle.getLicensePlate()));
+            if (index <= response.getVehicles().size()) {
+                sb.append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Validate draft data trước khi tiếp tục bước tiếp theo
+     * Trả về error message nếu có lỗi, null nếu OK
+     */
+    private String validateDraftBeforeProceeding(BookingDraft draft, int expectedStep) {
+        if (draft == null) {
+            return "Draft không tồn tại. Vui lòng bắt đầu lại.";
+        }
+
+        // Xác định step thực tế dựa trên data đã có (không dùng current_step vì có thể chưa update)
+        int actualStep = determineActualStep(draft);
+
+        // CRITICAL: Nếu draft đã complete (step 7), không cần validate nữa
+        if (actualStep >= 7 && draft.isComplete()) {
+            return null; // Draft đã complete, không có lỗi
+        }
+
+        // Kiểm tra step hiện tại có đúng không
+        if (actualStep < expectedStep) {
+            return String.format("Bạn đang ở bước %d, nhưng cần hoàn thành bước %d trước. Vui lòng hoàn thành các bước trước đó.",
+                    actualStep, expectedStep);
+        }
+
+        // Kiểm tra dữ liệu theo từng step - dựa trên actualStep, không phải expectedStep
+        // QUAN TRỌNG: Validation này chỉ để đảm bảo data đầy đủ, không block việc chọn bay khi đã có đủ data
+        switch (actualStep) {
+            case 1:
+                // STEP 1: Không cần validate gì, đây là bước đầu
+                break;
+            case 2:
+                // STEP 2: Cần có vehicle
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                break;
+            case 3:
+                // STEP 3: Cần có vehicle và date
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                if (!draft.hasDate()) {
+                    return "Bạn chưa chọn ngày. Vui lòng chọn ngày đặt lịch trước khi tiếp tục.";
+                }
+                break;
+            case 4:
+                // STEP 4: Cần có vehicle, date, branch
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                if (!draft.hasDate()) {
+                    return "Bạn chưa chọn ngày. Vui lòng chọn ngày đặt lịch trước khi tiếp tục.";
+                }
+                if (!draft.hasBranch()) {
+                    return "Bạn chưa chọn chi nhánh. Vui lòng chọn chi nhánh trước khi tiếp tục.";
+                }
+                break;
+            case 5:
+                // STEP 5: Cần có vehicle, date, branch, service
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                if (!draft.hasDate()) {
+                    return "Bạn chưa chọn ngày. Vui lòng chọn ngày đặt lịch trước khi tiếp tục.";
+                }
+                if (!draft.hasBranch()) {
+                    return "Bạn chưa chọn chi nhánh. Vui lòng chọn chi nhánh trước khi tiếp tục.";
+                }
+                if (!draft.hasService()) {
+                    return "Bạn chưa chọn dịch vụ. Vui lòng chọn dịch vụ trước khi tiếp tục.";
+                }
+                break;
+            case 6:
+                // STEP 6: Cần có vehicle, date, branch, service, bay
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                if (!draft.hasDate()) {
+                    return "Bạn chưa chọn ngày. Vui lòng chọn ngày đặt lịch trước khi tiếp tục.";
+                }
+                if (!draft.hasBranch()) {
+                    return "Bạn chưa chọn chi nhánh. Vui lòng chọn chi nhánh trước khi tiếp tục.";
+                }
+                if (!draft.hasService()) {
+                    return "Bạn chưa chọn dịch vụ. Vui lòng chọn dịch vụ trước khi tiếp tục.";
+                }
+                if (!draft.hasBay()) {
+                    return "Bạn chưa chọn bay. Vui lòng chọn bay trước khi tiếp tục.";
+                }
+                break;
+            case 7:
+                // STEP 7: Cần có đầy đủ tất cả
+                if (!draft.hasVehicle()) {
+                    return "Bạn chưa chọn xe. Vui lòng chọn xe trước khi tiếp tục.";
+                }
+                if (!draft.hasDate()) {
+                    return "Bạn chưa chọn ngày. Vui lòng chọn ngày đặt lịch trước khi tiếp tục.";
+                }
+                if (!draft.hasBranch()) {
+                    return "Bạn chưa chọn chi nhánh. Vui lòng chọn chi nhánh trước khi tiếp tục.";
+                }
+                if (!draft.hasService()) {
+                    return "Bạn chưa chọn dịch vụ. Vui lòng chọn dịch vụ trước khi tiếp tục.";
+                }
+                if (!draft.hasBay()) {
+                    return "Bạn chưa chọn bay. Vui lòng chọn bay trước khi tiếp tục.";
+                }
+                if (!draft.hasTime()) {
+                    return "Bạn chưa chọn giờ. Vui lòng chọn giờ đặt lịch trước khi tiếp tục.";
+                }
+                break;
+        }
+
+        return null; // OK
+    }
+
+    /**
+     * Xác định step thực tế dựa trên data đã có trong draft
+     * Không dùng current_step vì có thể chưa được update
+     */
+    private int determineActualStep(BookingDraft draft) {
+        if (!draft.hasVehicle()) {
+            return 1;
+        } else if (!draft.hasDate()) {
+            return 2;
+        } else if (!draft.hasBranch()) {
+            return 3;
+        } else if (!draft.hasService()) {
+            return 4;
+        } else if (!draft.hasBay()) {
+            return 5;
+        } else if (!draft.hasTime()) {
+            return 6;
+        } else {
+            return 7; // Đầy đủ, sẵn sàng tạo booking
+        }
     }
 
     /**
@@ -1034,14 +1740,14 @@ public class AiBookingAssistantController {
         }
 
         // Hiển thị tất cả dịch vụ từ bảng quan hệ (ưu tiên)
-        List<com.kltn.scsms_api_service.core.entity.DraftService> draftServices = 
-            bookingDraftService.getDraftServices(draft.getDraftId());
-        
+        List<com.kltn.scsms_api_service.core.entity.DraftService> draftServices =
+                bookingDraftService.getDraftServices(draft.getDraftId());
+
         if (!draftServices.isEmpty()) {
             context.append("[CO] services (").append(draftServices.size()).append("): ");
             List<String> serviceNames = draftServices.stream()
-                .map(com.kltn.scsms_api_service.core.entity.DraftService::getServiceName)
-                .collect(java.util.stream.Collectors.toList());
+                    .map(com.kltn.scsms_api_service.core.entity.DraftService::getServiceName)
+                    .collect(java.util.stream.Collectors.toList());
             context.append(String.join(", ", serviceNames)).append("\n");
         } else if (draft.getServiceType() != null) {
             // Fallback: Nếu không có trong bảng quan hệ, dùng service_type cũ (tương thích ngược)
@@ -1069,6 +1775,20 @@ public class AiBookingAssistantController {
         context.append("- Bạn KHÔNG cần extract UUIDs từ tool responses\n");
         context.append("- Nếu draft đã có dữ liệu → KHÔNG gọi function lại\n");
         context.append("- Chỉ focus vào conversation với user\n");
+
+        // CRITICAL: Thêm instruction rõ ràng khi draft đã complete
+        if (draft.isComplete() || (draft.hasVehicle() && draft.hasDate() && draft.hasBranch() && draft.hasService() && draft.hasBay() && draft.hasTime())) {
+            context.append("\n");
+            context.append("⚠️ CRITICAL - DRAFT ĐÃ HOÀN THÀNH ⚠️\n");
+            context.append("- Draft đã có ĐẦY ĐỦ dữ liệu: vehicle, date, branch, service, bay, time\n");
+            context.append("- BẠN ĐANG Ở STEP 7 (hoàn thành), KHÔNG phải STEP 5 (chọn bay) hay STEP 6 (chọn giờ)\n");
+            context.append("- TUYỆT ĐỐI KHÔNG được gọi checkAvailability() khi draft đã complete\n");
+            context.append("- TUYỆT ĐỐI KHÔNG được yêu cầu user chọn bay hoặc chọn giờ\n");
+            context.append("- TUYỆT ĐỐI KHÔNG được nói 'cần hoàn thành bước chọn bay' hoặc 'cần chọn giờ'\n");
+            context.append("- Nếu user chưa xác nhận → CHỈ tóm tắt thông tin và hỏi xác nhận để tạo booking\n");
+            context.append("- Nếu user đã xác nhận → GỌI createBooking() ngay lập tức\n");
+        }
+
         context.append("═══════════════════════════════════════════════════════════════\n");
 
         return context.toString();
@@ -1106,12 +1826,12 @@ public class AiBookingAssistantController {
 
                 // Tìm vehicle_id từ conversation history (tool response)
                 UUID vehicleId = findVehicleIdFromToolResponse(selectedVehicle, conversationHistory);
-                
+
                 // Nếu không tìm thấy trong history, query database
                 if (vehicleId == null) {
                     vehicleId = findVehicleIdFromDatabase(selectedVehicle);
                 }
-                
+
                 if (vehicleId != null) {
                     update.setVehicleId(vehicleId);
                     update.setVehicleLicensePlate(selectedVehicle);
@@ -1141,25 +1861,44 @@ public class AiBookingAssistantController {
         }
 
         // ========== PARSE BRANCH SELECTION ==========
-        if (!draft.hasBranch() && (userMsgLower.contains("chi nhánh") || userMsgLower.contains("chọn chi nhánh"))) {
+        // Cho phép update branch nếu user muốn đổi (không chỉ check !draft.hasBranch())
+        // Nhưng phải loại trừ câu hỏi như "Bạn có những chi nhánh nào?"
+        boolean isQuestion = userMsgLower.contains("bạn có") || userMsgLower.contains("những chi nhánh nào") ||
+                userMsgLower.contains("chi nhánh nào") || userMsgLower.contains("có những");
+
+        if ((!draft.hasBranch() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi")) &&
+                (userMsgLower.contains("chi nhánh") || userMsgLower.contains("chọn chi nhánh")) &&
+                !isQuestion) {
             String selectedBranch = extractBranchSelectionFromMessage(userMessage);
             if (selectedBranch != null) {
                 log.info("DETECTED BRANCH SELECTION: {}", selectedBranch);
 
-                // Tìm branch_id từ conversation history
+                // Tìm branch_id từ conversation history hoặc ThreadLocal
                 UUID branchId = findBranchIdFromToolResponse(selectedBranch, conversationHistory);
+
+                // Nếu không tìm thấy trong tool response, query database
+                if (branchId == null) {
+                    branchId = findBranchIdFromDatabase(selectedBranch);
+                }
+
                 if (branchId != null) {
                     update.setBranchId(branchId);
-                    update.setBranchName(selectedBranch);
+                    // Lưu tên chi nhánh đầy đủ từ database nếu có
+                    com.kltn.scsms_api_service.core.entity.Branch branch = aiBookingAssistantService.findBranchByNameOrAddress(selectedBranch);
+                    if (branch != null) {
+                        update.setBranchName(branch.getBranchName());
+                    } else {
+                        update.setBranchName(selectedBranch);
+                    }
                     updateType = "BRANCH";
                     hasUpdate = true;
                     log.info("EXTRACTED branch_id: {} from branch_name: {}", branchId, selectedBranch);
                 } else {
-                    // Chỉ có branch name
+                    // Chỉ có branch name, vẫn lưu để có thể tìm sau
                     update.setBranchName(selectedBranch);
                     updateType = "BRANCH";
                     hasUpdate = true;
-                    log.warn("Could not find branch_id, only branch_name: {}", selectedBranch);
+                    log.warn("Could not find branch_id, only branch_name: {}. Will try to find later.", selectedBranch);
                 }
             }
         }
@@ -1170,19 +1909,19 @@ public class AiBookingAssistantController {
         String selectedService = extractServiceSelectionFromMessage(userMessage, conversationHistory);
         if (selectedService != null) {
             log.info("DETECTED SERVICE SELECTION: {}", selectedService);
-            
+
             // QUAN TRỌNG: Tìm service_id và service_name từ ThreadLocal (getServices response)
             // PHẢI validate với tool response trước khi lưu vào draft
-            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo serviceInfo = 
-                findServiceInfoFromToolResponse(selectedService, conversationHistory);
-            
+            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo serviceInfo =
+                    findServiceInfoFromToolResponse(selectedService, conversationHistory);
+
             if (serviceInfo != null) {
                 // Tìm thấy trong tool response → Validate thành công → Lưu vào draft
                 update.setServiceId(serviceInfo.getServiceId());
                 update.setServiceType(serviceInfo.getServiceName());
                 updateType = "SERVICE";
                 hasUpdate = true;
-                log.info("EXTRACTED service_id: {}, service_name: {} from user selection: {} (VALIDATED from tool response)", 
+                log.info("EXTRACTED service_id: {}, service_name: {} from user selection: {} (VALIDATED from tool response)",
                         serviceInfo.getServiceId(), serviceInfo.getServiceName(), selectedService);
             } else {
                 // KHÔNG tìm thấy trong tool response → KHÔNG lưu vào draft
@@ -1199,19 +1938,38 @@ public class AiBookingAssistantController {
             if (selectedBay != null) {
                 log.info("DETECTED BAY SELECTION: {}", selectedBay);
 
-                // Tìm bay_id từ conversation history
+                // Tìm bay_id từ conversation history hoặc ThreadLocal
                 UUID bayId = findBayIdFromToolResponse(selectedBay, conversationHistory);
+
+                // Nếu không tìm thấy trong tool response, query database
+                if (bayId == null) {
+                    bayId = findBayIdFromDatabase(selectedBay, draft.getBranchId());
+                }
+
                 if (bayId != null) {
                     update.setBayId(bayId);
-                    update.setBayName(selectedBay);
+                    // Lưu tên bay đầy đủ từ database nếu có
+                    try {
+                        com.kltn.scsms_api_service.core.entity.ServiceBay bay = serviceBayService.getById(bayId);
+                        if (bay != null && bay.getBayName() != null) {
+                            update.setBayName(bay.getBayName());
+                        } else {
+                            update.setBayName(selectedBay);
+                        }
+                    } catch (Exception e) {
+                        // Nếu không tìm thấy, dùng tên từ user message
+                        update.setBayName(selectedBay);
+                        log.debug("Could not get bay name from database for bay_id: {}, using: {}", bayId, selectedBay);
+                    }
                     updateType = "BAY";
                     hasUpdate = true;
                     log.info("EXTRACTED bay_id: {} from bay_name: {}", bayId, selectedBay);
                 } else {
+                    // Chỉ có bay name, vẫn lưu để có thể tìm sau
                     update.setBayName(selectedBay);
                     updateType = "BAY";
                     hasUpdate = true;
-                    log.warn("Could not find bay_id, only bay_name: {}", selectedBay);
+                    log.warn("Could not find bay_id, only bay_name: {}. Will try to find later.", selectedBay);
                 }
             }
         }
@@ -1232,6 +1990,12 @@ public class AiBookingAssistantController {
             log.info("UPDATING DRAFT: draft_id={}, update_type={}", draft.getDraftId(), updateType);
             draft = bookingDraftService.updateDraft(draft.getDraftId(), updateType, userMessage, update);
             log.info("Draft updated successfully");
+
+            // QUAN TRỌNG: Sau khi chọn bay thành công, tự động lấy danh sách time slots
+            if ("BAY".equals(updateType) && draft.hasBay() && !draft.hasTime()) {
+                log.info("Bay selected successfully, preparing to load time slots for AI");
+                // Time slots sẽ được inject vào messages sau khi draft update
+            }
         } else {
             log.info("No selection detected in user message");
         }
@@ -1248,16 +2012,16 @@ public class AiBookingAssistantController {
      * Pattern: "chọn xe 52S2-27069" hoặc "52S2-27069" hoặc "xe số 2"
      */
     private String extractVehicleSelectionFromMessage(String userMessage, List<ChatRequest.ChatMessage> history) {
-        // Pattern 1: "xe số X" hoặc "chọn số X" - tìm trong tool response
-        Pattern numberPattern = Pattern.compile("(?:xe số|chọn số|số)\\s*(\\d+)",
+        // Pattern 1: "xe số X", "chọn số X", "xe thứ X", "chọn xe thứ X", "tôi muốn chọn xe thứ X" - tìm trong tool response
+        Pattern numberPattern = Pattern.compile("(?:xe\\s*(?:số|thứ)|chọn\\s*(?:xe\\s*)?(?:số|thứ)|số|thứ)\\s*(\\d+)",
                 Pattern.CASE_INSENSITIVE);
         Matcher numberMatcher = numberPattern.matcher(userMessage);
         if (numberMatcher.find()) {
             String numberStr = numberMatcher.group(1);
             // Tìm vehicle theo số thứ tự trong tool response
-            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse vehiclesResponse = 
-                com.kltn.scsms_api_service.core.utils.DraftContextHolder.getVehiclesResponse();
-            
+            GetCustomerVehiclesResponse vehiclesResponse =
+                    DraftContextHolder.getVehiclesResponse();
+
             if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
                 try {
                     int index = Integer.parseInt(numberStr) - 1; // Convert to 0-based index
@@ -1280,17 +2044,17 @@ public class AiBookingAssistantController {
         }
 
         // Pattern 2: Tìm exact match trong tool response (nếu user nói biển số cụ thể)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse vehiclesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getVehiclesResponse();
-        
+        GetCustomerVehiclesResponse vehiclesResponse =
+                DraftContextHolder.getVehiclesResponse();
+
         if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse.VehicleInfo vehicle : 
+            for (GetCustomerVehiclesResponse.VehicleInfo vehicle :
                     vehiclesResponse.getVehicles()) {
                 if (vehicle.getLicensePlate() != null) {
                     String lp = vehicle.getLicensePlate();
                     String lpNormalized = lp.replaceAll("\\s+", "").toUpperCase();
                     String msgNormalized = userMessage.replaceAll("\\s+", "").toUpperCase();
-                    
+
                     // Match biển số trong message
                     if (userMessage.contains(lp) ||
                             msgNormalized.contains(lpNormalized) ||
@@ -1378,16 +2142,16 @@ public class AiBookingAssistantController {
         String normalizedLicensePlate = licensePlate.replaceAll("\\s+", "").toUpperCase();
 
         // BƯỚC 1: Ưu tiên lấy từ ThreadLocal (function response vừa được gọi trong request này)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse vehiclesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getVehiclesResponse();
-        
+        GetCustomerVehiclesResponse vehiclesResponse =
+                DraftContextHolder.getVehiclesResponse();
+
         if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse.VehicleInfo vehicle : 
+            for (GetCustomerVehiclesResponse.VehicleInfo vehicle :
                     vehiclesResponse.getVehicles()) {
                 if (vehicle.getLicensePlate() != null) {
                     String lp = vehicle.getLicensePlate().replaceAll("\\s+", "").toUpperCase();
                     if (lp.equals(normalizedLicensePlate)) {
-                        log.info("Found vehicle_id from ThreadLocal (function response): {} for license_plate: {}", 
+                        log.info("Found vehicle_id from ThreadLocal (function response): {} for license_plate: {}",
                                 vehicle.getVehicleId(), licensePlate);
                         return vehicle.getVehicleId();
                     }
@@ -1403,18 +2167,18 @@ public class AiBookingAssistantController {
                         "getCustomerVehicles".equalsIgnoreCase(msg.getToolName()) &&
                         msg.getToolResponse() != null) {
                     try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        ObjectMapper mapper = new ObjectMapper();
                         String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
-                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(jsonStr);
+                        JsonNode root = mapper.readTree(jsonStr);
 
                         if (root.has("vehicles") && root.get("vehicles").isArray()) {
-                            for (com.fasterxml.jackson.databind.JsonNode vehicle : root.get("vehicles")) {
+                            for (JsonNode vehicle : root.get("vehicles")) {
                                 if (vehicle.has("license_plate")) {
                                     String lp = vehicle.get("license_plate").asText().replaceAll("\\s+", "").toUpperCase();
                                     if (lp.equals(normalizedLicensePlate)) {
                                         if (vehicle.has("vehicle_id")) {
                                             String vehicleIdStr = vehicle.get("vehicle_id").asText();
-                                            log.info("Found vehicle_id from conversation history: {} for license_plate: {}", 
+                                            log.info("Found vehicle_id from conversation history: {} for license_plate: {}",
                                                     vehicleIdStr, licensePlate);
                                             return UUID.fromString(vehicleIdStr);
                                         }
@@ -1428,7 +2192,7 @@ public class AiBookingAssistantController {
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -1443,8 +2207,8 @@ public class AiBookingAssistantController {
 
         try {
             // Lấy ownerId từ SecurityContext
-            com.kltn.scsms_api_service.core.dto.token.LoginUserInfo currentUser = 
-                com.kltn.scsms_api_service.core.utils.PermissionUtils.getCurrentUser();
+            LoginUserInfo currentUser =
+                    PermissionUtils.getCurrentUser();
 
             if (currentUser == null || currentUser.getSub() == null) {
                 log.debug("Cannot find vehicle by license plate '{}': No authenticated user", licensePlate);
@@ -1455,23 +2219,23 @@ public class AiBookingAssistantController {
             String normalizedLicensePlate = licensePlate.replaceAll("\\s+", "").toUpperCase();
 
             // Query database để lấy vehicle_id
-            com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam filterParam = 
-                new com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam();
+            VehicleProfileFilterParam filterParam =
+                    new VehicleProfileFilterParam();
             filterParam.setPage(0);
             filterParam.setSize(1000);
             filterParam.setOwnerId(ownerId);
 
-            java.util.Optional<com.kltn.scsms_api_service.core.entity.VehicleProfile> vehicle = 
-                vehicleProfileService.getAllVehicleProfilesByOwnerIdWithFilters(ownerId, filterParam)
-                    .getContent()
-                    .stream()
-                    .filter(v -> v.getLicensePlate() != null &&
-                            (v.getLicensePlate().equalsIgnoreCase(licensePlate) ||
-                             v.getLicensePlate().replaceAll("\\s+", "").equalsIgnoreCase(normalizedLicensePlate)) &&
-                            !v.getIsDeleted() &&
-                            v.getIsActive() &&
-                            v.getOwnerId().equals(ownerId))
-                    .findFirst();
+            java.util.Optional<VehicleProfile> vehicle =
+                    vehicleProfileService.getAllVehicleProfilesByOwnerIdWithFilters(ownerId, filterParam)
+                            .getContent()
+                            .stream()
+                            .filter(v -> v.getLicensePlate() != null &&
+                                    (v.getLicensePlate().equalsIgnoreCase(licensePlate) ||
+                                            v.getLicensePlate().replaceAll("\\s+", "").equalsIgnoreCase(normalizedLicensePlate)) &&
+                                    !v.getIsDeleted() &&
+                                    v.getIsActive() &&
+                                    v.getOwnerId().equals(ownerId))
+                            .findFirst();
 
             if (vehicle.isPresent()) {
                 UUID foundVehicleId = vehicle.get().getVehicleId();
@@ -1484,7 +2248,7 @@ public class AiBookingAssistantController {
                 return null;
             }
         } catch (Exception e) {
-            log.error("Error finding vehicle_id from database for license_plate '{}': {}", 
+            log.error("Error finding vehicle_id from database for license_plate '{}': {}",
                     licensePlate, e.getMessage(), e);
             return null;
         }
@@ -1531,16 +2295,16 @@ public class AiBookingAssistantController {
     private String extractBranchSelectionFromMessage(String userMessage) {
         String msgLower = userMessage.toLowerCase();
 
-        // Pattern 1: "chọn chi nhánh số X" - tìm trong tool response
-        Pattern numberPattern = Pattern.compile("(?:chọn chi nhánh|chi nhánh)\\s*(?:số\\s*)?(\\d+)",
+        // Pattern 1: "chọn chi nhánh số X", "chi nhánh thứ X", "tôi chọn chi nhánh thứ X" - tìm trong tool response
+        Pattern numberPattern = Pattern.compile("(?:chọn\\s*)?(?:chi\\s*nhánh\\s*)?(?:số|thứ)\\s*(\\d+)",
                 Pattern.CASE_INSENSITIVE);
         Matcher numberMatcher = numberPattern.matcher(userMessage);
         if (numberMatcher.find()) {
             String numberStr = numberMatcher.group(1);
             // Tìm branch theo số thứ tự trong tool response
-            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse branchesResponse = 
-                com.kltn.scsms_api_service.core.utils.DraftContextHolder.getBranchesResponse();
-            
+            GetBranchesResponse branchesResponse =
+                    DraftContextHolder.getBranchesResponse();
+
             if (branchesResponse != null && branchesResponse.getBranches() != null) {
                 try {
                     int index = Integer.parseInt(numberStr) - 1; // Convert to 0-based index
@@ -1558,15 +2322,16 @@ public class AiBookingAssistantController {
         }
 
         // Pattern 2: Tìm exact match trong tool response (nếu user nói tên chi nhánh cụ thể)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse branchesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getBranchesResponse();
-        
+        GetBranchesResponse branchesResponse =
+                DraftContextHolder.getBranchesResponse();
+
         if (branchesResponse != null && branchesResponse.getBranches() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse.BranchInfo branch : 
+            for (GetBranchesResponse.BranchInfo branch :
                     branchesResponse.getBranches()) {
                 if (branch.getBranchName() != null) {
                     String branchNameLower = branch.getBranchName().toLowerCase();
                     // Match tên chi nhánh hoặc keywords trong tên
+                    // Cải thiện matching: "Chi Nhánh Gò Vấp" sẽ match với "Gò Vấp" hoặc "Chi Nhánh Gò Vấp"
                     if (userMessage.contains(branch.getBranchName()) ||
                             branchNameLower.contains(msgLower) ||
                             msgLower.contains(branchNameLower) ||
@@ -1575,31 +2340,55 @@ public class AiBookingAssistantController {
                             (msgLower.contains("cầu giấy") && branchNameLower.contains("cầu giấy")) ||
                             (msgLower.contains("premium") && branchNameLower.contains("premium")) ||
                             (msgLower.contains("premia") && branchNameLower.contains("premia"))) {
-                        log.info("Found branch by name match: {}", branch.getBranchName());
+                        log.info("Found branch by name match: {} (from user message: {})", branch.getBranchName(), userMessage);
                         return branch.getBranchName();
                     }
                 }
             }
         }
 
-        // Pattern 3: Extract từ user message nếu có format "chi nhánh X"
-        Pattern branchPattern = Pattern.compile("(?:chọn|chi nhánh)\\s+([A-Za-zÀ-ỹ\\s\\-]+)",
-                Pattern.CASE_INSENSITIVE);
-        Matcher matcher = branchPattern.matcher(userMessage);
-        if (matcher.find()) {
-            String branchName = matcher.group(1).trim();
-            // Tìm trong tool response để validate
-            if (branchesResponse != null && branchesResponse.getBranches() != null) {
-                for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse.BranchInfo branch : 
-                        branchesResponse.getBranches()) {
-                    if (branch.getBranchName() != null && 
-                            branch.getBranchName().equalsIgnoreCase(branchName)) {
-                        return branch.getBranchName();
+        // Pattern 3: Extract từ user message nếu có format "chi nhánh X" hoặc chỉ "X"
+        // Cải thiện pattern để match cả "Chi Nhánh Gò Vấp" và "Gò Vấp"
+        // LOẠI TRỪ câu hỏi: "Bạn có những chi nhánh nào?", "Chi nhánh nào?", etc.
+        boolean isQuestionPattern = msgLower.contains("bạn có") || msgLower.contains("những chi nhánh nào") ||
+                msgLower.contains("chi nhánh nào") || msgLower.contains("có những") ||
+                msgLower.contains("muốn biết") || msgLower.contains("cho tôi biết");
+
+        if (!isQuestionPattern) {
+            Pattern branchPattern = Pattern.compile("(?:chọn\\s+)?(?:chi nhánh\\s+)?([A-Za-zÀ-ỹ\\s\\-]+)",
+                    Pattern.CASE_INSENSITIVE);
+            Matcher matcher = branchPattern.matcher(userMessage);
+            if (matcher.find()) {
+                String extractedName = matcher.group(1).trim();
+
+                // Kiểm tra lại xem có phải câu hỏi không (sau khi extract)
+                String extractedLower = extractedName.toLowerCase();
+                if (extractedLower.contains("bạn có") || extractedLower.contains("những") ||
+                        extractedLower.contains("nào") || extractedLower.length() < 3) {
+                    log.debug("Skipping branch extraction - appears to be a question or invalid: {}", extractedName);
+                    return null;
+                }
+
+                // Tìm trong tool response để validate và lấy tên đầy đủ
+                if (branchesResponse != null && branchesResponse.getBranches() != null) {
+                    for (GetBranchesResponse.BranchInfo branch :
+                            branchesResponse.getBranches()) {
+                        if (branch.getBranchName() != null) {
+                            String branchNameLower = branch.getBranchName().toLowerCase();
+                            // Match exact hoặc partial
+                            if (branch.getBranchName().equalsIgnoreCase(extractedName) ||
+                                    branchNameLower.contains(extractedLower) ||
+                                    extractedLower.contains(branchNameLower)) {
+                                log.info("Found branch by extracted name '{}': {}", extractedName, branch.getBranchName());
+                                return branch.getBranchName(); // Return tên đầy đủ từ tool response
+                            }
+                        }
                     }
                 }
+                // Nếu không tìm thấy trong tool response, return extracted name để tìm trong database
+                log.info("Extracted branch name from message: {}", extractedName);
+                return extractedName;
             }
-            // Nếu không tìm thấy exact match, return để tìm trong findBranchIdFromToolResponse
-            return branchName;
         }
 
         return null;
@@ -1614,14 +2403,14 @@ public class AiBookingAssistantController {
             return null;
 
         // BƯỚC 1: Ưu tiên lấy từ ThreadLocal (function response vừa được gọi trong request này)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse branchesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getBranchesResponse();
-        
+        GetBranchesResponse branchesResponse =
+                DraftContextHolder.getBranchesResponse();
+
         if (branchesResponse != null && branchesResponse.getBranches() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse.BranchInfo branch : 
+            for (GetBranchesResponse.BranchInfo branch :
                     branchesResponse.getBranches()) {
                 if (branch.getBranchName() != null && branch.getBranchName().equalsIgnoreCase(branchName)) {
-                    log.info("Found branch_id from ThreadLocal (function response): {} for branch_name: {}", 
+                    log.info("Found branch_id from ThreadLocal (function response): {} for branch_name: {}",
                             branch.getBranchId(), branchName);
                     return branch.getBranchId();
                 }
@@ -1636,19 +2425,24 @@ public class AiBookingAssistantController {
                         "getBranches".equalsIgnoreCase(msg.getToolName()) &&
                         msg.getToolResponse() != null) {
                     try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        ObjectMapper mapper = new ObjectMapper();
                         String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
-                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(jsonStr);
+                        JsonNode root = mapper.readTree(jsonStr);
 
                         if (root.has("branches") && root.get("branches").isArray()) {
-                            for (com.fasterxml.jackson.databind.JsonNode branch : root.get("branches")) {
+                            for (JsonNode branch : root.get("branches")) {
                                 if (branch.has("branch_name")) {
                                     String bn = branch.get("branch_name").asText();
-                                    if (bn.equalsIgnoreCase(branchName)) {
+                                    // Match exact hoặc partial (ví dụ: "Gò Vấp" match với "Chi Nhánh Gò Vấp")
+                                    String bnLower = bn.toLowerCase();
+                                    String branchNameLower = branchName.toLowerCase();
+                                    if (bn.equalsIgnoreCase(branchName) ||
+                                            bnLower.contains(branchNameLower) ||
+                                            branchNameLower.contains(bnLower)) {
                                         if (branch.has("branch_id")) {
                                             String branchIdStr = branch.get("branch_id").asText();
-                                            log.info("Found branch_id from conversation history: {} for branch_name: {}", 
-                                                    branchIdStr, branchName);
+                                            log.info("Found branch_id from conversation history: {} for branch_name: {} (matched with: {})",
+                                                    branchIdStr, branchName, bn);
                                             return UUID.fromString(branchIdStr);
                                         }
                                     }
@@ -1661,7 +2455,35 @@ public class AiBookingAssistantController {
                 }
             }
         }
-        
+
+        return null;
+    }
+
+    /**
+     * Tìm branch_id từ database dựa trên branch name
+     * Fallback khi không tìm thấy trong tool response
+     */
+    private UUID findBranchIdFromDatabase(String branchName) {
+        if (branchName == null || branchName.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Query database để lấy branch_id từ branch name
+            Branch branch =
+                    aiBookingAssistantService.findBranchByNameOrAddress(branchName.trim());
+
+            if (branch != null) {
+                log.info("Found branch_id from database: {} for branch_name: {} (matched with: {})",
+                        branch.getBranchId(), branchName, branch.getBranchName());
+                return branch.getBranchId();
+            } else {
+                log.warn("Could not find branch in database for branch_name: {}", branchName);
+            }
+        } catch (Exception e) {
+            log.error("Error finding branch_id from database for branch_name '{}': {}", branchName, e.getMessage(), e);
+        }
+
         return null;
     }
 
@@ -1682,9 +2504,9 @@ public class AiBookingAssistantController {
         if (numberMatcher.find()) {
             String numberStr = numberMatcher.group(1);
             // Tìm service theo số thứ tự trong tool response
-            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse servicesResponse = 
-                com.kltn.scsms_api_service.core.utils.DraftContextHolder.getServicesResponse();
-            
+            GetServicesResponse servicesResponse =
+                    DraftContextHolder.getServicesResponse();
+
             if (servicesResponse != null && servicesResponse.getServices() != null) {
                 try {
                     int index = Integer.parseInt(numberStr) - 1; // Convert to 0-based index
@@ -1698,19 +2520,19 @@ public class AiBookingAssistantController {
                 }
             }
         }
-        
+
         // Pattern 2: Tìm exact match trong tool response (nếu user nói tên dịch vụ cụ thể)
         // QUAN TRỌNG: Chỉ tìm trong tool response - KHÔNG extract nếu không có tool response
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse servicesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getServicesResponse();
-        
+        GetServicesResponse servicesResponse =
+                DraftContextHolder.getServicesResponse();
+
         if (servicesResponse != null && servicesResponse.getServices() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo service : 
+            for (GetServicesResponse.ServiceInfo service :
                     servicesResponse.getServices()) {
                 if (service.getServiceName() != null) {
                     String serviceNameLower = service.getServiceName().toLowerCase();
                     // Match tên dịch vụ hoặc keywords trong tên
-                    if (userMessage.contains(service.getServiceName()) || 
+                    if (userMessage.contains(service.getServiceName()) ||
                             serviceNameLower.contains(msgLower) ||
                             msgLower.contains(serviceNameLower) ||
                             // Match keywords: "rửa xe", "bảo dưỡng", etc. nếu có trong tên dịch vụ
@@ -1727,7 +2549,7 @@ public class AiBookingAssistantController {
             // Log warning và return null để yêu cầu AI gọi getServices() trước
             log.warn("No tool response found for services. AI should call getServices() first when user mentions a service.");
         }
-        
+
         // Pattern 3: "dịch vụ X" hoặc "chọn dịch vụ X" - CHỈ extract nếu có tool response để validate
         if (msgLower.contains("dịch vụ")) {
             Pattern pattern = Pattern.compile("(?:chọn\\s+)?dịch\\s+vụ\\s+([A-Za-zÀ-ỹ\\s]+)", Pattern.CASE_INSENSITIVE);
@@ -1736,9 +2558,9 @@ public class AiBookingAssistantController {
                 String extractedService = matcher.group(1).trim();
                 // CHỈ return nếu có tool response để validate
                 if (servicesResponse != null && servicesResponse.getServices() != null) {
-                    for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo service : 
+                    for (GetServicesResponse.ServiceInfo service :
                             servicesResponse.getServices()) {
-                        if (service.getServiceName() != null && 
+                        if (service.getServiceName() != null &&
                                 service.getServiceName().equalsIgnoreCase(extractedService)) {
                             log.info("Found service by extracted name in tool response: {}", service.getServiceName());
                             return service.getServiceName();
@@ -1747,7 +2569,7 @@ public class AiBookingAssistantController {
                 }
                 // Nếu không có tool response hoặc không tìm thấy → return null
                 // Để yêu cầu AI gọi getServices() trước
-                log.warn("Extracted service '{}' but no tool response to validate. AI should call getServices() first.", 
+                log.warn("Extracted service '{}' but no tool response to validate. AI should call getServices() first.",
                         extractedService);
                 return null;
             }
@@ -1755,29 +2577,30 @@ public class AiBookingAssistantController {
 
         return null;
     }
-    
+
     /**
      * Tìm service_id và service_name từ tool response dựa trên user selection
      * Ưu tiên lấy từ ThreadLocal (function response vừa được gọi), fallback sang conversation history
+     *
      * @return ServiceInfo với service_id và service_name, hoặc null nếu không tìm thấy
      */
-    private com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo 
-            findServiceInfoFromToolResponse(String selectedService, List<ChatRequest.ChatMessage> history) {
+    private GetServicesResponse.ServiceInfo
+    findServiceInfoFromToolResponse(String selectedService, List<ChatRequest.ChatMessage> history) {
         if (selectedService == null)
             return null;
 
         // BƯỚC 1: Ưu tiên lấy từ ThreadLocal (function response vừa được gọi trong request này)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse servicesResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getServicesResponse();
-        
+        GetServicesResponse servicesResponse =
+                DraftContextHolder.getServicesResponse();
+
         if (servicesResponse != null && servicesResponse.getServices() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo service : 
+            for (GetServicesResponse.ServiceInfo service :
                     servicesResponse.getServices()) {
-                if (service.getServiceName() != null && 
+                if (service.getServiceName() != null &&
                         (service.getServiceName().equalsIgnoreCase(selectedService) ||
-                         service.getServiceName().contains(selectedService) ||
-                         selectedService.contains(service.getServiceName()))) {
-                    log.info("Found service from ThreadLocal (function response): service_id={}, service_name={} for selection: {}", 
+                                service.getServiceName().contains(selectedService) ||
+                                selectedService.contains(service.getServiceName()))) {
+                    log.info("Found service from ThreadLocal (function response): service_id={}, service_name={} for selection: {}",
                             service.getServiceId(), service.getServiceName(), selectedService);
                     return service;
                 }
@@ -1792,29 +2615,29 @@ public class AiBookingAssistantController {
                         "getServices".equalsIgnoreCase(msg.getToolName()) &&
                         msg.getToolResponse() != null) {
                     try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        ObjectMapper mapper = new ObjectMapper();
                         String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
-                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(jsonStr);
+                        JsonNode root = mapper.readTree(jsonStr);
 
                         if (root.has("services") && root.get("services").isArray()) {
-                            for (com.fasterxml.jackson.databind.JsonNode service : root.get("services")) {
+                            for (JsonNode service : root.get("services")) {
                                 if (service.has("service_name")) {
                                     String sn = service.get("service_name").asText();
                                     if (sn.equalsIgnoreCase(selectedService) ||
                                             sn.contains(selectedService) ||
                                             selectedService.contains(sn)) {
                                         // Tạo ServiceInfo từ JSON
-                                        com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo serviceInfo = 
-                                            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo.builder()
-                                                .serviceId(service.has("service_id") ? 
-                                                    java.util.UUID.fromString(service.get("service_id").asText()) : null)
-                                                .serviceName(sn)
-                                                .description(service.has("description") ? service.get("description").asText() : null)
-                                                .estimatedDuration(service.has("estimated_duration") ? service.get("estimated_duration").asInt() : null)
-                                                .price(service.has("price") ? new java.math.BigDecimal(service.get("price").asText()) : null)
-                                                .build();
-                                        
-                                        log.info("Found service from conversation history: service_id={}, service_name={} for selection: {}", 
+                                        GetServicesResponse.ServiceInfo serviceInfo =
+                                                GetServicesResponse.ServiceInfo.builder()
+                                                        .serviceId(service.has("service_id") ?
+                                                                java.util.UUID.fromString(service.get("service_id").asText()) : null)
+                                                        .serviceName(sn)
+                                                        .description(service.has("description") ? service.get("description").asText() : null)
+                                                        .estimatedDuration(service.has("estimated_duration") ? service.get("estimated_duration").asInt() : null)
+                                                        .price(service.has("price") ? new java.math.BigDecimal(service.get("price").asText()) : null)
+                                                        .build();
+
+                                        log.info("Found service from conversation history: service_id={}, service_name={} for selection: {}",
                                                 serviceInfo.getServiceId(), serviceInfo.getServiceName(), selectedService);
                                         return serviceInfo;
                                     }
@@ -1830,19 +2653,75 @@ public class AiBookingAssistantController {
 
         return null;
     }
-    
+
     /**
      * Extract bay selection từ user message
+     * Hỗ trợ: "Gò Vấp Bay 4", "Bay 4", "bay số 4", etc.
      */
     private String extractBaySelectionFromMessage(String userMessage) {
-        Pattern pattern = Pattern.compile(
-                "(?:bay|Bay)\\s*(\\d+)",
+        String msgLower = userMessage.toLowerCase();
+
+        // Pattern 1: "bay số X", "bay thứ X", "chọn bay thứ X" - tìm trong tool response
+        Pattern numberPattern = Pattern.compile("(?:bay\\s*(?:số|thứ)|chọn\\s*(?:bay\\s*)?(?:số|thứ)|số|thứ)\\s*(\\d+)",
                 Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(userMessage);
+        Matcher numberMatcher = numberPattern.matcher(userMessage);
+        if (numberMatcher.find()) {
+            String bayNum = numberMatcher.group(1);
+            // Tìm bay theo số thứ tự trong tool response
+            AvailabilityResponse availabilityResponse =
+                    DraftContextHolder.getAvailabilityResponse();
+
+            if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+                try {
+                    int index = Integer.parseInt(bayNum) - 1; // Convert to 0-based index
+                    if (index >= 0 && index < availabilityResponse.getAvailableBays().size()) {
+                        String bayName = availabilityResponse.getAvailableBays().get(index).getBayName();
+                        log.info("Found bay by number {}: {}", bayNum, bayName);
+                        return bayName;
+                    }
+                } catch (NumberFormatException e) {
+                    log.debug("Invalid bay number: {}", bayNum);
+                }
+            }
+        }
+
+        // Pattern 2: Tìm exact match trong tool response (nếu user nói tên bay cụ thể)
+        AvailabilityResponse availabilityResponse =
+                DraftContextHolder.getAvailabilityResponse();
+
+        if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+            for (AvailabilityResponse.AvailableBayInfo bay :
+                    availabilityResponse.getAvailableBays()) {
+                if (bay.getBayName() != null) {
+                    String bayNameLower = bay.getBayName().toLowerCase();
+                    // Match tên bay hoặc keywords trong tên
+                    if (userMessage.contains(bay.getBayName()) ||
+                            bayNameLower.contains(msgLower) ||
+                            msgLower.contains(bayNameLower)) {
+                        log.info("Found bay by name match: {} (from user message: {})", bay.getBayName(), userMessage);
+                        return bay.getBayName();
+                    }
+                }
+            }
+        }
+
+        // Pattern 3: Extract từ user message nếu có format "bay X" hoặc "Gò Vấp Bay 4"
+        Pattern bayPattern = Pattern.compile("(?:bay|Bay)\\s*(\\d+)",
+                Pattern.CASE_INSENSITIVE);
+        Matcher matcher = bayPattern.matcher(userMessage);
         if (matcher.find()) {
             String bayNum = matcher.group(1);
-            String msgLower = userMessage.toLowerCase();
-
+            // Tìm trong tool response để validate và lấy tên đầy đủ
+            if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+                for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse.AvailableBayInfo bay :
+                        availabilityResponse.getAvailableBays()) {
+                    if (bay.getBayName() != null && bay.getBayName().contains("Bay " + bayNum)) {
+                        log.info("Found bay by extracted number '{}': {}", bayNum, bay.getBayName());
+                        return bay.getBayName(); // Return tên đầy đủ từ tool response
+                    }
+                }
+            }
+            // Nếu không tìm thấy trong tool response, construct tên từ user message
             if (msgLower.contains("gò vấp")) {
                 return "Gò Vấp Bay " + bayNum;
             }
@@ -1851,6 +2730,19 @@ public class AiBookingAssistantController {
             }
             return "Bay " + bayNum;
         }
+
+        // Pattern 4: Extract full bay name nếu user nói đầy đủ (ví dụ: "Gò Vấp Bay 4")
+        Pattern fullBayPattern = Pattern.compile("([A-Za-zÀ-ỹ\\s]+)\\s+Bay\\s+(\\d+)",
+                Pattern.CASE_INSENSITIVE);
+        Matcher fullMatcher = fullBayPattern.matcher(userMessage);
+        if (fullMatcher.find()) {
+            String location = fullMatcher.group(1).trim();
+            String bayNum = fullMatcher.group(2);
+            String fullBayName = location + " Bay " + bayNum;
+            log.info("Extracted full bay name from message: {}", fullBayName);
+            return fullBayName;
+        }
+
         return null;
     }
 
@@ -1863,17 +2755,17 @@ public class AiBookingAssistantController {
             return null;
 
         // BƯỚC 1: Ưu tiên lấy từ ThreadLocal (function response vừa được gọi trong request này)
-        com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse availabilityResponse = 
-            com.kltn.scsms_api_service.core.utils.DraftContextHolder.getAvailabilityResponse();
-        
+        AvailabilityResponse availabilityResponse =
+                DraftContextHolder.getAvailabilityResponse();
+
         if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
-            for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse.AvailableBayInfo bay : 
+            for (AvailabilityResponse.AvailableBayInfo bay :
                     availabilityResponse.getAvailableBays()) {
-                if (bay.getBayName() != null && 
-                        (bay.getBayName().equalsIgnoreCase(bayName) || 
-                         bay.getBayName().contains(bayName) || 
-                         bayName.contains(bay.getBayName()))) {
-                    log.info("Found bay_id from ThreadLocal (function response): {} for bay_name: {}", 
+                if (bay.getBayName() != null &&
+                        (bay.getBayName().equalsIgnoreCase(bayName) ||
+                                bay.getBayName().contains(bayName) ||
+                                bayName.contains(bay.getBayName()))) {
+                    log.info("Found bay_id from ThreadLocal (function response): {} for bay_name: {}",
                             bay.getBayId(), bayName);
                     return bay.getBayId();
                 }
@@ -1888,19 +2780,24 @@ public class AiBookingAssistantController {
                         "checkAvailability".equalsIgnoreCase(msg.getToolName()) &&
                         msg.getToolResponse() != null) {
                     try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        ObjectMapper mapper = new ObjectMapper();
                         String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
-                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(jsonStr);
+                        JsonNode root = mapper.readTree(jsonStr);
 
                         if (root.has("available_bays") && root.get("available_bays").isArray()) {
-                            for (com.fasterxml.jackson.databind.JsonNode bay : root.get("available_bays")) {
+                            for (JsonNode bay : root.get("available_bays")) {
                                 if (bay.has("bay_name")) {
                                     String bn = bay.get("bay_name").asText();
-                                    if (bn.contains(bayName) || bayName.contains(bn)) {
+                                    // Match exact hoặc partial (ví dụ: "Bay 4" match với "Gò Vấp Bay 4")
+                                    String bnLower = bn.toLowerCase();
+                                    String bayNameLower = bayName.toLowerCase();
+                                    if (bn.equalsIgnoreCase(bayName) ||
+                                            bnLower.contains(bayNameLower) ||
+                                            bayNameLower.contains(bnLower)) {
                                         if (bay.has("bay_id")) {
                                             String bayIdStr = bay.get("bay_id").asText();
-                                            log.info("Found bay_id from conversation history: {} for bay_name: {}", 
-                                                    bayIdStr, bayName);
+                                            log.info("Found bay_id from conversation history: {} for bay_name: {} (matched with: {})",
+                                                    bayIdStr, bayName, bn);
                                             return UUID.fromString(bayIdStr);
                                         }
                                     }
@@ -1913,7 +2810,61 @@ public class AiBookingAssistantController {
                 }
             }
         }
-        
+
+        return null;
+    }
+
+    /**
+     * Tìm bay_id từ database dựa trên bay name và branch_id
+     * Fallback khi không tìm thấy trong tool response
+     */
+    private UUID findBayIdFromDatabase(String bayName, UUID branchId) {
+        if (bayName == null || bayName.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Query database để lấy bay_id từ bay name và branch_id
+            if (branchId != null) {
+                // Tìm bay trong branch cụ thể
+                List<ServiceBay> bays =
+                        serviceBayService.getByBranch(branchId);
+
+                if (bays != null) {
+                    for (ServiceBay bay : bays) {
+                        if (bay.getBayName() != null) {
+                            String bayNameLower = bay.getBayName().toLowerCase();
+                            String searchNameLower = bayName.toLowerCase();
+                            // Match exact hoặc partial
+                            if (bay.getBayName().equalsIgnoreCase(bayName) ||
+                                    bayNameLower.contains(searchNameLower) ||
+                                    searchNameLower.contains(bayNameLower)) {
+                                log.info("Found bay_id from database: {} for bay_name: {} (matched with: {})",
+                                        bay.getBayId(), bayName, bay.getBayName());
+                                return bay.getBayId();
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Nếu không có branch_id, thử tìm theo tên bay
+                java.util.Optional<ServiceBay> bayOpt =
+                        serviceBayService.getByBayName(bayName);
+
+                if (bayOpt.isPresent()) {
+                    ServiceBay bay = bayOpt.get();
+                    log.info("Found bay_id from database (by name only): {} for bay_name: {}",
+                            bay.getBayId(), bayName);
+                    return bay.getBayId();
+                }
+            }
+
+            log.warn("Could not find bay in database for bay_name: {}, branch_id: {}", bayName, branchId);
+        } catch (Exception e) {
+            log.error("Error finding bay_id from database for bay_name '{}', branch_id '{}': {}",
+                    bayName, branchId, e.getMessage(), e);
+        }
+
         return null;
     }
 
@@ -1946,7 +2897,7 @@ public class AiBookingAssistantController {
         if (state.hasVehicle()) {
             sb.append("- [CO] Đã có vehicle_id (xe đã được chọn)\n");
             sb.append("  → KHÔNG được gọi getCustomerVehicles() lại\n");
-            
+
             // Backend đã extract UUID, inject trực tiếp vào message
             if (state.getVehicleId() != null) {
                 sb.append("  → BACKEND ĐÃ EXTRACT UUID: vehicle_id = '").append(state.getVehicleId()).append("'\n");
@@ -1983,7 +2934,7 @@ public class AiBookingAssistantController {
         if (state.hasBranch()) {
             sb.append("- [CO] Đã có branch_id (chi nhánh đã được chọn)\n");
             sb.append("  → KHÔNG được gọi getBranches() lại\n");
-            
+
             // Backend đã extract UUID, inject trực tiếp vào message
             if (state.getBranchId() != null) {
                 sb.append("  → BACKEND ĐÃ EXTRACT UUID: branch_id = '").append(state.getBranchId()).append("'\n");
@@ -2022,7 +2973,7 @@ public class AiBookingAssistantController {
         if (state.hasBay()) {
             sb.append("- [CO] Đã có bay_id (bay đã được chọn)\n");
             sb.append("  → KHÔNG được gọi checkAvailability() lại để lấy bay\n");
-            
+
             // Backend đã extract UUID, inject trực tiếp vào message
             if (state.getBayId() != null) {
                 sb.append("  → BACKEND ĐÃ EXTRACT UUID: bay_id = '").append(state.getBayId()).append("'\n");

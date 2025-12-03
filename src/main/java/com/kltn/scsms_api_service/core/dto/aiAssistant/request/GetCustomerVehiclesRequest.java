@@ -15,13 +15,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @JsonClassDescription("Lấy danh sách xe của khách hàng đã đăng nhập. KHÔNG CẦN truyền customer_phone hoặc customer_id - function sẽ tự động lấy từ token đăng nhập. Nếu chưa có xe, yêu cầu tạo xe mới.")
 public class GetCustomerVehiclesRequest {
-    
+
     /**
      * Số điện thoại khách hàng - OPTIONAL (tự động lấy từ token nếu không có)
      */
     @JsonProperty("customer_phone")
     private String customerPhone;
-    
+
     /**
      * Customer ID - OPTIONAL (tự động lấy từ token nếu không có)
      */

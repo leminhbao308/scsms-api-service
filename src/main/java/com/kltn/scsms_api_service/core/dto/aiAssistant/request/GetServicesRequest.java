@@ -15,14 +15,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GetServicesRequest {
-    
+
     /**
      * Keyword để tìm kiếm dịch vụ
      * Ví dụ: "Rửa xe", "Bảo dưỡng", "Sửa chữa"
      */
     @JsonProperty("keyword")
     private String keyword;
-    
+
     /**
      * Branch ID (optional)
      * Nếu có, chỉ tìm dịch vụ có sẵn tại chi nhánh này

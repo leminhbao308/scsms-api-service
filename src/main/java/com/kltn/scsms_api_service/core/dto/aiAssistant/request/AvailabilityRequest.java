@@ -15,14 +15,14 @@ import java.util.List;
 @AllArgsConstructor
 @JsonClassDescription("Kiểm tra slot trống cho dịch vụ. Tìm các slots phù hợp với service duration và đề xuất slots thay thế nếu hết chỗ.")
 public class AvailabilityRequest {
-    
+
     /**
      * Tên dịch vụ hoặc serviceId (UUID)
      * Ví dụ: "Rửa xe", "Ceramic", "Phủ bóng"
      */
     @JsonProperty("service_type")
     private String serviceType;
-    
+
     /**
      * Thời gian mong muốn
      * Có thể là:
@@ -30,9 +30,9 @@ public class AvailabilityRequest {
      * - Ngôn ngữ tự nhiên: "sáng mai", "chiều nay", "ngày 15/11"
      * AI sẽ parse và chuyển thành LocalDateTime
      */
-    @JsonProperty("date_time")  
+    @JsonProperty("date_time")
     private String dateTime;
-    
+
     /**
      * Branch ID (UUID format như '7cd17e0d-529d-48ef-9094-67103811651d') hoặc tên chi nhánh - Optional
      * Nếu không có, AI sẽ suggest tất cả branches
@@ -41,7 +41,7 @@ public class AvailabilityRequest {
      */
     @JsonProperty("branch_id")
     private String branchId;
-    
+
     /**
      * Branch name - Optional
      * Tên chi nhánh (ví dụ: "Gò Vấp", "Quận 1")
@@ -49,14 +49,14 @@ public class AvailabilityRequest {
      */
     @JsonProperty("branch_name")
     private String branchName;
-    
+
     /**
      * Vehicle model - Optional
      * Để xác định bay size phù hợp (ví dụ: "Camry", "SUV")
      */
     @JsonProperty("vehicle_model")
     private String vehicleModel;
-    
+
     /**
      * Danh sách service types - Optional
      * Nếu user muốn đặt nhiều dịch vụ cùng lúc

@@ -14,25 +14,25 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GetBranchesResponse {
-    
+
     /**
      * Trạng thái: "SUCCESS" hoặc "NO_BRANCHES"
      */
     @JsonProperty("status")
     private String status;
-    
+
     /**
      * Thông báo cho AI
      */
     @JsonProperty("message")
     private String message;
-    
+
     /**
      * Danh sách chi nhánh
      */
     @JsonProperty("branches")
     private List<BranchInfo> branches;
-    
+
     /**
      * Thông tin chi nhánh
      */
@@ -43,19 +43,19 @@ public class GetBranchesResponse {
     public static class BranchInfo {
         @JsonProperty("branch_id")
         private UUID branchId;
-        
+
         @JsonProperty("branch_name")
         private String branchName;
-        
+
         @JsonProperty("branch_code")
         private String branchCode;
-        
+
         @JsonProperty("address")
         private String address;
-        
+
         @JsonProperty("phone")
         private String phone;
-        
+
         @JsonProperty("email")
         private String email;
     }
