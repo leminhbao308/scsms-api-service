@@ -44,6 +44,20 @@ public class ChatRequest {
     private UUID customerId;
     
     /**
+     * Session ID từ frontend (optional nhưng khuyến nghị)
+     * Dùng để track conversation và recover draft
+     */
+    @JsonProperty("session_id")
+    private String sessionId;
+    
+    /**
+     * Draft ID (optional)
+     * Nếu frontend đã có draft_id từ response trước, gửi lại để backend không phải tìm
+     */
+    @JsonProperty("draft_id")
+    private UUID draftId;
+    
+    /**
      * Extracted UUIDs từ frontend (optional)
      * Frontend extract UUIDs từ ToolResponse để giảm database queries
      */

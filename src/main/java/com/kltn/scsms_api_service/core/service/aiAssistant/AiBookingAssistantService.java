@@ -4,10 +4,12 @@ import com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityReque
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.CreateBookingRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetCustomerVehiclesRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetServicesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.CreateBookingResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam;
 import com.kltn.scsms_api_service.core.dto.bookingSchedule.AvailableTimeRangesResponse;
 import com.kltn.scsms_api_service.core.dto.bookingSchedule.TimeRangeDto;
@@ -452,9 +454,9 @@ public class AiBookingAssistantService {
                         }
                     }
                     
-                    log.warn("⚠️ Selected service '{}' is not available at branch {} due to inventory issues: {}", 
+                    log.warn("Selected service '{}' is not available at branch {} due to inventory issues: {}", 
                             finalService.getServiceName(), branchId, errorMessage);
-                    log.warn("⚠️ BUT: Will continue to check bay availability anyway, so user can see available bays and choose another service");
+                    log.warn("BUT: Will continue to check bay availability anyway, so user can see available bays and choose another service");
                     
                     // Lấy danh sách services available tại branch để gợi ý
                     BranchServiceFilterResult allAvailableServices = branchServiceFilterService
@@ -498,7 +500,7 @@ public class AiBookingAssistantService {
                     // Continue to check bays, will handle inventory warning later
                     // (We'll add this to the response after checking bays)
                 } else {
-                    log.info("✅ Selected service '{}' passed inventory check at branch {}", 
+                    log.info("Selected service '{}' passed inventory check at branch {}", 
                             finalService.getServiceName(), branchId);
                 }
             }
@@ -648,13 +650,13 @@ public class AiBookingAssistantService {
                                             .availableSlots(slots)
                                             .build();
                             } else {
-                                log.warn("⚠️ Bay {} - No slots generated from {} suitable ranges! This is a bug!", 
+                                log.warn("Bay {} - No slots generated from {} suitable ranges! This is a bug!", 
                                         bay.getBayName(), suitableRanges.size());
                                 log.warn("  - Suitable ranges: {}", suitableRanges);
                                 log.warn("  - Service duration: {} minutes", finalServiceDuration);
                             }
                         } else {
-                            log.warn("⚠️ Bay {} - No suitable ranges found (all ranges too small for {} minutes duration)", 
+                            log.warn("Bay {} - No suitable ranges found (all ranges too small for {} minutes duration)", 
                                     bay.getBayName(), finalServiceDuration);
                             log.warn("  - Raw time ranges count: {}", timeRangesResponse.getAvailableTimeRanges().size());
                             if (!timeRangesResponse.getAvailableTimeRanges().isEmpty()) {
@@ -692,7 +694,7 @@ public class AiBookingAssistantService {
             
             // Log chi tiết khi không có bay trống
             if (availableBays.isEmpty() && !serviceBays.isEmpty()) {
-                log.warn("⚠️ NO AVAILABLE BAYS FOUND - Debugging info:");
+                log.warn("NO AVAILABLE BAYS FOUND - Debugging info:");
                 log.warn("  - Total service bays checked: {}", serviceBays.size());
                 log.warn("  - Service: {} (duration: {} minutes)", service.getServiceName(), serviceDuration);
                 log.warn("  - Branch: {} (branch_id: {})", 
@@ -739,7 +741,7 @@ public class AiBookingAssistantService {
                 AvailabilityResponse.BookingState errorState = buildAvailabilityState(request);
                 
                 // Log chi tiết lý do tại sao không có bay trống
-                log.error("❌ RETURNING FULL STATUS - No available bays found");
+                log.error("RETURNING FULL STATUS - No available bays found");
                 log.error("  - Service: {} (ID: {}, duration: {} minutes)", 
                         service.getServiceName(), service.getServiceId(), serviceDuration);
                 log.error("  - Branch: {} (ID: {})", 
@@ -807,7 +809,7 @@ public class AiBookingAssistantService {
             String responseMessage = "Tìm thấy " + allSuggestions.size() + " khung giờ trống phù hợp";
             if (inventoryWarning != null && !inventoryWarning.isEmpty()) {
                 responseMessage = inventoryWarning + ". " + responseMessage + ". Bạn có thể chọn dịch vụ khác từ danh sách gợi ý.";
-                log.info("⚠️ Including inventory warning in response: {}", inventoryWarning);
+                log.info("Including inventory warning in response: {}", inventoryWarning);
             }
             
             return AvailabilityResponse.builder()
@@ -1854,13 +1856,23 @@ public class AiBookingAssistantService {
                 }
                 
                 // Kiểm tra xem có time range nào chứa scheduledStartAt đến scheduledEndAt không
+                // QUAN TRỌNG: Làm tròn rangeStart về phút tròn (00 hoặc 30) để nhất quán với logic tạo slots
+                // Vì slots được tạo từ ranges với logic làm tròn, nên validation cũng phải làm tròn tương tự
                 boolean fitsInTimeRange = timeRangesResponse.getAvailableTimeRanges().stream()
                         .anyMatch(range -> {
                             LocalTime rangeStart = range.getStartTime();
                             LocalTime rangeEnd = range.getEndTime();
                             
-                            // Check nếu scheduledStartAt >= rangeStart và scheduledEndAt <= rangeEnd
-                            return !startTimeLocal.isBefore(rangeStart) 
+                            // Làm tròn rangeStart về phút tròn (00 hoặc 30) để nhất quán với logic tạo slots
+                            // Ví dụ: 09:00:01 → 09:00:00, 09:30:15 → 09:30:00
+                            int slotIntervalMinutes = 30;
+                            int startMinute = rangeStart.getMinute();
+                            int roundedDownMinute = (startMinute / slotIntervalMinutes) * slotIntervalMinutes;
+                            LocalTime roundedRangeStart = rangeStart.withMinute(roundedDownMinute).withSecond(0).withNano(0);
+                            
+                            // Check nếu scheduledStartAt >= roundedRangeStart và scheduledEndAt <= rangeEnd
+                            // Cho phép startTimeLocal có thể bằng hoặc sau roundedRangeStart
+                            return !startTimeLocal.isBefore(roundedRangeStart) 
                                     && !endTimeLocal.isAfter(rangeEnd);
                         });
                 
@@ -2338,6 +2350,116 @@ public class AiBookingAssistantService {
                     .status("FAILED")
                     .message("Có lỗi xảy ra khi lấy danh sách chi nhánh: " + e.getMessage())
                     .branches(List.of())
+                    .build();
+        }
+    }
+    
+    /**
+     * Tìm kiếm dịch vụ theo keyword
+     * Dùng ở STEP 4: Chọn dịch vụ
+     * Logic:
+     * - Nếu keyword = null → Trả về tất cả dịch vụ active
+     * - Nếu keyword có → Tìm theo keyword
+     * - Nếu có nhiều dịch vụ → Trả về danh sách để user chọn
+     * - Nếu có 1 dịch vụ → Trả về dịch vụ đó
+     * - Nếu không có → Trả về NOT_FOUND
+     */
+    public GetServicesResponse getServices(GetServicesRequest request) {
+        log.info("=== GET SERVICES START ===");
+        log.info("AI Function: getServices() called with keyword: '{}', branch_id: '{}'", 
+                request.getKeyword(), request.getBranchId());
+        
+        try {
+            List<Service> foundServices;
+            
+            if (request.getKeyword() == null || request.getKeyword().trim().isEmpty()) {
+                // Không có keyword → Trả về tất cả dịch vụ active
+                foundServices = serviceService.findAll().stream()
+                        .filter(s -> s.getIsActive() != null && s.getIsActive())
+                        .collect(Collectors.toList());
+                log.info("No keyword provided, returning all {} active services", foundServices.size());
+            } else {
+                // Có keyword → Tìm theo keyword
+                foundServices = serviceService.searchByKeyword(request.getKeyword().trim());
+                log.info("Searching services by keyword '{}', found {} services", 
+                        request.getKeyword(), foundServices.size());
+            }
+            
+            // Filter theo branch_id nếu có
+            if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
+                try {
+                    UUID branchId = UUID.fromString(request.getBranchId());
+                    foundServices = foundServices.stream()
+                            .filter(s -> s.getBranchId() != null && s.getBranchId().equals(branchId))
+                            .collect(Collectors.toList());
+                    log.info("Filtered by branch_id={}, remaining {} services", branchId, foundServices.size());
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid branch_id format: '{}', ignoring branch filter", request.getBranchId());
+                }
+            }
+            
+            if (foundServices.isEmpty()) {
+                return GetServicesResponse.builder()
+                        .status("NOT_FOUND")
+                        .message("Không tìm thấy dịch vụ nào" + 
+                                (request.getKeyword() != null ? " với từ khóa '" + request.getKeyword() + "'" : ""))
+                        .services(List.of())
+                        .build();
+            }
+            
+            // Lấy giá từ price book cho tất cả services
+            List<UUID> serviceIds = foundServices.stream()
+                    .map(Service::getServiceId)
+                    .collect(Collectors.toList());
+            Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
+            
+            // Map Service sang ServiceInfo
+            List<GetServicesResponse.ServiceInfo> serviceInfos = foundServices.stream()
+                    .map(service -> {
+                        GetServicesResponse.ServiceInfo info = GetServicesResponse.ServiceInfo.builder()
+                                .serviceId(service.getServiceId())
+                                .serviceName(service.getServiceName())
+                                .description(service.getDescription())
+                                .estimatedDuration(service.getEstimatedDuration())
+                                .price(priceMap.getOrDefault(service.getServiceId(), BigDecimal.ZERO))
+                                .serviceTypeId(service.getServiceTypeId())
+                                .serviceTypeName(null) // Có thể enrich sau nếu cần
+                                .build();
+                        log.debug("Service: service_id={}, service_name='{}', duration={} min, price={}", 
+                                info.getServiceId(), info.getServiceName(), 
+                                info.getEstimatedDuration(), info.getPrice());
+                        return info;
+                    })
+                    .collect(Collectors.toList());
+            
+            String status;
+            String message;
+            
+            if (serviceInfos.size() == 1) {
+                status = "FOUND";
+                message = "Tìm thấy 1 dịch vụ: " + serviceInfos.get(0).getServiceName();
+            } else {
+                status = "MULTIPLE_FOUND";
+                message = "Tìm thấy " + serviceInfos.size() + " dịch vụ. Vui lòng chọn một dịch vụ cụ thể.";
+            }
+            
+            log.info("Returning {} services to AI: {}", serviceInfos.size(), 
+                    serviceInfos.stream()
+                            .map(s -> s.getServiceName())
+                            .collect(Collectors.joining(", ")));
+            
+            return GetServicesResponse.builder()
+                    .status(status)
+                    .message(message)
+                    .services(serviceInfos)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("Error in getServices: {}", e.getMessage(), e);
+            return GetServicesResponse.builder()
+                    .status("FAILED")
+                    .message("Có lỗi xảy ra khi tìm kiếm dịch vụ: " + e.getMessage())
+                    .services(List.of())
                     .build();
         }
     }

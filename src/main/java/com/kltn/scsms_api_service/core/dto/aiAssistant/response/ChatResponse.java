@@ -51,6 +51,21 @@ public class ChatResponse {
     private List<ToolResponse> toolResponses;
     
     /**
+     * Draft ID (NEW)
+     * ID của booking draft hiện tại
+     * Frontend nên gửi lại draft_id trong request tiếp theo để backend không phải tìm
+     */
+    @JsonProperty("draft_id")
+    private java.util.UUID draftId;
+    
+    /**
+     * Draft data (NEW)
+     * Thông tin draft hiện tại để frontend có thể hiển thị progress
+     */
+    @JsonProperty("draft_data")
+    private DraftData draftData;
+    
+    /**
      * ToolResponse chứa function name và response data
      */
     @Data
@@ -63,6 +78,39 @@ public class ChatResponse {
         
         @JsonProperty("response_data")
         private Object responseData; // JSON object chứa response từ function
+    }
+    
+    /**
+     * Draft data để frontend hiển thị progress
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DraftData {
+        @JsonProperty("current_step")
+        private Integer currentStep;
+        
+        @JsonProperty("has_vehicle")
+        private Boolean hasVehicle;
+        
+        @JsonProperty("has_date")
+        private Boolean hasDate;
+        
+        @JsonProperty("has_branch")
+        private Boolean hasBranch;
+        
+        @JsonProperty("has_service")
+        private Boolean hasService;
+        
+        @JsonProperty("has_bay")
+        private Boolean hasBay;
+        
+        @JsonProperty("has_time")
+        private Boolean hasTime;
+        
+        @JsonProperty("is_complete")
+        private Boolean isComplete;
     }
 }
 
