@@ -1,11 +1,22 @@
 package com.kltn.scsms_api_service.core.controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ChatRequest;
-import com.kltn.scsms_api_service.core.dto.aiAssistant.response.ChatResponse;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetCustomerVehiclesRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.response.*;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
-import com.kltn.scsms_api_service.core.entity.BookingDraft;
+import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
+import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam;
+import com.kltn.scsms_api_service.core.entity.*;
+import com.kltn.scsms_api_service.core.service.aiAssistant.AiBookingAssistantService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingDraftService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
+import com.kltn.scsms_api_service.core.service.entityService.VehicleProfileService;
+import com.kltn.scsms_api_service.core.utils.DraftContextHolder;
+import com.kltn.scsms_api_service.core.utils.PermissionUtils;
 import com.kltn.scsms_api_service.core.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -1912,7 +1923,7 @@ public class AiBookingAssistantController {
 
             // QUAN TRỌNG: Tìm service_id và service_name từ ThreadLocal (getServices response)
             // PHẢI validate với tool response trước khi lưu vào draft
-            com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo serviceInfo =
+            GetServicesResponse.ServiceInfo serviceInfo =
                     findServiceInfoFromToolResponse(selectedService, conversationHistory);
 
             if (serviceInfo != null) {
