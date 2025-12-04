@@ -3,17 +3,18 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:scsms}?currentSchema=dev
+    url: jdbc:postgresql://118.69.188.126:5432/scsms?currentSchema=prod
     username: ${DB_USERNAME:admin}
     password: ${DB_PASSWORD:admin}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update # Auto create/update tables (use 'validate' after initial setup)
     properties:
       hibernate:
-        default_schema: dev
-        format_sql: false
-        show_sql: false
+        default_schema: prod
+        format_sql: true
+        show_sql: true
     show-sql: false
 logging:
   level:
