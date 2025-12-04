@@ -40,7 +40,7 @@ public class UserManagementController {
     @SwaggerOperation(
         summary = "Get all users",
         description = "Retrieve a paginated list of all users that can be filtered by role, active, etc.")
-    @RequirePermission(permissions = PermissionConstant.USER_READ)
+//    @RequirePermission(permissions = PermissionConstant.USER_READ)
     public ResponseEntity<ApiResponse<PaginatedResponse<UserInfoDto>>> getAllUsers(@ModelAttribute UserFilterParam userFilterParam) {
         log.info("Fetching all users");
         
@@ -66,7 +66,7 @@ public class UserManagementController {
     @SwaggerOperation(
         summary = "Create a new user",
         description = "Create a new user with the provided details.")
-    @RequirePermission(permissions = PermissionConstant.USER_CREATE)
+//    @RequirePermission(permissions = PermissionConstant.USER_CREATE)
     public ResponseEntity<ApiResponse<UserInfoDto>> createUser(@RequestBody CreateUserRequest createUserRequest) {
         log.info("Creating new user with email: {}", createUserRequest.getEmail());
         UserInfoDto createdUser = userManagementService.createUser(createUserRequest);

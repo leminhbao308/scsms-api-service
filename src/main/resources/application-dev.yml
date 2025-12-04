@@ -34,4 +34,6 @@ logging:
 
 app:
   cors:
-    allowed-origin-patterns: "*"
+    # Set cụ thể các origins để tương thích với allowCredentials(true)
+    # Format: http://localhost:3000,http://localhost:3001,http://192.168.1.16:3000
+    allowed-origin-patterns: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"

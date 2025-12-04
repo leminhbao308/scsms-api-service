@@ -8,4 +8,6 @@ public enum StockRefType {
     PURCHASE_RETURN,
     
     ADJUSTMENT,
+    
+    BOOKING,
 }

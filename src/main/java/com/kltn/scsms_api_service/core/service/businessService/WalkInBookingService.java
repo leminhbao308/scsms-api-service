@@ -40,6 +40,7 @@ public class WalkInBookingService {
     private final UserService userService;
     private final VehicleProfileService vehicleProfileService;
     private final WebSocketService webSocketService;
+    private final BookingInventoryService bookingInventoryService;
 
     /**
      * Tạo walk-in booking
@@ -120,16 +121,28 @@ public class WalkInBookingService {
             log.info("Saved walk-in booking to database: bookingId={}, scheduledStartAt={}, scheduledEndAt={}",
                     booking.getBookingId(), scheduledStartAt, scheduledEndAt);
 
-            // 7. Load booking với details để gửi WebSocket notification
+            // 7. Reserve stock cho booking (PENDING status)
+            try {
+                // Reload booking với details để đảm bảo có đầy đủ thông tin
+                Booking bookingWithDetails = bookingService.getByIdWithDetails(booking.getBookingId());
+                bookingInventoryService.reserveStockForBooking(bookingWithDetails);
+                log.info("Successfully reserved stock for walk-in booking: {}", booking.getBookingId());
+            } catch (Exception e) {
+                log.error("Failed to reserve stock for walk-in booking {}: {}", booking.getBookingId(), e.getMessage(), e);
+                // Không throw exception ở đây để đảm bảo booking vẫn được tạo thành công
+                // Stock reservation có thể được xử lý sau hoặc admin có thể xử lý thủ công
+            }
+
+            // 8. Load booking với details để gửi WebSocket notification
             Booking bookingWithDetails = bookingService.getByIdWithDetails(booking.getBookingId());
 
-            // 8. Gửi WebSocket notification với structured event
+            // 9. Gửi WebSocket notification với structured event
             webSocketService.notifyBookingCreated(bookingWithDetails);
 
-            // 9. Tính queue position (dựa trên số booking trước đó)
+            // 10. Tính queue position (dựa trên số booking trước đó)
             int queuePosition = calculateQueuePosition(request.getAssignedBayId(), bookingDate, scheduledStartAt);
 
-            // 10. Tính thời gian chờ ước tính
+            // 11. Tính thời gian chờ ước tính
             LocalDateTime now = LocalDateTime.now();
             long estimatedWaitMinutes = java.time.Duration.between(now, scheduledStartAt).toMinutes();
             int estimatedWaitTime = Math.max(0, (int) estimatedWaitMinutes);

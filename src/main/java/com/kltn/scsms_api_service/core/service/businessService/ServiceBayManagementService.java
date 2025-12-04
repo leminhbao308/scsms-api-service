@@ -214,6 +214,17 @@ public class ServiceBayManagementService {
         // Update basic fields
         serviceBayMapper.updateEntity(existingBay, request);
         
+        // Ensure allowBooking is never null (keep existing value if not provided in request)
+        if (request.getAllowBooking() == null) {
+            // If not provided in request, keep existing value or set default to true
+            if (existingBay.getAllowBooking() == null) {
+                existingBay.setAllowBooking(true);
+            }
+        } else {
+            // If provided in request, use the provided value
+            existingBay.setAllowBooking(request.getAllowBooking());
+        }
+        
         // Handle status update if provided
         if (request.getStatus() != null) {
             log.info("Updating service bay status from {} to {}", existingBay.getStatus(), request.getStatus());

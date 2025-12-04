@@ -195,11 +195,18 @@ public class BranchManagementService {
     private void createDefaultServiceBays(Branch branch) {
         log.info("Creating 8 default service bays for branch: {}", branch.getBranchName());
         
+        // Sử dụng branch code để tạo bay code unique cho mỗi branch
+        String branchCodePrefix = branch.getBranchCode() != null ? branch.getBranchCode() : 
+            branch.getBranchId().toString().substring(0, 8).toUpperCase();
+        
         for (int i = 1; i <= 8; i++) {
+            // Tạo bay code unique dựa trên branch code để tránh trùng lặp
+            String uniqueBayCode = branchCodePrefix + "-BAY-" + String.format("%03d", i);
+            
             ServiceBay serviceBay = ServiceBay.builder()
                 .branch(branch)
                 .bayName("Khu vực " + i)
-                .bayCode("BAY-" + String.format("%03d", i))
+                .bayCode(uniqueBayCode)
                 .description("Khu vực dịch vụ mặc định " + i + " của " + branch.getBranchName())
                 .status(ServiceBay.BayStatus.ACTIVE)
                 .displayOrder(i)
@@ -208,8 +215,8 @@ public class BranchManagementService {
             
             try {
                 serviceBayService.save(serviceBay);
-                log.debug("Created service bay: {} for branch: {}", 
-                    serviceBay.getBayName(), branch.getBranchName());
+                log.debug("Created service bay: {} (code: {}) for branch: {}", 
+                    serviceBay.getBayName(), serviceBay.getBayCode(), branch.getBranchName());
             } catch (Exception e) {
                 log.error("Failed to create service bay {} for branch {}: {}", 
                     i, branch.getBranchName(), e.getMessage());

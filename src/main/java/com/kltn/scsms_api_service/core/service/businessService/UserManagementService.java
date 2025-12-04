@@ -6,6 +6,8 @@ import com.kltn.scsms_api_service.core.dto.userManagement.UserInfoDto;
 import com.kltn.scsms_api_service.core.dto.userManagement.request.UpdateUserRequest;
 import com.kltn.scsms_api_service.core.entity.Role;
 import com.kltn.scsms_api_service.core.entity.User;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.CustomerRank;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.UserType;
 import com.kltn.scsms_api_service.exception.ClientSideException;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.core.service.entityService.PermissionService;
@@ -62,6 +64,19 @@ public class UserManagementService {
         // Encode password
         String encodedPassword = passwordEncoder.encode(createUserRequest.getPassword());
         
+        // Determine user type from request or infer from role code
+        UserType userType = createUserRequest.getUserType();
+        if (userType == null) {
+            // Infer user type from role code if not provided
+            String roleCode = createUserRequest.getRoleCode();
+            if (roleCode != null && roleCode.equals("CUSTOMER")) {
+                userType = UserType.CUSTOMER;
+            } else {
+                // STAFF, ADMIN, MANAGER, etc. are all EMPLOYEE type
+                userType = UserType.EMPLOYEE;
+            }
+        }
+        
         // Create new user
         User newUser = User.builder()
             .googleId(createUserRequest.getGoogleId())
@@ -74,8 +89,30 @@ public class UserManagementService {
             .address(createUserRequest.getAddress())
             .avatarUrl(createUserRequest.getAvatarUrl())
             .role(roleOtp.get())
+            .userType(userType)
             .isActive(true)
             .build();
+        
+        // Set customer-specific fields if user is CUSTOMER
+        if (userType == UserType.CUSTOMER) {
+            newUser.setCustomerRank(createUserRequest.getCustomerRank() != null ? 
+                createUserRequest.getCustomerRank() : CustomerRank.BRONZE);
+            newUser.setAccumulatedPoints(createUserRequest.getAccumulatedPoints() != null ? 
+                createUserRequest.getAccumulatedPoints() : 0);
+            newUser.setTotalOrders(createUserRequest.getTotalOrders() != null ? 
+                createUserRequest.getTotalOrders() : 0);
+            newUser.setTotalSpent(createUserRequest.getTotalSpent() != null ? 
+                createUserRequest.getTotalSpent() : 0.0);
+        }
+        
+        // Set employee-specific fields if user is EMPLOYEE
+        if (userType == UserType.EMPLOYEE) {
+            newUser.setHiredAt(createUserRequest.getHiredAt() != null ? 
+                createUserRequest.getHiredAt() : java.time.LocalDateTime.now());
+            if (createUserRequest.getCitizenId() != null) {
+                newUser.setCitizenId(createUserRequest.getCitizenId());
+            }
+        }
         
         User createdUser = userService.saveUser(newUser);
         

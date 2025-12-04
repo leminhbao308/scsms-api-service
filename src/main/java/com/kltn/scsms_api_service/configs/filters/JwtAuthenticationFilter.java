@@ -48,12 +48,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
         
         String path = request.getRequestURI();
+        String method = request.getMethod();
+        
+        // Log ALL requests to debug WebSocket info endpoint issue
+        log.debug("AuthFilter - Processing path: {} (method: {})", path, method);
+        
         boolean isProtected =
             PROTECTED_PATH_PATTERNS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
         
         // Skip bypass paths (actuator, swagger, login, etc.)
         if (isBypassPath(path)) {
-            log.debug("AuthFilter - Bypassing path: {}", path);
+            log.info("AuthFilter - Bypassing path: {} (method: {})", path, method);
             filterChain.doFilter(request, response);
             return;
         }
@@ -153,7 +158,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
     
     private boolean isBypassPath(String path) {
-        return path.contains("/actuator")
+        boolean bypass = path.contains("/actuator")
             || path.contains("/docs/api-docs")
             || path.contains("/docs/swagger-ui")
             || path.contains("/swagger-resources")
@@ -168,6 +173,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.equals(API_PREFIX + ApiConstant.REGISTER_API) // Allow registration
             || path.equals(API_PREFIX + ApiConstant.LOGOUT_API) // Allow logout
             || path.startsWith(API_PREFIX + "/otp/"); // Allow OTP endpoints
+        
+        log.debug("AuthFilter - Checking bypass for path {}: {}", path, bypass);
+        return bypass;
     }
     
     private void writeErrorResponse(HttpServletResponse response, String message) throws IOException {

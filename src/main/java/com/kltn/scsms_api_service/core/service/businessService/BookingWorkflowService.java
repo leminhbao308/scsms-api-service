@@ -21,6 +21,7 @@ public class BookingWorkflowService {
     
     private final BookingService bookingService;
     private final WebSocketService webSocketService;
+    private final BookingInventoryService bookingInventoryService;
     
     /**
      * Workflow: PENDING → CONFIRMED → CHECKED_IN → IN_PROGRESS → COMPLETED
@@ -109,6 +110,16 @@ public class BookingWorkflowService {
         booking.setActualStartAt(LocalDateTime.now());
         Booking updatedBooking = bookingService.update(booking);
         
+        // Fulfill stock cho booking (chuyển từ reserved sang fulfilled)
+        try {
+            bookingInventoryService.fulfillStockForBooking(updatedBooking);
+            log.info("Successfully fulfilled stock for booking: {}", bookingId);
+        } catch (Exception e) {
+            log.error("Failed to fulfill stock for booking {}: {}", bookingId, e.getMessage(), e);
+            // Không throw exception ở đây để đảm bảo booking vẫn có thể chuyển sang IN_PROGRESS
+            // Stock fulfillment có thể được xử lý sau hoặc admin có thể xử lý thủ công
+        }
+        
         // Gửi WebSocket notification với structured event
         webSocketService.notifyBookingStarted(updatedBooking);
         
@@ -192,6 +203,16 @@ public class BookingWorkflowService {
         // Hủy booking
         booking.cancelBooking(reason, cancelledBy);
         Booking updatedBooking = bookingService.update(booking);
+        
+        // Return/release stock cho cancelled booking
+        try {
+            bookingInventoryService.returnStockForCancelledBooking(updatedBooking);
+            log.info("Successfully returned stock for cancelled booking: {}", bookingId);
+        } catch (Exception e) {
+            log.error("Failed to return stock for cancelled booking {}: {}", bookingId, e.getMessage(), e);
+            // Không throw exception ở đây để đảm bảo booking vẫn có thể được cancel
+            // Stock return có thể được xử lý sau hoặc admin có thể xử lý thủ công
+        }
         
         // Gửi WebSocket notification với structured event
         webSocketService.notifyBookingCancelled(updatedBooking);

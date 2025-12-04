@@ -35,6 +35,7 @@ public class IntegratedBookingService {
     private final PricingBusinessService pricingBusinessService;
     private final ServiceService serviceService;
     private final com.kltn.scsms_api_service.core.service.websocket.WebSocketService webSocketService;
+    private final BookingInventoryService bookingInventoryService;
     
     /**
      * Tạo booking hoàn chỉnh với scheduling information trong một API call
@@ -130,7 +131,20 @@ public class IntegratedBookingService {
             log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
                 savedBooking.getBookingId(), request.getSelectedSchedule());
             
-            // 7. Gửi WebSocket notification với structured event
+            // 7. Reserve stock cho booking (PENDING status)
+            try {
+                // Reload booking với details để đảm bảo có đầy đủ thông tin
+                Booking bookingWithDetails = bookingService.getByIdWithDetails(savedBooking.getBookingId());
+                bookingInventoryService.reserveStockForBooking(bookingWithDetails);
+                log.info("Successfully reserved stock for booking: {}", savedBooking.getBookingId());
+            } catch (Exception e) {
+                log.error("Failed to reserve stock for booking {}: {}", savedBooking.getBookingId(), e.getMessage(), e);
+                // Không throw exception ở đây để đảm bảo booking vẫn được tạo thành công
+                // Stock reservation có thể được xử lý sau hoặc admin có thể xử lý thủ công
+                // Nếu muốn strict hơn, có thể throw exception để rollback booking
+            }
+            
+            // 8. Gửi WebSocket notification với structured event
             webSocketService.notifyBookingCreated(savedBooking);
             
             return bookingInfoService.toBookingInfoDto(savedBooking);

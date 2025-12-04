@@ -19,9 +19,20 @@ spring:
 logging:
   level:
     com.kltn.scsms_api_service: INFO
-    web: info
-    root: info
+    com.kltn.scsms_api_service.configs.filters.JwtAuthenticationFilter: DEBUG # Enable DEBUG for WebSocket debugging
+    com.kltn.scsms_api_service.configs.filters.RequestLoggingFilter: INFO
+    web: INFO
+    root: INFO
+    # Enable WebSocket logging để debug connection issues
+    org.springframework.messaging.simp: INFO
+    org.springframework.web.socket: INFO
+    org.springframework.web.socket.messaging: INFO
+    org.springframework.security: DEBUG # Enable DEBUG for Spring Security to see filter chain
 
 app:
   cors:
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://18.136.156.98:3000,http://hoangnam.info.vn,https://hoangnam.info.vn}
+    # Set cụ thể các origins để tương thích với allowCredentials(true)
+    # Format: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://YOUR_IP:PORT
+    # QUAN TRỌNG: Phải thêm origin của frontend vào đây nếu frontend chạy trên IP/port khác
+    # Ví dụ: Nếu frontend chạy trên http://192.168.1.16:3000, thêm vào danh sách
+    allowed-origin-patterns: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
