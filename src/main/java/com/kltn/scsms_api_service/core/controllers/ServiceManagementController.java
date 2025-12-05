@@ -89,7 +89,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(services);
     }
 
-    @GetMapping(ApiConstant.GET_SERVICES_BY_TYPE_API)
+    @GetMapping("/type/{serviceTypeId}")
     @Operation(summary = "Get services by type", description = "Retrieve all services of a specific type")
     @SwaggerOperation(summary = "Get services by type")
     // @RequirePermission(permissions = {"SERVICE_READ"})
@@ -100,7 +100,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(services);
     }
 
-    @GetMapping(ApiConstant.GET_SERVICES_BY_SKILL_LEVEL_API)
+    @GetMapping("/skill-level/{skillLevel}")
     @Operation(summary = "Get services by skill level", description = "Retrieve all services requiring a specific skill level")
     @SwaggerOperation(summary = "Get services by skill level")
     // @RequirePermission(permissions = {"SERVICE_READ"})
@@ -111,7 +111,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(services);
     }
 
-    @GetMapping(ApiConstant.SEARCH_SERVICES_API)
+    @GetMapping("/search")
     @Operation(summary = "Search services", description = "Search services by keyword")
     @SwaggerOperation(summary = "Search services")
     // @RequirePermission(permissions = {"SERVICE_READ"})
@@ -132,7 +132,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(services);
     }
 
-    @PostMapping(ApiConstant.CREATE_SERVICE_API)
+    @PostMapping("/create")
     @Operation(summary = "Create service", description = "Create a new service")
     @SwaggerOperation(summary = "Create service")
     // @RequirePermission(permissions = {"SERVICE_CREATE"})
@@ -143,7 +143,7 @@ public class ServiceManagementController {
         return ResponseBuilder.created(service);
     }
 
-    @PostMapping(ApiConstant.UPDATE_SERVICE_API)
+    @PostMapping("/{serviceId}/update")
     @Operation(summary = "Update service", description = "Update an existing service")
     @SwaggerOperation(summary = "Update service")
     // @RequirePermission(permissions = {"SERVICE_UPDATE"})
@@ -155,7 +155,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success(service);
     }
 
-    @PostMapping(ApiConstant.DELETE_SERVICE_API)
+    @PostMapping("/{serviceId}/delete")
     @Operation(summary = "Delete service", description = "Delete a service (soft delete)")
     @SwaggerOperation(summary = "Delete service")
     // @RequirePermission(permissions = {"SERVICE_DELETE"})
@@ -166,7 +166,7 @@ public class ServiceManagementController {
         return ResponseBuilder.success("Service deleted successfully");
     }
 
-    @PostMapping(ApiConstant.SERVICE_MANAGEMENT_PREFIX + "/{serviceId}/status")
+    @PostMapping("/{serviceId}/status")
     @Operation(summary = "Update service status", description = "Update the active status of a service")
     @SwaggerOperation(summary = "Update service status")
     // @RequirePermission(permissions = {"SERVICE_UPDATE"}) // Temporarily disabled
