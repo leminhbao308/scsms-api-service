@@ -84,7 +84,7 @@ public class AiBookingAssistantController {
             // Nếu user nói "đặt lịch hẹn", "bắt đầu", "đặt lịch mới" → Reset draft
             String userMessage = request.getMessage();
             boolean isNewBookingRequest = isNewBookingRequest(userMessage);
-            
+
             // Get or create draft
             BookingDraft draft;
             if (request.getDraftId() != null) {
@@ -321,6 +321,77 @@ public class AiBookingAssistantController {
                     }
                 }
                 
+                // CRITICAL: Auto-call getCustomerVehicles() TRƯỚC KHI AI extraction nếu ở step 1
+                // Đảm bảo vehicles có sẵn trong ThreadLocal khi AI extraction chạy
+                if (actualStepBeforeAI == 1 && !draft.hasVehicle()) {
+                    log.info("STEP 1 detected, auto-loading vehicles before AI extraction");
+                    
+                    // Kiểm tra xem đã có vehicles trong ThreadLocal chưa
+                    GetCustomerVehiclesResponse vehiclesResponse = DraftContextHolder.getVehiclesResponse();
+                    if (vehiclesResponse == null && conversationHistory != null) {
+                        vehiclesResponse = parseVehiclesFromHistory(conversationHistory);
+                        if (vehiclesResponse != null) {
+                            DraftContextHolder.setVehiclesResponse(vehiclesResponse);
+                            log.info("Found vehicles from conversation history, loaded into ThreadLocal");
+                        }
+                    }
+                    
+                    // Nếu không có → Auto-call getCustomerVehicles()
+                    if (vehiclesResponse == null || vehiclesResponse.getVehicles() == null || vehiclesResponse.getVehicles().isEmpty()) {
+                        log.info("No vehicles found. Auto-calling getCustomerVehicles() before AI extraction.");
+                        
+                        try {
+                            GetCustomerVehiclesRequest vehiclesRequest =
+                                    GetCustomerVehiclesRequest.builder()
+                                            .customerId(customerId)
+                                            .build();
+                            
+                            vehiclesResponse = aiBookingAssistantService.getCustomerVehicles(vehiclesRequest);
+                            DraftContextHolder.setVehiclesResponse(vehiclesResponse);
+                            
+                            log.info("Auto-called getCustomerVehicles() before AI extraction - found {} vehicles",
+                                    vehiclesResponse.getVehicles() != null ? vehiclesResponse.getVehicles().size() : 0);
+                        } catch (Exception e) {
+                            log.error("Error auto-calling getCustomerVehicles() before AI extraction: {}", e.getMessage(), e);
+                        }
+                    }
+                }
+                
+                // CRITICAL: Auto-call getBranches() TRƯỚC KHI AI extraction nếu ở step 3
+                // Đảm bảo branches có sẵn trong ThreadLocal khi AI extraction chạy
+                if (actualStepBeforeAI == 3 && !draft.hasBranch()) {
+                    log.info("STEP 3 detected, auto-loading branches before AI extraction");
+                    
+                    // Kiểm tra xem đã có branches trong ThreadLocal chưa
+                    GetBranchesResponse branchesResponse = DraftContextHolder.getBranchesResponse();
+                    if (branchesResponse == null && conversationHistory != null) {
+                        branchesResponse = parseBranchesFromHistory(conversationHistory);
+                        if (branchesResponse != null) {
+                            DraftContextHolder.setBranchesResponse(branchesResponse);
+                            log.info("Found branches from conversation history, loaded into ThreadLocal");
+                        }
+                    }
+                    
+                    // Nếu không có → Auto-call getBranches()
+                    if (branchesResponse == null || branchesResponse.getBranches() == null || branchesResponse.getBranches().isEmpty()) {
+                        log.info("No branches found. Auto-calling getBranches() before AI extraction.");
+                        
+                        try {
+                            GetBranchesRequest branchesRequest =
+                                    com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest.builder()
+                                            .build();
+                            
+                            branchesResponse = aiBookingAssistantService.getBranches(branchesRequest);
+                            DraftContextHolder.setBranchesResponse(branchesResponse);
+                            
+                            log.info("Auto-called getBranches() before AI extraction - found {} branches",
+                                    branchesResponse.getBranches() != null ? branchesResponse.getBranches().size() : 0);
+                        } catch (Exception e) {
+                            log.error("Error auto-calling getBranches() before AI extraction: {}", e.getMessage(), e);
+                        }
+                    }
+                }
+                
                 if (shouldUseAIExtraction(draft, userMessage)) {
                     log.info("Trying AI-powered extraction first (priority)");
                     BookingDraft draftAfterAI = tryAIExtraction(draft, userMessage, conversationHistory);
@@ -381,7 +452,7 @@ public class AiBookingAssistantController {
                     UUID bayIdBeforePattern = draftBeforePattern.getBayId();
                     String timeSlotBeforePattern = draftBeforePattern.getTimeSlot();
                     
-                    draft = parseUserSelectionAndUpdateDraft(draft, userMessage, conversationHistory);
+            draft = parseUserSelectionAndUpdateDraft(draft, userMessage, conversationHistory);
                     
                     // Check nếu pattern matching có detect được gì không
                     try {
@@ -1719,7 +1790,7 @@ public class AiBookingAssistantController {
         
         return isNewBooking;
     }
-    
+
     /**
      * Kiểm tra xem user message có phải là yêu cầu đặt lịch không
      */
@@ -2457,10 +2528,10 @@ public class AiBookingAssistantController {
                             serviceFromDb.getServiceId(), serviceFromDb.getServiceName(), selectedService);
                 } else {
                     // KHÔNG tìm thấy trong database → KHÔNG lưu vào draft
-                    // Yêu cầu AI gọi getServices() trước để validate
+                // Yêu cầu AI gọi getServices() trước để validate
                     log.warn("Could not find service in database for selection: {}. " +
                             "AI should call getServices() first to validate service exists.", selectedService);
-                    // KHÔNG update draft - để AI gọi getServices() trước
+                // KHÔNG update draft - để AI gọi getServices() trước
                 }
             }
         }
@@ -2715,53 +2786,110 @@ public class AiBookingAssistantController {
                 
                 // Update vehicle
                 // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name/licensePlate với database
-                if (data.getVehicle() != null && data.getVehicle().getLicensePlate() != null) {
-                    // Tìm vehicle từ tool response hoặc database bằng licensePlate
+                if (data.getVehicle() != null) {
+                    String selectionType = data.getVehicle().getSelectionType();
                     GetCustomerVehiclesResponse vehiclesResponse = DraftContextHolder.getVehiclesResponse();
                     UUID matchedVehicleId = null;
                     String matchedLicensePlate = null;
                     
-                    // Bước 1: Tìm trong tool response (ThreadLocal)
-                    if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
-                        for (GetCustomerVehiclesResponse.VehicleInfo v : vehiclesResponse.getVehicles()) {
-                            if (v.getLicensePlate() != null && 
-                                v.getLicensePlate().equalsIgnoreCase(data.getVehicle().getLicensePlate())) {
-                                matchedVehicleId = v.getVehicleId();
-                                matchedLicensePlate = v.getLicensePlate();
-                                break;
+                    // Case 1: INDEX selection (user chọn bằng số thứ tự, ví dụ: "xe thứ 1")
+                    if ("INDEX".equals(selectionType) && data.getVehicle().getRawText() != null) {
+                        log.info("Processing INDEX selection for vehicle - raw_text: '{}'", data.getVehicle().getRawText());
+                        int index = parseIndexFromText(data.getVehicle().getRawText());
+                        log.info("Parsed index from '{}': {}", data.getVehicle().getRawText(), index);
+                        
+                        if (index > 0) {
+                            // Bước 1: Tìm trong tool response (ThreadLocal)
+                            if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
+                                log.info("Checking ThreadLocal vehicles - total: {}, looking for index: {}", 
+                                        vehiclesResponse.getVehicles().size(), index);
+                                if (index > 0 && index <= vehiclesResponse.getVehicles().size()) {
+                                    GetCustomerVehiclesResponse.VehicleInfo vehicleInfoByIndex =
+                                        vehiclesResponse.getVehicles().get(index - 1);
+                                    matchedVehicleId = vehicleInfoByIndex.getVehicleId();
+                                    matchedLicensePlate = vehicleInfoByIndex.getLicensePlate();
+                                    log.info("Found vehicle by index {} from ThreadLocal: {} ({})", 
+                                            index, matchedLicensePlate, matchedVehicleId);
+                                } else {
+                                    log.warn("Index {} is out of range (total vehicles: {})", 
+                                            index, vehiclesResponse.getVehicles().size());
+                                }
+                            } else {
+                                log.warn("No vehicles in ThreadLocal (vehiclesResponse is null or empty)");
                             }
+                            
+                            // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                            if (matchedVehicleId == null && conversationHistory != null) {
+                                log.info("Vehicle not found in ThreadLocal, trying conversation history");
+                                GetCustomerVehiclesResponse parsedResponse = parseVehiclesFromHistory(conversationHistory);
+                                if (parsedResponse != null && parsedResponse.getVehicles() != null) {
+                                    log.info("Found vehicles in conversation history - total: {}, looking for index: {}", 
+                                            parsedResponse.getVehicles().size(), index);
+                                    if (index > 0 && index <= parsedResponse.getVehicles().size()) {
+                                        GetCustomerVehiclesResponse.VehicleInfo vehicleInfoByIndex =
+                                            parsedResponse.getVehicles().get(index - 1);
+                                        matchedVehicleId = vehicleInfoByIndex.getVehicleId();
+                                        matchedLicensePlate = vehicleInfoByIndex.getLicensePlate();
+                                        log.info("Found vehicle by index {} from conversation history: {} ({})", 
+                                                index, matchedLicensePlate, matchedVehicleId);
+                                    } else {
+                                        log.warn("Index {} is out of range in conversation history (total vehicles: {})", 
+                                                index, parsedResponse.getVehicles().size());
+                                    }
+                                } else {
+                                    log.warn("No vehicles found in conversation history");
+                                }
+                            }
+                        } else {
+                            log.warn("Failed to parse index from raw_text: '{}'", data.getVehicle().getRawText());
                         }
                     }
-                    
-                    // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
-                    if (matchedVehicleId == null && conversationHistory != null) {
-                        GetCustomerVehiclesResponse parsedResponse = parseVehiclesFromHistory(conversationHistory);
-                        if (parsedResponse != null && parsedResponse.getVehicles() != null) {
-                            for (GetCustomerVehiclesResponse.VehicleInfo v : parsedResponse.getVehicles()) {
+                    // Case 2: NAME selection (user chọn bằng license plate, ví dụ: "69D1-27069")
+                    else if (data.getVehicle().getLicensePlate() != null) {
+                        // Tìm vehicle từ tool response hoặc database bằng licensePlate
+                        
+                        // Bước 1: Tìm trong tool response (ThreadLocal)
+                        if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
+                            for (GetCustomerVehiclesResponse.VehicleInfo v : vehiclesResponse.getVehicles()) {
                                 if (v.getLicensePlate() != null && 
                                     v.getLicensePlate().equalsIgnoreCase(data.getVehicle().getLicensePlate())) {
                                     matchedVehicleId = v.getVehicleId();
                                     matchedLicensePlate = v.getLicensePlate();
-                                    log.info("Found vehicle_id from conversation history: {} for license_plate: {}", 
-                                            matchedVehicleId, matchedLicensePlate);
                                     break;
                                 }
                             }
                         }
-                    }
-                    
-                    // Bước 3: Nếu không tìm thấy trong tool response, query database
-                    if (matchedVehicleId == null) {
-                        try {
-                            // Tìm vehicle từ tool response của getCustomerVehicles (nếu có customerId)
-                            // Hoặc query trực tiếp từ database bằng licensePlate
-                            // Note: VehicleProfileService không có search method, cần dùng cách khác
-                            // Tạm thời skip database query cho vehicle vì cần customerId
-                            // Vehicle sẽ được validate từ tool response là đủ
-                            log.debug("Vehicle not found in tool response or history. Skipping database query (requires customerId).");
-                        } catch (Exception e) {
-                            log.warn("Error querying database for vehicle with licensePlate '{}': {}", 
-                                    data.getVehicle().getLicensePlate(), e.getMessage());
+                        
+                        // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                        if (matchedVehicleId == null && conversationHistory != null) {
+                            GetCustomerVehiclesResponse parsedResponse = parseVehiclesFromHistory(conversationHistory);
+                            if (parsedResponse != null && parsedResponse.getVehicles() != null) {
+                                for (GetCustomerVehiclesResponse.VehicleInfo v : parsedResponse.getVehicles()) {
+                                    if (v.getLicensePlate() != null && 
+                                        v.getLicensePlate().equalsIgnoreCase(data.getVehicle().getLicensePlate())) {
+                                        matchedVehicleId = v.getVehicleId();
+                                        matchedLicensePlate = v.getLicensePlate();
+                                        log.info("Found vehicle_id from conversation history: {} for license_plate: {}", 
+                                                matchedVehicleId, matchedLicensePlate);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Bước 3: Nếu không tìm thấy trong tool response, query database
+                        if (matchedVehicleId == null) {
+                            try {
+                                // Tìm vehicle từ tool response của getCustomerVehicles (nếu có customerId)
+                                // Hoặc query trực tiếp từ database bằng licensePlate
+                                // Note: VehicleProfileService không có search method, cần dùng cách khác
+                                // Tạm thời skip database query cho vehicle vì cần customerId
+                                // Vehicle sẽ được validate từ tool response là đủ
+                                log.debug("Vehicle not found in tool response or history. Skipping database query (requires customerId).");
+                            } catch (Exception e) {
+                                log.warn("Error querying database for vehicle with licensePlate '{}': {}", 
+                                        data.getVehicle().getLicensePlate(), e.getMessage());
+                            }
                         }
                     }
                     
@@ -2770,11 +2898,11 @@ public class AiBookingAssistantController {
                         update.setVehicleLicensePlate(matchedLicensePlate);
                         updateType = "VEHICLE";
                         hasUpdate = true;
-                        log.info("AI extracted vehicle licensePlate '{}', validated and found vehicleId: {}", 
-                                data.getVehicle().getLicensePlate(), matchedVehicleId);
+                        log.info("AI extracted vehicle (selection_type: {}, raw_text: {}), validated and found vehicleId: {}, licensePlate: {}", 
+                                selectionType, data.getVehicle().getRawText(), matchedVehicleId, matchedLicensePlate);
                     } else {
-                        log.warn("AI extracted vehicle licensePlate '{}' but not found in tool response or database", 
-                                data.getVehicle().getLicensePlate());
+                        log.warn("AI extracted vehicle (selection_type: {}, raw_text: {}, license_plate: {}) but not found in tool response or database", 
+                                selectionType, data.getVehicle().getRawText(), data.getVehicle().getLicensePlate());
                     }
                 }
                 
@@ -2788,35 +2916,72 @@ public class AiBookingAssistantController {
                 
                 // Update branch
                 // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name với database
-                if (data.getBranch() != null && data.getBranch().getBranchName() != null) {
-                    // Tìm branch từ tool response hoặc database bằng branchName
+                if (data.getBranch() != null) {
+                    String selectionType = data.getBranch().getSelectionType();
                     GetBranchesResponse branchesResponse = DraftContextHolder.getBranchesResponse();
                     UUID matchedBranchId = null;
                     String matchedBranchName = null;
                     
-                    // Bước 1: Tìm trong tool response (ThreadLocal)
-                    if (branchesResponse != null && branchesResponse.getBranches() != null) {
-                        String searchName = data.getBranch().getBranchName().toLowerCase();
-                        for (GetBranchesResponse.BranchInfo b : branchesResponse.getBranches()) {
-                            if (b.getBranchName() != null) {
-                                String branchNameLower = b.getBranchName().toLowerCase();
-                                if (branchNameLower.equals(searchName) || 
-                                    branchNameLower.contains(searchName) || 
-                                    searchName.contains(branchNameLower)) {
-                                    matchedBranchId = b.getBranchId();
-                                    matchedBranchName = b.getBranchName();
-                                    break;
+                    // Case 1: INDEX selection (user chọn bằng số thứ tự, ví dụ: "chi nhánh thứ 2")
+                    if ("INDEX".equals(selectionType) && data.getBranch().getRawText() != null) {
+                        log.info("Processing INDEX selection for branch - raw_text: '{}'", data.getBranch().getRawText());
+                        int index = parseIndexFromText(data.getBranch().getRawText());
+                        log.info("Parsed index from '{}': {}", data.getBranch().getRawText(), index);
+                        
+                        if (index > 0) {
+                            // Bước 1: Tìm trong tool response (ThreadLocal)
+                            if (branchesResponse != null && branchesResponse.getBranches() != null) {
+                                log.info("Checking ThreadLocal branches - total: {}, looking for index: {}", 
+                                        branchesResponse.getBranches().size(), index);
+                                if (index > 0 && index <= branchesResponse.getBranches().size()) {
+                                    GetBranchesResponse.BranchInfo branchInfoByIndex =
+                                        branchesResponse.getBranches().get(index - 1);
+                                    matchedBranchId = branchInfoByIndex.getBranchId();
+                                    matchedBranchName = branchInfoByIndex.getBranchName();
+                                    log.info("Found branch by index {} from ThreadLocal: {} ({})", 
+                                            index, matchedBranchName, matchedBranchId);
+                                } else {
+                                    log.warn("Index {} is out of range (total branches: {})", 
+                                            index, branchesResponse.getBranches().size());
+                                }
+                            } else {
+                                log.warn("No branches in ThreadLocal (branchesResponse is null or empty)");
+                            }
+                            
+                            // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                            if (matchedBranchId == null && conversationHistory != null) {
+                                log.info("Branch not found in ThreadLocal, trying conversation history");
+                                GetBranchesResponse parsedResponse = parseBranchesFromHistory(conversationHistory);
+                                if (parsedResponse != null && parsedResponse.getBranches() != null) {
+                                    log.info("Found branches in conversation history - total: {}, looking for index: {}", 
+                                            parsedResponse.getBranches().size(), index);
+                                    if (index > 0 && index <= parsedResponse.getBranches().size()) {
+                                        GetBranchesResponse.BranchInfo branchInfoByIndex =
+                                            parsedResponse.getBranches().get(index - 1);
+                                        matchedBranchId = branchInfoByIndex.getBranchId();
+                                        matchedBranchName = branchInfoByIndex.getBranchName();
+                                        log.info("Found branch by index {} from conversation history: {} ({})", 
+                                                index, matchedBranchName, matchedBranchId);
+                                    } else {
+                                        log.warn("Index {} is out of range in conversation history (total branches: {})", 
+                                                index, parsedResponse.getBranches().size());
+                                    }
+                                } else {
+                                    log.warn("No branches found in conversation history");
                                 }
                             }
+                        } else {
+                            log.warn("Failed to parse index from raw_text: '{}'", data.getBranch().getRawText());
                         }
                     }
-                    
-                    // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
-                    if (matchedBranchId == null && conversationHistory != null) {
-                        GetBranchesResponse parsedResponse = parseBranchesFromHistory(conversationHistory);
-                        if (parsedResponse != null && parsedResponse.getBranches() != null) {
+                    // Case 2: NAME selection (user chọn bằng tên chi nhánh, ví dụ: "Chi nhánh Phú Nhuận")
+                    else if (data.getBranch().getBranchName() != null) {
+                        // Tìm branch từ tool response hoặc database bằng branchName
+                        
+                        // Bước 1: Tìm trong tool response (ThreadLocal)
+                        if (branchesResponse != null && branchesResponse.getBranches() != null) {
                             String searchName = data.getBranch().getBranchName().toLowerCase();
-                            for (GetBranchesResponse.BranchInfo b : parsedResponse.getBranches()) {
+                            for (GetBranchesResponse.BranchInfo b : branchesResponse.getBranches()) {
                                 if (b.getBranchName() != null) {
                                     String branchNameLower = b.getBranchName().toLowerCase();
                                     if (branchNameLower.equals(searchName) || 
@@ -2824,26 +2989,46 @@ public class AiBookingAssistantController {
                                         searchName.contains(branchNameLower)) {
                                         matchedBranchId = b.getBranchId();
                                         matchedBranchName = b.getBranchName();
-                                        log.info("Found branch_id from conversation history: {} for branch_name: {}", 
-                                                matchedBranchId, matchedBranchName);
                                         break;
                                     }
                                 }
                             }
                         }
-                    }
-                    
-                    // Bước 3: Nếu không tìm thấy trong tool response, query database
-                    if (matchedBranchId == null) {
-                        try {
-                            Branch branch = aiBookingAssistantService.findBranchByNameOrAddress(data.getBranch().getBranchName());
-                            if (branch != null) {
-                                matchedBranchId = branch.getBranchId();
-                                matchedBranchName = branch.getBranchName();
+                        
+                        // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                        if (matchedBranchId == null && conversationHistory != null) {
+                            GetBranchesResponse parsedResponse = parseBranchesFromHistory(conversationHistory);
+                            if (parsedResponse != null && parsedResponse.getBranches() != null) {
+                                String searchName = data.getBranch().getBranchName().toLowerCase();
+                                for (GetBranchesResponse.BranchInfo b : parsedResponse.getBranches()) {
+                                    if (b.getBranchName() != null) {
+                                        String branchNameLower = b.getBranchName().toLowerCase();
+                                        if (branchNameLower.equals(searchName) || 
+                                            branchNameLower.contains(searchName) || 
+                                            searchName.contains(branchNameLower)) {
+                                            matchedBranchId = b.getBranchId();
+                                            matchedBranchName = b.getBranchName();
+                                            log.info("Found branch_id from conversation history: {} for branch_name: {}", 
+                                                    matchedBranchId, matchedBranchName);
+                                            break;
+                                        }
+                                    }
+                                }
                             }
-                        } catch (Exception e) {
-                            log.warn("Error querying database for branch with name '{}': {}", 
-                                    data.getBranch().getBranchName(), e.getMessage());
+                        }
+                        
+                        // Bước 3: Nếu không tìm thấy trong tool response, query database
+                        if (matchedBranchId == null) {
+                            try {
+                                Branch branch = aiBookingAssistantService.findBranchByNameOrAddress(data.getBranch().getBranchName());
+                                if (branch != null) {
+                                    matchedBranchId = branch.getBranchId();
+                                    matchedBranchName = branch.getBranchName();
+                                }
+                            } catch (Exception e) {
+                                log.warn("Error querying database for branch with name '{}': {}", 
+                                        data.getBranch().getBranchName(), e.getMessage());
+                            }
                         }
                     }
                     
@@ -2852,11 +3037,12 @@ public class AiBookingAssistantController {
                         update.setBranchName(matchedBranchName);
                         updateType = "BRANCH";
                         hasUpdate = true;
-                        log.info("AI extracted branch name '{}', validated and found branchId: {}", 
-                                data.getBranch().getBranchName(), matchedBranchId);
+                        log.info("AI extracted branch (selection_type: {}, raw_text: {}), validated and found branchId: {}, branchName: {}", 
+                                selectionType, data.getBranch().getRawText() != null ? data.getBranch().getRawText() : data.getBranch().getBranchName(), 
+                                matchedBranchId, matchedBranchName);
                     } else {
-                        log.warn("AI extracted branch name '{}' but not found in tool response or database", 
-                                data.getBranch().getBranchName());
+                        log.warn("AI extracted branch (selection_type: {}, raw_text: {}, branch_name: {}) but not found in tool response or database", 
+                                selectionType, data.getBranch().getRawText(), data.getBranch().getBranchName());
                     }
                 }
                 
@@ -4429,7 +4615,7 @@ public class AiBookingAssistantController {
                         String bayNameNormalized = bay.getBayName().replaceAll("\\s+", " ").trim();
                         
                         // Match 1: Exact match (case-insensitive)
-                        if (bay.getBayName().equalsIgnoreCase(bayName) || 
+                            if (bay.getBayName().equalsIgnoreCase(bayName) ||
                             bayNameNormalized.equalsIgnoreCase(searchNameNormalized)) {
                             log.info("Found bay_id from database (exact match): {} for bay_name: {} (matched with: {})",
                                     bay.getBayId(), bayName, bay.getBayName());
@@ -4438,11 +4624,11 @@ public class AiBookingAssistantController {
                         
                         // Match 2: Partial match
                         if (bayNameLower.contains(searchNameLower) || 
-                            searchNameLower.contains(bayNameLower)) {
+                                    searchNameLower.contains(bayNameLower)) {
                             log.info("Found bay_id from database (partial match): {} for bay_name: {} (matched with: {})",
-                                    bay.getBayId(), bayName, bay.getBayName());
-                            return bay.getBayId();
-                        }
+                                        bay.getBayId(), bayName, bay.getBayName());
+                                return bay.getBayId();
+                            }
                         
                         // Match 3: Match số trong tên (ví dụ: "Khu vực 1" match với "Khu vực 1")
                         if (extractedNumber != null) {
