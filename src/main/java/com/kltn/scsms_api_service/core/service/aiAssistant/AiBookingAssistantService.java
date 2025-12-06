@@ -144,17 +144,11 @@ public class AiBookingAssistantService {
                         log.info("Found exact match service: {}", service.getServiceName());
                     } else {
                         // Không có exact match, trả về danh sách để user chọn
-                        // TEMPORARY: Tạm thời không lấy giá, set price = 0
-                        // TODO: Re-enable price lookup after testing
-                        log.info("TEMPORARY: Skipping price lookup for {} services, setting price = 0", foundServices.size());
-                        
-                        /* COMMENTED OUT - PRICE LOOKUP
                         // Lấy giá từ price book cho tất cả services
                         List<UUID> serviceIds = foundServices.stream()
                                 .map(Service::getServiceId)
                                 .collect(Collectors.toList());
                         Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
-                        */
 
                         List<AvailabilityResponse.SuggestedServiceInfo> suggestedServices = foundServices.stream()
                                 .map(s -> AvailabilityResponse.SuggestedServiceInfo.builder()
@@ -162,7 +156,7 @@ public class AiBookingAssistantService {
                                         .serviceName(s.getServiceName())
                                         .description(s.getDescription())
                                         .estimatedDuration(s.getEstimatedDuration())
-                                        .price(BigDecimal.ZERO) // TEMPORARY: Set price = 0
+                                        .price(priceMap.getOrDefault(s.getServiceId(), BigDecimal.ZERO))
                                         .build())
                                 .collect(Collectors.toList());
 
@@ -181,17 +175,11 @@ public class AiBookingAssistantService {
             if (service == null) {
                 // Nếu serviceType=null hoặc không tìm thấy, tìm danh sách services gợi ý
                 if (request.getServiceType() == null || request.getServiceType().trim().isEmpty()) {
-                    // TEMPORARY: Không filter isActive - lấy tất cả dịch vụ
-                    // TODO: Re-enable isActive filter after testing
-                    List<Service> allServices = serviceService.findAll();
-                    log.info("TEMPORARY: Returning ALL {} services (isActive filter disabled)", allServices.size());
-                    
-                    /* COMMENTED OUT - IS_ACTIVE FILTER (to be re-enabled later)
                     // Nếu không có serviceType, trả về tất cả services active
                     List<Service> allServices = serviceService.findAll().stream()
                             .filter(s -> s.getIsActive() != null && s.getIsActive())
                             .collect(Collectors.toList());
-                    */
+                    log.info("Returning all {} active services", allServices.size());
 
                     if (allServices.isEmpty()) {
                         return AvailabilityResponse.builder()
@@ -204,17 +192,11 @@ public class AiBookingAssistantService {
                     }
 
                     // Trả về danh sách services để user chọn
-                    // TEMPORARY: Tạm thời không lấy giá, set price = 0
-                    // TODO: Re-enable price lookup after testing
-                    log.info("TEMPORARY: Skipping price lookup for {} services, setting price = 0", allServices.size());
-                    
-                    /* COMMENTED OUT - PRICE LOOKUP
                     // Lấy giá từ price book cho tất cả services
                     List<UUID> serviceIds = allServices.stream()
                             .map(Service::getServiceId)
                             .collect(Collectors.toList());
                     Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
-                    */
 
                     List<AvailabilityResponse.SuggestedServiceInfo> suggestedServices = allServices.stream()
                             .map(s -> AvailabilityResponse.SuggestedServiceInfo.builder()
@@ -222,7 +204,7 @@ public class AiBookingAssistantService {
                                     .serviceName(s.getServiceName())
                                     .description(s.getDescription())
                                     .estimatedDuration(s.getEstimatedDuration())
-                                    .price(BigDecimal.ZERO) // TEMPORARY: Set price = 0
+                                    .price(priceMap.getOrDefault(s.getServiceId(), BigDecimal.ZERO))
                                     .build())
                             .collect(Collectors.toList());
 
@@ -423,19 +405,6 @@ public class AiBookingAssistantService {
 
             if (branchId != null && validatedBranch != null) {
 
-                // TEMPORARY: Tạm thời dừng logic check tồn kho
-                // TODO: Re-enable inventory check after testing
-                // Chỉ check thời gian và bay availability, không check inventory
-                log.info("TEMPORARY: Skipping inventory check for service '{}' at branch {} (name: '{}')",
-                        finalService.getServiceName(), branchId, validatedBranch.getBranchName());
-                log.info("TEMPORARY: Only checking time slots and bay availability, NOT inventory");
-
-                // TEMPORARY: Assume service is always available (skip inventory check)
-                // TODO: Re-enable inventory check after testing
-                log.info("TEMPORARY: Assuming service '{}' is available (inventory check skipped)",
-                        finalService.getServiceName());
-                
-                /* COMMENTED OUT - INVENTORY CHECK (to be re-enabled later)
                 // Check inventory cho service đã chọn - QUAN TRỌNG: Kiểm tra tồn kho sản phẩm
                 // Sử dụng batch-check-services để kiểm tra service cụ thể
                 long inventoryCheckStart = System.currentTimeMillis();
@@ -537,7 +506,6 @@ public class AiBookingAssistantService {
                     log.info("Selected service '{}' passed inventory check at branch {}",
                             finalService.getServiceName(), branchId);
                 }
-                */
             }
 
             // 4. Lấy service bays - BẮT BUỘC phải có branchId (theo quy trình, khách đã chọn chi nhánh ở STEP 5-6)
@@ -1660,17 +1628,7 @@ public class AiBookingAssistantService {
                         .build();
             }
 
-            // 5. TEMPORARY: Tạm thời skip inventory check trong createBooking()
-            // TODO: Re-enable inventory check after testing
-            log.info("TEMPORARY: Skipping inventory check in createBooking() for services: {}",
-                    services.stream().map(Service::getServiceName).collect(Collectors.joining(", ")));
-            log.info("TEMPORARY: Assuming all services are available (skip inventory validation)");
-            
-            // TEMPORARY: Assume all services are available
-            List<Service> availableServices = new ArrayList<>(services);
-            
-            /* COMMENTED OUT - INVENTORY CHECK IN createBooking() (to be re-enabled later)
-            // Check inventory cho services đã chọn - sử dụng batch-check-services
+            // 5. Check inventory cho services đã chọn - sử dụng batch-check-services
             List<UUID> serviceIdsToCheck = services.stream()
                     .map(Service::getServiceId)
                     .collect(Collectors.toList());
@@ -1729,7 +1687,6 @@ public class AiBookingAssistantService {
                         .message(errorMessage.toString())
                         .build();
             }
-            */
 
             // 6. Parse dateTime và check availability
             LocalDate date = parseDate(request.getDateTime());
@@ -1847,13 +1804,8 @@ public class AiBookingAssistantService {
                     bookingItems.size(),
                     bookingItems.stream().map(CreateBookingItemRequest::getServiceName).collect(Collectors.joining(", ")));
 
-            // 9. TEMPORARY: Tạm thời không check price, set totalPrice = 0
-            // TODO: Re-enable price calculation after testing
-            BigDecimal totalPrice = BigDecimal.ZERO;
-            log.info("TEMPORARY: Skipping price calculation, setting totalPrice = 0 for {} services", bookingItems.size());
-            
-            /* COMMENTED OUT - PRICE CALCULATION
-            // Tính tổng giá từ bảng giá
+            // 9. Tính tổng giá từ bảng giá
+            BigDecimal totalPrice;
             try {
                 totalPrice = bookingPricingService.calculateBookingTotalPrice(bookingItems, null);
                 log.info("Calculated total price for booking: {} VND ({} services)", totalPrice, bookingItems.size());
@@ -1864,7 +1816,6 @@ public class AiBookingAssistantService {
                         .message("Không thể tính giá dịch vụ. Vui lòng thử lại sau.")
                         .build();
             }
-            */
 
             // 10. Build CreateBookingWithScheduleRequest
             LocalDateTime scheduledStartAt = LocalDateTime.of(date, bookingStartTime);
@@ -2425,18 +2376,11 @@ public class AiBookingAssistantService {
             List<Service> foundServices;
 
             if (request.getKeyword() == null || request.getKeyword().trim().isEmpty()) {
-                // TEMPORARY: Không filter isActive - lấy tất cả dịch vụ
-                // TODO: Re-enable isActive filter after testing
-                foundServices = serviceService.findAll();
-                log.info("TEMPORARY: No keyword provided, returning ALL {} services (isActive filter disabled)", foundServices.size());
-                
-                /* COMMENTED OUT - IS_ACTIVE FILTER (to be re-enabled later)
                 // Không có keyword → Trả về tất cả dịch vụ active
                 foundServices = serviceService.findAll().stream()
                         .filter(s -> s.getIsActive() != null && s.getIsActive())
                         .collect(Collectors.toList());
                 log.info("No keyword provided, returning all {} active services", foundServices.size());
-                */
             } else {
                 // Có keyword → Tìm theo keyword
                 foundServices = serviceService.searchByKeyword(request.getKeyword().trim());
@@ -2444,11 +2388,6 @@ public class AiBookingAssistantService {
                         request.getKeyword(), foundServices.size());
             }
 
-            // TEMPORARY: Không filter theo branch_id - lấy tất cả dịch vụ
-            // TODO: Re-enable branch_id filter after testing
-            log.info("TEMPORARY: Skipping branch_id filter - returning all services regardless of branch");
-            
-            /* COMMENTED OUT - BRANCH_ID FILTER (to be re-enabled later)
             // Filter theo branch_id nếu có
             if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
                 try {
@@ -2461,7 +2400,6 @@ public class AiBookingAssistantService {
                     log.warn("Invalid branch_id format: '{}', ignoring branch filter", request.getBranchId());
                 }
             }
-            */
 
             if (foundServices.isEmpty()) {
                 return GetServicesResponse.builder()
@@ -2472,17 +2410,11 @@ public class AiBookingAssistantService {
                         .build();
             }
 
-            // TEMPORARY: Tạm thời không lấy giá, set price = 0
-            // TODO: Re-enable price lookup after testing
-            log.info("TEMPORARY: Skipping price lookup for {} services in getServices(), setting price = 0", foundServices.size());
-            
-            /* COMMENTED OUT - PRICE LOOKUP
             // Lấy giá từ price book cho tất cả services
             List<UUID> serviceIds = foundServices.stream()
                     .map(Service::getServiceId)
                     .collect(Collectors.toList());
             Map<UUID, BigDecimal> priceMap = pricingBusinessService.getServicePricesBatch(serviceIds, null);
-            */
 
             // Map Service sang ServiceInfo
             List<GetServicesResponse.ServiceInfo> serviceInfos = foundServices.stream()
@@ -2492,7 +2424,7 @@ public class AiBookingAssistantService {
                                 .serviceName(service.getServiceName())
                                 .description(service.getDescription())
                                 .estimatedDuration(service.getEstimatedDuration())
-                                .price(BigDecimal.ZERO) // TEMPORARY: Set price = 0
+                                .price(priceMap.getOrDefault(service.getServiceId(), BigDecimal.ZERO))
                                 .serviceTypeId(service.getServiceTypeId())
                                 .serviceTypeName(null) // Có thể enrich sau nếu cần
                                 .build();

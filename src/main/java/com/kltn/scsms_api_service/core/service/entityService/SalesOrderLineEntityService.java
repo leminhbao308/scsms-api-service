@@ -20,6 +20,13 @@ public class SalesOrderLineEntityService {
         return repo.findBySalesOrderId(soId);
     }
     
+    /**
+     * Tìm tất cả sales order lines có originalBookingId
+     */
+    public List<SalesOrderLine> findByOriginalBookingId(UUID bookingId) {
+        return repo.findByOriginalBookingId(bookingId);
+    }
+    
     public SalesOrderLine update(SalesOrderLine line) {
         return repo.save(line);
     }

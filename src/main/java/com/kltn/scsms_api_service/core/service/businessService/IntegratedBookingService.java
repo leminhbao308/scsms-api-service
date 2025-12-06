@@ -131,14 +131,12 @@ public class IntegratedBookingService {
             log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
                 savedBooking.getBookingId(), request.getSelectedSchedule());
             
-            // 7. TEMPORARY: Skip stock reservation for AI chatbot testing
-            // TODO: Re-enable stock reservation after testing AI chatbot functionality
+            // 7. Reserve stock cho booking (PENDING status)
             try {
-                log.info("TEMPORARY: Skipping stock reservation for booking: {} (AI chatbot testing)", savedBooking.getBookingId());
                 // Reload booking với details để đảm bảo có đầy đủ thông tin
-                // Booking bookingWithDetails = bookingService.getByIdWithDetails(savedBooking.getBookingId());
-                // bookingInventoryService.reserveStockForBooking(bookingWithDetails);
-                // log.info("Successfully reserved stock for booking: {}", savedBooking.getBookingId());
+                Booking bookingWithDetails = bookingService.getByIdWithDetails(savedBooking.getBookingId());
+                bookingInventoryService.reserveStockForBooking(bookingWithDetails);
+                log.info("Successfully reserved stock for booking: {}", savedBooking.getBookingId());
             } catch (Exception e) {
                 log.error("Failed to reserve stock for booking {}: {}", savedBooking.getBookingId(), e.getMessage(), e);
                 // Không throw exception ở đây để đảm bảo booking vẫn được tạo thành công
@@ -351,17 +349,16 @@ public class IntegratedBookingService {
                     continue;
                 }
                 
-                // TEMPORARY: Skip pricing check - use default price 0
-                // TODO: Re-enable pricing check after testing AI chatbot functionality
+                // Resolve price từ price book
                 BigDecimal unitPrice;
                 try {
                     unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
                     log.info("Resolved price for service {}: {}", itemRequest.getServiceId(), unitPrice);
                 } catch (Exception e) {
-                    // TEMPORARY: If price not found, use default price 0 instead of throwing exception
-                    log.warn("TEMPORARY: Price not found for service {}: {}. Using default price 0.", 
+                    log.error("Price not found for service {}: {}. This should not happen.", 
                             itemRequest.getServiceId(), e.getMessage());
-                    unitPrice = BigDecimal.ZERO;
+                    // Throw exception để đảm bảo booking không được tạo với giá sai
+                    throw new RuntimeException("Cannot resolve price for service: " + itemRequest.getServiceName(), e);
                 }
                 
                 // Get duration from Service entity

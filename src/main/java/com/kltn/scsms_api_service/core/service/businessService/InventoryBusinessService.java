@@ -25,6 +25,7 @@ public class InventoryBusinessService {
     private final StockTransactionEntityService txnES;
     private final ProductService productES;
     private final BranchService branchES;
+    private final SalesOrderEntityService salesOrderEntityService;
     
     
     @Transactional
@@ -86,6 +87,50 @@ public class InventoryBusinessService {
      */
     @Transactional
     public void fulfillStockFIFO(UUID branchId, UUID productId, Long qty, UUID refId, StockRefType refType) {
+        // LỚP BẢO VỆ CUỐI CÙNG: Nếu refType là SALE_ORDER và sales order có originalBookingId → KHÔNG fulfill
+        // Đây là lớp bảo vệ để đảm bảo sales order từ booking KHÔNG BAO GIỜ fulfill inventory
+        if (refType == StockRefType.SALE_ORDER) {
+            try {
+                // Kiểm tra xem sales order có lines với originalBookingId không
+                SalesOrder salesOrder = salesOrderEntityService.requireWithDetails(refId);
+                boolean isFromBooking = salesOrder.getLines().stream()
+                    .anyMatch(line -> line.getOriginalBookingId() != null);
+                
+                if (isFromBooking) {
+                    log.error("CRITICAL BLOCK: Attempted to fulfill inventory for sales order {} from booking. " +
+                        "This should NEVER happen! Sales order from booking CHỈ thanh toán tiền, KHÔNG động chạm đến tồn kho. " +
+                        "BLOCKING inventory fulfillment to prevent duplicate deduction. " +
+                        "This is a last-line defense in InventoryBusinessService.fulfillStockFIFO().",
+                        refId);
+                    throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                        "CRITICAL: Cannot fulfill inventory for sales order from booking. " +
+                        "Sales order from booking only handles payment, not inventory. " +
+                        "Inventory is already handled by booking (reserved at PENDING, fulfilled at IN_PROGRESS).");
+                }
+            } catch (IllegalArgumentException e) {
+                // Sales order not found - có thể refId không phải sales order ID
+                // Nhưng vì refType là SALE_ORDER, nên refId PHẢI là sales order ID
+                // Nếu không tìm thấy, có thể là lỗi nghiêm trọng - log error nhưng vẫn block để an toàn
+                log.error("CRITICAL: refType is SALE_ORDER but sales order {} not found. " +
+                    "This may indicate a data inconsistency. BLOCKING fulfillment to prevent inventory errors.",
+                    refId);
+                throw new ClientSideException(ErrorCode.BAD_REQUEST,
+                    "CRITICAL: Sales order not found for refId " + refId + " with refType SALE_ORDER. " +
+                    "Cannot fulfill inventory - data inconsistency detected.");
+            } catch (ClientSideException e) {
+                // Re-throw ClientSideException (đã block)
+                throw e;
+            } catch (Exception e) {
+                // Bất kỳ exception nào khác cũng phải block - không được tiếp tục fulfill
+                log.error("CRITICAL ERROR: Exception when checking if sales order {} is from booking: {}. " +
+                    "BLOCKING fulfillment to prevent potential duplicate inventory deduction.",
+                    refId, e.getMessage(), e);
+                throw new ClientSideException(ErrorCode.SYSTEM_ERROR,
+                    "CRITICAL: Error checking sales order from booking. Cannot fulfill inventory. " +
+                    "Error: " + e.getMessage());
+            }
+        }
+        
         InventoryLevel level = inventoryLevelEntityService.find(branchId, productId).orElseThrow();
         List<InventoryLot> lots = lotES.fifoLots(branchId, productId);
         long remaining = qty;

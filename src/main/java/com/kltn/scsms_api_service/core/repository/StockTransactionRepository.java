@@ -34,4 +34,33 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
   @Query("SELECT COALESCE(SUM(st.quantity), 0) FROM StockTransaction st " +
       "WHERE st.inventoryLot.id = :lotId")
   Long sumQuantityByLot(@Param("lotId") UUID lotId);
+
+  /**
+   * Find transactions by reference ID and reference type
+   */
+  List<StockTransaction> findByRefIdAndRefTypeOrderByCreatedDateAsc(UUID refId, com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType refType);
+
+  /**
+   * Find transactions by reference ID, reference type, and transaction type
+   */
+  @Query("SELECT st FROM StockTransaction st " +
+      "WHERE st.refId = :refId AND st.refType = :refType AND st.type = :txnType " +
+      "ORDER BY st.createdDate ASC")
+  List<StockTransaction> findByRefIdAndRefTypeAndType(
+      @Param("refId") UUID refId,
+      @Param("refType") com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType refType,
+      @Param("txnType") StockTxnType txnType);
+
+  /**
+   * Sum reserved quantity for a booking/product
+   */
+  @Query("SELECT COALESCE(SUM(ABS(st.quantity)), 0) FROM StockTransaction st " +
+      "WHERE st.refId = :refId AND st.refType = :refType AND st.type = :txnType " +
+      "AND st.product.productId = :productId AND st.branch.branchId = :branchId")
+  Long sumReservedQuantity(
+      @Param("refId") UUID refId,
+      @Param("refType") com.kltn.scsms_api_service.core.entity.enumAttribute.StockRefType refType,
+      @Param("txnType") StockTxnType txnType,
+      @Param("productId") UUID productId,
+      @Param("branchId") UUID branchId);
 }
