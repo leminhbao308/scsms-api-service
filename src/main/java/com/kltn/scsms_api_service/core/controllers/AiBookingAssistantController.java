@@ -2475,7 +2475,7 @@ public class AiBookingAssistantController {
         if ((!draft.hasDate() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi") || wantsToChangeDate) &&
             !isTimeChange &&
             (userMsgLower.contains("ngày") || userMsgLower.contains("mai") ||
-             userMsgLower.contains("hôm nay") || userMessage.matches(".*\\d{1,2}/\\d{1,2}.*"))) {
+                userMsgLower.contains("hôm nay") || userMessage.matches(".*\\d{1,2}/\\d{1,2}.*"))) {
             java.time.LocalDateTime dateTime = extractDateTimeFromMessage(userMessage);
             if (dateTime != null) {
                 update.setDateTime(dateTime);
@@ -2634,12 +2634,12 @@ public class AiBookingAssistantController {
                 log.info("User wants to change time but no specific time provided. Will let AI ask for time selection.");
                 // Không update, để AI hỏi user chọn giờ cụ thể
             } else {
-                String timeSlot = extractTimeSlotFromMessage(userMessage);
-                if (timeSlot != null) {
-                    update.setTimeSlot(timeSlot);
-                    updateType = "TIME";
-                    hasUpdate = true;
-                    log.info("DETECTED TIME SELECTION: {}", timeSlot);
+            String timeSlot = extractTimeSlotFromMessage(userMessage);
+            if (timeSlot != null) {
+                update.setTimeSlot(timeSlot);
+                updateType = "TIME";
+                hasUpdate = true;
+                log.info("DETECTED TIME SELECTION: {}", timeSlot);
                 }
             }
         }
@@ -2838,6 +2838,68 @@ public class AiBookingAssistantController {
                 
                 // Update vehicle
                 // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name/licensePlate với database
+                // CRITICAL: Prevent auto-extract vehicle khi user chỉ nói "Tôi muốn đặt lịch hẹn" (không có thông tin vehicle cụ thể)
+                if (data.getVehicle() != null) {
+                    // Check nếu user message không có thông tin vehicle cụ thể
+                    String userMsgLowerCheck = userMessage.toLowerCase().trim();
+                    boolean isGenericBookingRequest = userMsgLowerCheck.contains("tôi muốn đặt lịch") ||
+                                                     userMsgLowerCheck.contains("muốn đặt lịch") ||
+                                                     userMsgLowerCheck.contains("đặt lịch hẹn") ||
+                                                     userMsgLowerCheck.contains("bắt đầu đặt lịch");
+                    
+                    // Nếu user chỉ nói generic booking request và chưa có vehicle trong draft
+                    // → Prevent auto-extract, để AI hiển thị danh sách xe trước
+                    if (isGenericBookingRequest && !draft.hasVehicle()) {
+                        // CRITICAL: Check xem thông tin vehicle có XUẤT HIỆN TRONG USER MESSAGE không
+                        // Nếu license_plate hoặc raw_text KHÔNG có trong user message → Prevent auto-extract
+                        String extractedLicensePlate = data.getVehicle().getLicensePlate();
+                        String extractedRawText = data.getVehicle().getRawText();
+                        String userMessageNormalized = userMessage.replaceAll("\\s+", "").toUpperCase();
+                        
+                        boolean licensePlateInMessage = false;
+                        boolean rawTextInMessage = false;
+                        
+                        // CRITICAL: Nếu license_plate = null và raw_text = null → Prevent auto-extract ngay lập tức
+                        // Vì AI đã tự động extract vehicle_id từ available options mà không có thông tin từ user message
+                        if ((extractedLicensePlate == null || extractedLicensePlate.trim().isEmpty()) &&
+                            (extractedRawText == null || extractedRawText.trim().isEmpty())) {
+                            log.info("Preventing auto-extract vehicle: User message '{}' is generic booking request. AI extracted vehicle_id but license_plate=null and raw_text=null. Will show vehicle list first.", 
+                                    userMessage);
+                            // Clear vehicle extraction để AI không update draft
+                            data.setVehicle(null);
+                        } else {
+                            // Check nếu license_plate có trong user message
+                            if (extractedLicensePlate != null && !extractedLicensePlate.trim().isEmpty()) {
+                                String normalizedLicensePlate = extractedLicensePlate.replaceAll("\\s+", "").toUpperCase();
+                                licensePlateInMessage = userMessageNormalized.contains(normalizedLicensePlate);
+                            }
+                            
+                            // Check nếu raw_text có trong user message
+                            if (extractedRawText != null && !extractedRawText.trim().isEmpty()) {
+                                // Check nếu raw_text là số (index) hoặc biển số
+                                if (extractedRawText.matches(".*\\d+.*")) {
+                                    String normalizedRawText = extractedRawText.replaceAll("\\s+", "").toUpperCase();
+                                    rawTextInMessage = userMessageNormalized.contains(normalizedRawText) ||
+                                                       userMsgLowerCheck.contains("xe số") ||
+                                                       userMsgLowerCheck.contains("xe thứ") ||
+                                                       userMsgLowerCheck.matches(".*\\b(\\d+)\\b.*"); // Có số trong message
+                                }
+                            }
+                            
+                            // Nếu thông tin vehicle KHÔNG có trong user message → Prevent auto-extract
+                            if (!licensePlateInMessage && !rawTextInMessage) {
+                                log.info("Preventing auto-extract vehicle: User message '{}' is generic booking request. Extracted license_plate='{}', raw_text='{}' but not found in user message. Will show vehicle list first.", 
+                                        userMessage, extractedLicensePlate, extractedRawText);
+                                // Clear vehicle extraction để AI không update draft
+                                data.setVehicle(null);
+                            } else {
+                                log.info("Allowing vehicle extraction: User message contains vehicle info. license_plate_in_message={}, raw_text_in_message={}", 
+                                        licensePlateInMessage, rawTextInMessage);
+                            }
+                        }
+                    }
+                }
+                
                 if (data.getVehicle() != null) {
                     String selectionType = data.getVehicle().getSelectionType();
                     GetCustomerVehiclesResponse vehiclesResponse = DraftContextHolder.getVehiclesResponse();
