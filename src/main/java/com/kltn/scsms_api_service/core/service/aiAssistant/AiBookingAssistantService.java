@@ -2388,17 +2388,15 @@ public class AiBookingAssistantService {
                         request.getKeyword(), foundServices.size());
             }
 
-            // Filter theo branch_id nếu có
+            // KHÔNG filter theo branch_id của service
+            // NGHIỆP VỤ: Check dịch vụ theo chi nhánh = check sản phẩm dùng trong dịch vụ với tồn kho của chi nhánh đó
+            // - Nếu dịch vụ không có sản phẩm → luôn hợp lệ (available)
+            // - Nếu dịch vụ có sản phẩm → check inventory của branch đó
+            // - Logic check inventory sẽ được xử lý trong checkAvailability() và createBooking()
+            // - branch_id trong request chỉ dùng để check inventory, KHÔNG dùng để filter services
             if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
-                try {
-                    UUID branchId = UUID.fromString(request.getBranchId());
-                    foundServices = foundServices.stream()
-                            .filter(s -> s.getBranchId() != null && s.getBranchId().equals(branchId))
-                            .collect(Collectors.toList());
-                    log.info("Filtered by branch_id={}, remaining {} services", branchId, foundServices.size());
-                } catch (IllegalArgumentException e) {
-                    log.warn("Invalid branch_id format: '{}', ignoring branch filter", request.getBranchId());
-                }
+                log.info("Branch_id provided: {} (will be used for inventory check in checkAvailability/createBooking, not for filtering services)", 
+                        request.getBranchId());
             }
 
             if (foundServices.isEmpty()) {

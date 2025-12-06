@@ -7,6 +7,7 @@ import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ChatRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ExtractSelectionRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetCustomerVehiclesRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetServicesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.*;
 import com.kltn.scsms_api_service.core.dto.response.ApiResponse;
 import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
@@ -687,6 +688,34 @@ public class AiBookingAssistantController {
                             """;
                     messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
                 }
+            }
+
+            // 1.4.1. CRITICAL: Inject instruction để AI đề nghị khách chọn dịch vụ và chờ keyword
+            // KHÔNG auto-load tất cả services - chỉ load khi user nói keyword
+            // Gọi khi: (1) đang ở STEP 4 (xác định bằng determineActualStep) VÀ (2) chưa có service trong draft
+            // PHẢI CHẠY TRƯỚC prevent instructions để đảm bảo AI biết cách xử lý
+            if (actualStep == 4 && !draft.hasService() && draft.hasBranch()) {
+                log.info("STEP 4 detected - injecting instruction to ask user for service keyword (actualStep={})", actualStep);
+
+                // Inject instruction để AI đề nghị và chờ keyword từ user
+                String serviceSelectionInstruction = """
+                        CRITICAL INSTRUCTION - BẠN ĐANG Ở STEP 4 (CHỌN DỊCH VỤ):
+                        - BẠN PHẢI đề nghị khách hàng chọn dịch vụ
+                        - Hỏi: "Bạn muốn đặt dịch vụ gì? Ví dụ: rửa xe, bảo dưỡng, sửa chữa..."
+                        - KHÔNG được tự động load tất cả dịch vụ lên trước
+                        - CHỜ user nói keyword (ví dụ: "rửa xe", "bảo dưỡng", "sửa chữa")
+                        - Khi user nói keyword, BẠN PHẢI:
+                          1. Extract keyword từ user message (ví dụ: "rửa xe" từ "tôi muốn rửa xe")
+                          2. TỰ ĐỘNG gọi getServices(keyword='[keyword]', branch_id='[branch_id]') NGAY LẬP TỨC
+                          3. Hiển thị danh sách dịch vụ tìm được cho user chọn
+                          4. Format: "1. [tên dịch vụ] - [giá] VND (Thời lượng: [phút]), 2. [tên dịch vụ] - [giá] VND, ..."
+                          5. Sau đó hỏi: "Bạn muốn chọn dịch vụ nào? Vui lòng cho tôi biết số thứ tự hoặc tên dịch vụ."
+                        - Nếu không tìm thấy dịch vụ nào → Thông báo: "Không tìm thấy dịch vụ phù hợp với '[keyword]'. Bạn có thể thử từ khóa khác không?"
+                        - CHỈ hiển thị danh sách dịch vụ SAU KHI đã gọi getServices(keyword) và có kết quả
+                        - KHÔNG được hỏi lại "Bạn muốn chọn dịch vụ không?" - chỉ cần đề nghị và chờ keyword
+                        """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(serviceSelectionInstruction));
+                log.info("Injected instruction to ask user for service keyword (dynamic search)");
             }
 
             // 1.5. CRITICAL: Inject instruction mạnh để ngăn AI gọi lại function khi đã có dữ liệu
@@ -2090,6 +2119,28 @@ public class AiBookingAssistantController {
     }
 
     /**
+     * Format danh sách dịch vụ để hiển thị cho AI
+     */
+    private String formatServicesList(com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse response) {
+        if (response == null || response.getServices() == null || response.getServices().isEmpty()) {
+            return "Không có dịch vụ nào";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse.ServiceInfo service : response.getServices()) {
+            String serviceName = service.getServiceName() != null ? service.getServiceName() : "N/A";
+            String price = service.getPrice() != null ? service.getPrice().toString() : "N/A";
+            String duration = service.getEstimatedDuration() != null ? service.getEstimatedDuration() + " phút" : "N/A";
+            sb.append(String.format("%d. %s - %s VND (Thời lượng: %s)", index++, serviceName, price, duration));
+            if (index <= response.getServices().size()) {
+                sb.append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
      * Validate draft data trước khi tiếp tục bước tiếp theo
      * Trả về error message nếu có lỗi, null nếu OK
      */
@@ -3176,51 +3227,66 @@ public class AiBookingAssistantController {
                     boolean shouldSaveImmediately = false;
                     String reason = "";
                     
-                    // Case 1: NAME selection (user chọn cụ thể bằng tên) → Lưu ngay
-                    if ("NAME".equals(selectionType)) {
+                    // CRITICAL: Chỉ lưu service vào draft khi user xác nhận rõ ràng
+                    // - INDEX selection: User chọn số thứ tự cụ thể → Lưu ngay
+                    // - NAME selection: User chọn tên cụ thể VÀ match chính xác với service trong danh sách đã hiển thị → Lưu ngay
+                    // - KEYWORD selection: KHÔNG lưu, yêu cầu user chọn cụ thể
+                    // - CONFIRM intent: User xác nhận sau khi đã hiển thị danh sách → Lưu ngay
+                    
+                    // Case 1: INDEX selection (user chọn cụ thể bằng số) → Lưu ngay
+                    if ("INDEX".equals(selectionType)) {
                         shouldSaveImmediately = true;
-                        reason = "NAME selection (user chose specific service name)";
+                        reason = "INDEX selection (user chose specific service by index - confirmed)";
                     }
-                    // Case 2: INDEX selection (user chọn cụ thể bằng số) → Lưu ngay
-                    else if ("INDEX".equals(selectionType)) {
-                        shouldSaveImmediately = true;
-                        reason = "INDEX selection (user chose specific service by index)";
-                    }
-                    // Case 3: KEYWORD selection (user nói keyword chung) → Tùy số lượng services
-                    else if ("KEYWORD".equals(selectionType)) {
-                        // Check số lượng services từ tool response
+                    // Case 2: NAME selection (user chọn cụ thể bằng tên) → CHỈ lưu nếu match chính xác với service trong danh sách
+                    else if ("NAME".equals(selectionType)) {
+                        // CRITICAL: Validate rằng service name match CHÍNH XÁC với một service trong danh sách đã hiển thị
                         GetServicesResponse servicesResponse = DraftContextHolder.getServicesResponse();
                         if (servicesResponse == null) {
                             servicesResponse = parseServicesFromHistory(conversationHistory);
                         }
                         
                         if (servicesResponse != null && servicesResponse.getServices() != null) {
-                            int serviceCount = servicesResponse.getServices().size();
-                            if (serviceCount == 1) {
-                                // Chỉ có 1 service → Hỏi xác nhận (không lưu ngay)
-                                shouldSaveImmediately = false;
-                                reason = "KEYWORD selection with 1 service (need confirmation)";
-                            } else if (serviceCount > 1) {
-                                // Nhiều services → Yêu cầu chọn cụ thể (không lưu ngay)
-                                shouldSaveImmediately = false;
-                                reason = "KEYWORD selection with multiple services (need specific selection)";
+                            String extractedServiceName = data.getService().getServiceName();
+                            boolean exactMatch = false;
+                            
+                            // Tìm exact match hoặc match gần đúng với service trong danh sách đã hiển thị
+                            for (GetServicesResponse.ServiceInfo service : servicesResponse.getServices()) {
+                                if (service.getServiceName() != null) {
+                                    // Exact match (case-insensitive)
+                                    if (service.getServiceName().equalsIgnoreCase(extractedServiceName)) {
+                                        exactMatch = true;
+                                        // Override với tên chính xác từ danh sách
+                                        data.getService().setServiceName(service.getServiceName());
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (exactMatch) {
+                                shouldSaveImmediately = true;
+                                reason = "NAME selection (user chose specific service name - exact match with displayed list)";
                             } else {
-                                // Không có service → Không lưu
+                                // Không match chính xác → Không lưu, yêu cầu user chọn từ danh sách
                                 shouldSaveImmediately = false;
-                                reason = "KEYWORD selection with no services found";
+                                reason = "NAME selection but service name does not match exactly with displayed list (need confirmation)";
                             }
                         } else {
-                            // Không có tool response → Không lưu, yêu cầu AI gọi getServices()
+                            // Không có danh sách services đã hiển thị → Không lưu, yêu cầu AI gọi getServices()
                             shouldSaveImmediately = false;
-                            reason = "KEYWORD selection but no tool response (AI should call getServices() first)";
+                            reason = "NAME selection but no services list available (AI should call getServices() first)";
                         }
+                    }
+                    // Case 3: KEYWORD selection (user nói keyword chung) → KHÔNG lưu, luôn yêu cầu chọn cụ thể
+                    else if ("KEYWORD".equals(selectionType)) {
+                        // CRITICAL: KEYWORD selection KHÔNG BAO GIỜ lưu trực tiếp
+                        // User phải chọn cụ thể bằng INDEX hoặc NAME từ danh sách đã hiển thị
+                        shouldSaveImmediately = false;
+                        reason = "KEYWORD selection (user mentioned keyword, must choose specific service from displayed list)";
                     }
                     // Case 4: CONFIRM intent (user nói "đúng", "có", "ok") → Lấy từ conversation history
                     else if (isConfirmation) {
-                        shouldSaveImmediately = true;
-                        reason = "CONFIRM intent (user confirmed, will get service from conversation history)";
-                        
-                        // Lấy service từ conversation history
+                        // CRITICAL: Chỉ lưu nếu có danh sách services đã hiển thị và user xác nhận
                         GetServicesResponse servicesResponse = parseServicesFromHistory(conversationHistory);
                         if (servicesResponse == null) {
                             servicesResponse = DraftContextHolder.getServicesResponse();
@@ -3233,12 +3299,18 @@ public class AiBookingAssistantController {
                             log.info("User confirmed. Getting service from conversation history: {}", serviceNameFromHistory);
                             // Override service name với service từ conversation history
                             data.getService().setServiceName(serviceNameFromHistory);
+                            shouldSaveImmediately = true;
+                            reason = "CONFIRM intent (user confirmed after seeing service list)";
+                        } else {
+                            // Không có danh sách services → Không lưu
+                            shouldSaveImmediately = false;
+                            reason = "CONFIRM intent but no services list available (AI should show services first)";
                         }
                     }
-                    // Case 5: Service đã có trong draft → Coi như thành công
+                    // Case 5: Service đã có trong draft → Coi như thành công (user đã xác nhận trước đó)
                     else if (draft.hasService()) {
                         shouldSaveImmediately = true;
-                        reason = "Service already in draft (user already confirmed)";
+                        reason = "Service already in draft (user already confirmed previously)";
                     }
                     
                     // Quyết định có lưu hay không

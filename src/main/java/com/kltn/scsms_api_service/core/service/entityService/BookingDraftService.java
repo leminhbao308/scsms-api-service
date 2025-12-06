@@ -267,11 +267,17 @@ public class BookingDraftService {
                 log.info("Branch changed from {} to {}, resetting dependent fields: service, bay, time, date", 
                         oldBranchId, updates.getBranchId());
                 resetDependentFields(draft, draftId, "BRANCH");
-            } else if (oldDateTime != null && updates.getDateTime() != null && 
-                       !oldDateTime.equals(updates.getDateTime())) {
-                log.info("Date changed from {} to {}, resetting dependent fields: service, bay, time", 
-                        oldDateTime, updates.getDateTime());
-                resetDependentFields(draft, draftId, "DATE");
+            } else if (oldDateTime != null && updates.getDateTime() != null) {
+                // Chỉ reset khi đổi ngày (date part), không reset khi chỉ đổi giờ (time part)
+                boolean datePartChanged = !oldDateTime.toLocalDate().equals(updates.getDateTime().toLocalDate());
+                if (datePartChanged) {
+                    log.info("Date changed from {} to {} (date part changed), resetting dependent fields: branch, service, bay, time", 
+                            oldDateTime, updates.getDateTime());
+                    resetDependentFields(draft, draftId, "DATE");
+                } else {
+                    log.debug("DateTime changed from {} to {} but date part unchanged (only time changed), no reset needed", 
+                            oldDateTime, updates.getDateTime());
+                }
             } else if (oldServiceId != null && updates.getServiceId() != null && 
                        !oldServiceId.equals(updates.getServiceId())) {
                 log.info("Service changed from {} to {}, resetting dependent fields: bay, time", 
@@ -309,7 +315,7 @@ public class BookingDraftService {
      * Reset các fields phụ thuộc khi có thay đổi
      * Logic cascade update:
      * - Đổi branch → Reset: service, bay, time, date
-     * - Đổi date → Reset: service, bay, time
+     * - Đổi date → Reset: branch, service, bay, time (NGHIỆP VỤ: Khi đổi ngày phải chọn lại toàn bộ)
      * - Đổi service → Reset: bay, time
      * - Đổi bay → Reset: time
      * - Đổi vehicle/time → Không reset gì
@@ -337,8 +343,10 @@ public class BookingDraftService {
                 break;
                 
             case "DATE":
-                // Reset: service, bay, time
-                log.info("Resetting service, bay, time due to date change");
+                // Reset: branch, service, bay, time (NGHIỆP VỤ: Khi đổi ngày phải chọn lại toàn bộ)
+                log.info("Resetting branch, service, bay, time due to date change");
+                draft.setBranchId(null);
+                draft.setBranchName(null);
                 draft.setServiceId(null);
                 draft.setServiceType(null);
                 draft.setBayId(null);
