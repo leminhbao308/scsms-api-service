@@ -528,9 +528,30 @@ public class AiBookingAssistantController {
                         draft.getCurrentStep(), draft.hasVehicle(), draft.hasBranch(), draft.hasService(), draft.hasBay(), draft.hasTime());
             }
             
-            // 1.1.1. CRITICAL: Nếu AI extraction fail và pattern matching cũng không detect được
+            // 1.1.1. CRITICAL: Detect "thay đổi thời gian" (ambiguous) → Hỏi xác nhận
+            String userMsgLower = userMessage.toLowerCase();
+            boolean isAmbiguousTimeChange = (userMsgLower.contains("thay đổi thời gian") || 
+                                            userMsgLower.contains("đổi thời gian")) &&
+                                           !userMsgLower.contains("ngày") && 
+                                           !userMsgLower.contains("giờ") &&
+                                           !userMsgLower.matches(".*\\b\\d{1,2}:\\d{2}\\b.*");
+            
+            if (isAmbiguousTimeChange && draft.hasDate() && draft.hasTime()) {
+                String clarificationInstruction = """
+                    QUAN TRỌNG: User muốn "thay đổi thời gian" nhưng không rõ là đổi NGÀY hay đổi GIỜ.
+                    Bạn PHẢI hỏi xác nhận:
+                    - "Bạn muốn thay đổi NGÀY đặt lịch hay GIỜ đặt lịch?"
+                    - Nếu user nói "ngày" hoặc "đổi ngày" → Đổi date_time (ngày đặt lịch)
+                    - Nếu user nói "giờ" hoặc "đổi giờ" → Đổi time_slot (giờ đặt lịch, format HH:mm)
+                    KHÔNG được tự động đoán, PHẢI hỏi xác nhận trước.
+                    """;
+                messages.add(new org.springframework.ai.chat.messages.SystemMessage(clarificationInstruction));
+                log.info("Detected ambiguous 'thay đổi thời gian', injected clarification instruction");
+            }
+            
+            // 1.1.2. CRITICAL: Nếu AI extraction fail và pattern matching cũng không detect được
             // → Inject instruction để AI KHÔNG tự động chọn, PHẢI yêu cầu user chọn lại
-            if (!aiExtractionSuccess && !patternMatchingDetected) {
+            if (!aiExtractionSuccess && !patternMatchingDetected && !isAmbiguousTimeChange) {
                 int actualStep = determineActualStep(draft);
                 String noSelectionInstruction = buildNoSelectionInstruction(actualStep, draft, userMessage);
                 if (noSelectionInstruction != null && !noSelectionInstruction.trim().isEmpty()) {
@@ -2408,7 +2429,8 @@ public class AiBookingAssistantController {
         String userMsgLower = userMessage.toLowerCase();
 
         // ========== PARSE VEHICLE SELECTION ==========
-        if (!draft.hasVehicle()) {
+        // Cho phép update vehicle nếu user muốn đổi (không chỉ check !draft.hasVehicle())
+        if (!draft.hasVehicle() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi")) {
             String selectedVehicle = extractVehicleSelectionFromMessage(userMessage, conversationHistory);
             if (selectedVehicle != null) {
                 log.info("DETECTED VEHICLE SELECTION: {}", selectedVehicle);
@@ -2438,8 +2460,22 @@ public class AiBookingAssistantController {
         }
 
         // ========== PARSE DATE SELECTION ==========
-        if (!draft.hasDate() && (userMsgLower.contains("ngày") || userMsgLower.contains("mai") ||
-                userMsgLower.contains("hôm nay") || userMessage.matches(".*\\d{1,2}/\\d{1,2}.*"))) {
+        // Cho phép update date nếu user muốn đổi (không chỉ check !draft.hasDate())
+        // Detect "đổi ngày" hoặc có pattern ngày tháng
+        boolean wantsToChangeDate = userMsgLower.contains("đổi ngày") || 
+                                    userMsgLower.contains("thay đổi ngày") ||
+                                    userMsgLower.contains("đổi ngày đặt lịch") ||
+                                    userMsgLower.contains("thay đổi ngày đặt lịch");
+        
+        // CHỈ extract date nếu KHÔNG phải là "đổi giờ" (tránh nhầm lẫn)
+        boolean isTimeChange = userMsgLower.contains("đổi giờ") || 
+                               userMsgLower.contains("thay đổi giờ") ||
+                               userMsgLower.contains("đổi giờ đặt lịch");
+        
+        if ((!draft.hasDate() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi") || wantsToChangeDate) &&
+            !isTimeChange &&
+            (userMsgLower.contains("ngày") || userMsgLower.contains("mai") ||
+             userMsgLower.contains("hôm nay") || userMessage.matches(".*\\d{1,2}/\\d{1,2}.*"))) {
             java.time.LocalDateTime dateTime = extractDateTimeFromMessage(userMessage);
             if (dateTime != null) {
                 update.setDateTime(dateTime);
@@ -2537,10 +2573,12 @@ public class AiBookingAssistantController {
         }
 
         // ========== PARSE BAY SELECTION ==========
-        if (!draft.hasBay() && (userMsgLower.contains("bay") || 
-                                userMsgLower.contains("khu vực") || 
-                                userMsgLower.contains("chọn bay") ||
-                                userMsgLower.contains("chọn khu vực"))) {
+        // Cho phép update bay nếu user muốn đổi (không chỉ check !draft.hasBay())
+        if ((!draft.hasBay() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi")) &&
+            (userMsgLower.contains("bay") || 
+             userMsgLower.contains("khu vực") || 
+             userMsgLower.contains("chọn bay") ||
+             userMsgLower.contains("chọn khu vực"))) {
             String selectedBay = extractBaySelectionFromMessage(userMessage, conversationHistory);
             if (selectedBay != null) {
                 log.info("DETECTED BAY SELECTION: {}", selectedBay);
@@ -2582,13 +2620,27 @@ public class AiBookingAssistantController {
         }
 
         // ========== PARSE TIME SELECTION ==========
-        if (!draft.hasTime() && userMessage.matches(".*\\b\\d{1,2}:\\d{2}\\b.*")) {
-            String timeSlot = extractTimeSlotFromMessage(userMessage);
-            if (timeSlot != null) {
-                update.setTimeSlot(timeSlot);
-                updateType = "TIME";
-                hasUpdate = true;
-                log.info("DETECTED TIME SELECTION: {}", timeSlot);
+        // Cho phép update time nếu user muốn đổi (không chỉ check !draft.hasTime())
+        // Detect "đổi giờ" hoặc có pattern HH:mm
+        boolean wantsToChangeTime = userMsgLower.contains("đổi giờ") || 
+                                   userMsgLower.contains("thay đổi giờ") ||
+                                   userMsgLower.contains("đổi giờ đặt lịch") ||
+                                   userMsgLower.contains("thay đổi giờ đặt lịch");
+        
+        if ((!draft.hasTime() || userMsgLower.contains("chọn") || userMsgLower.contains("đổi") || wantsToChangeTime) &&
+            (userMessage.matches(".*\\b\\d{1,2}:\\d{2}\\b.*") || wantsToChangeTime)) {
+            // Nếu user nói "đổi giờ" nhưng chưa có giờ cụ thể → Không update, để AI hỏi
+            if (wantsToChangeTime && !userMessage.matches(".*\\b\\d{1,2}:\\d{2}\\b.*")) {
+                log.info("User wants to change time but no specific time provided. Will let AI ask for time selection.");
+                // Không update, để AI hỏi user chọn giờ cụ thể
+            } else {
+                String timeSlot = extractTimeSlotFromMessage(userMessage);
+                if (timeSlot != null) {
+                    update.setTimeSlot(timeSlot);
+                    updateType = "TIME";
+                    hasUpdate = true;
+                    log.info("DETECTED TIME SELECTION: {}", timeSlot);
+                }
             }
         }
 

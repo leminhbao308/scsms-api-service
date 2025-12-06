@@ -283,6 +283,15 @@ public class ExtractionService {
         prompt.append("- Confidence >= 0.8 mới được chấp nhận\n");
         prompt.append("- Nếu không chắc chắn → để confidence < 0.8\n");
         prompt.append("- Nếu không extract được field nào → để null, KHÔNG được để empty string\n");
+        prompt.append("\n");
+        prompt.append("PHÂN BIỆT DATE VÀ TIME (QUAN TRỌNG):\n");
+        prompt.append("- \"date\" (date_time): NGÀY đặt lịch (ví dụ: \"Ngày mai\", \"07/12\", \"2025-12-07T00:00:00\")\n");
+        prompt.append("- \"time\" (time_slot): GIỜ đặt lịch trong ngày (ví dụ: \"08:00\", \"13:30\", \"14:00\")\n");
+        prompt.append("- Nếu user nói \"thay đổi ngày\" hoặc \"đổi ngày\" → extract vào \"date\" (date_time)\n");
+        prompt.append("- Nếu user nói \"thay đổi giờ\" hoặc \"đổi giờ\" hoặc \"đổi giờ đặt lịch\" → extract vào \"time\" (time_slot)\n");
+        prompt.append("- Nếu user nói \"thay đổi thời gian\" (không rõ ngày hay giờ) → để tất cả null, confidence < 0.8\n");
+        prompt.append("- Nếu user nói \"08:00\" hoặc \"13:30\" → extract vào \"time\" (time_slot), KHÔNG extract vào \"date\"\n");
+        prompt.append("- Nếu user nói \"Ngày mai\" hoặc \"07/12\" → extract vào \"date\" (date_time), KHÔNG extract vào \"time\"\n");
         
         return prompt.toString();
     }
