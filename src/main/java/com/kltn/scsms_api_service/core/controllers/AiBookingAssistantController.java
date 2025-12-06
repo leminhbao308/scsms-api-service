@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kltn.scsms_api_service.annotations.SwaggerOperation;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ChatRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ExtractSelectionRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetCustomerVehiclesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.*;
@@ -12,8 +13,10 @@ import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.aiAssistant.AiBookingAssistantService;
+import com.kltn.scsms_api_service.core.service.aiAssistant.ExtractionService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingDraftService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
+import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
 import com.kltn.scsms_api_service.core.service.entityService.VehicleProfileService;
 import com.kltn.scsms_api_service.core.utils.DraftContextHolder;
 import com.kltn.scsms_api_service.core.utils.PermissionUtils;
@@ -32,9 +35,11 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,6 +56,8 @@ public class AiBookingAssistantController {
     private final VehicleProfileService vehicleProfileService;
     private final ServiceBayService serviceBayService;
     private final BookingDraftService bookingDraftService;
+    private final ExtractionService extractionService;
+    private final ServiceService serviceService;
 
     @PostMapping("/chat")
     @Operation(summary = "Chat with AI booking assistant", description = "Send a message to AI assistant. AI will automatically call functions (checkAvailability, createBooking) when needed.")
@@ -73,6 +80,11 @@ public class AiBookingAssistantController {
             String sessionId = request.getSessionId() != null ? request.getSessionId()
                     : java.util.UUID.randomUUID().toString(); // Generate nếu không có
 
+            // CRITICAL: Kiểm tra nếu user muốn bắt đầu đặt lịch mới
+            // Nếu user nói "đặt lịch hẹn", "bắt đầu", "đặt lịch mới" → Reset draft
+            String userMessage = request.getMessage();
+            boolean isNewBookingRequest = isNewBookingRequest(userMessage);
+            
             // Get or create draft
             BookingDraft draft;
             if (request.getDraftId() != null) {
@@ -80,6 +92,40 @@ public class AiBookingAssistantController {
                 try {
                     draft = bookingDraftService.getDraft(request.getDraftId());
                     log.info("Using existing draft from request: draft_id={}", request.getDraftId());
+                    
+                    // CRITICAL: Chỉ reset draft nếu:
+                    // 1. User nói rõ ràng muốn bắt đầu mới ("đặt lịch mới", "bắt đầu lại", etc.)
+                    // 2. VÀ draft đã complete HOẶC draft chưa có data gì (step 1, không có vehicle)
+                    // KHÔNG reset nếu draft đang có data (user đang trong quá trình đặt lịch)
+                    if (isNewBookingRequest) {
+                        boolean shouldReset = false;
+                        
+                        // Case 1: Draft đã complete → Reset để bắt đầu mới
+                        if (draft.isComplete()) {
+                            shouldReset = true;
+                            log.info("Draft is complete, will reset for new booking");
+                        }
+                        // Case 2: Draft chưa có data gì (step 1, không có vehicle) → Reset OK
+                        else if (draft.getCurrentStep() == 1 && !draft.hasVehicle()) {
+                            shouldReset = true;
+                            log.info("Draft is empty (step 1, no vehicle), will reset for new booking");
+                        }
+                        // Case 3: Draft đang có data → KHÔNG reset (user đang trong quá trình đặt lịch)
+                        else {
+                            log.info("Draft has data (step={}, hasVehicle={}, hasDate={}, hasBranch={}, hasService={}, hasBay={}). " +
+                                    "User message '{}' contains booking keywords but draft is in progress. Will NOT reset.",
+                                    draft.getCurrentStep(), draft.hasVehicle(), draft.hasDate(), draft.hasBranch(), 
+                                    draft.hasService(), draft.hasBay(), userMessage);
+                            shouldReset = false;
+                        }
+                        
+                        if (shouldReset) {
+                            log.info("User wants to start new booking. Resetting draft: draft_id={}, current_step={}, is_complete={}", 
+                                    draft.getDraftId(), draft.getCurrentStep(), draft.isComplete());
+                            draft = bookingDraftService.resetDraft(draft.getDraftId());
+                            log.info("Draft reset successfully: draft_id={}, current_step={}", draft.getDraftId(), draft.getCurrentStep());
+                        }
+                    }
                 } catch (Exception e) {
                     log.warn("Draft not found with draft_id={}, creating new draft", request.getDraftId());
                     draft = bookingDraftService.getOrCreateDraft(sessionId, customerId);
@@ -87,10 +133,35 @@ public class AiBookingAssistantController {
             } else {
                 // Không có draft_id → Get or create theo session
                 draft = bookingDraftService.getOrCreateDraft(sessionId, customerId);
+                
+                // CRITICAL: Chỉ reset draft nếu:
+                // 1. User nói rõ ràng muốn bắt đầu mới
+                // 2. VÀ draft đã complete HOẶC draft chưa có data gì
+                if (isNewBookingRequest) {
+                    boolean shouldReset = false;
+                    
+                    if (draft.isComplete()) {
+                        shouldReset = true;
+                        log.info("Draft is complete, will reset for new booking");
+                    } else if (draft.getCurrentStep() == 1 && !draft.hasVehicle()) {
+                        shouldReset = true;
+                        log.info("Draft is empty (step 1, no vehicle), will reset for new booking");
+                    } else {
+                        log.info("Draft has data. Will NOT reset even though user message contains booking keywords.");
+                        shouldReset = false;
+                    }
+                    
+                    if (shouldReset) {
+                        log.info("User wants to start new booking. Resetting draft: draft_id={}, current_step={}, is_complete={}", 
+                                draft.getDraftId(), draft.getCurrentStep(), draft.isComplete());
+                        draft = bookingDraftService.resetDraft(draft.getDraftId());
+                        log.info("Draft reset successfully: draft_id={}, current_step={}", draft.getDraftId(), draft.getCurrentStep());
+                    }
+                }
             }
 
-            log.info("Current Draft State: draft_id={}, current_step={}, status={}",
-                    draft.getDraftId(), draft.getCurrentStep(), draft.getStatus());
+            log.info("Current Draft State: draft_id={}, current_step={}, status={}, is_complete={}",
+                    draft.getDraftId(), draft.getCurrentStep(), draft.getStatus(), draft.isComplete());
 
             // Set draft context vào ThreadLocal để function configs có thể access
             DraftContextHolder.setDraftId(draft.getDraftId());
@@ -109,15 +180,28 @@ public class AiBookingAssistantController {
                 extractedState.setVehicleId(draft.getVehicleId() != null ? draft.getVehicleId().toString() : null);
                 extractedState.setVehicleLicensePlate(draft.getVehicleLicensePlate());
             }
+            if (draft.hasDate() && extractedState.getDateTime() == null) {
+                extractedState.setHasDate(true);
+                extractedState.setDateTime(draft.getDateTime());
+            }
             if (draft.hasBranch() && extractedState.getBranchId() == null) {
                 extractedState.setHasBranch(true);
                 extractedState.setBranchId(draft.getBranchId() != null ? draft.getBranchId().toString() : null);
                 extractedState.setBranchName(draft.getBranchName());
             }
+            if (draft.hasService() && extractedState.getServiceId() == null) {
+                extractedState.setHasService(true);
+                extractedState.setServiceId(draft.getServiceId() != null ? draft.getServiceId().toString() : null);
+                extractedState.setServiceType(draft.getServiceType());
+            }
             if (draft.hasBay() && extractedState.getBayId() == null) {
                 extractedState.setHasBay(true);
                 extractedState.setBayId(draft.getBayId() != null ? draft.getBayId().toString() : null);
                 extractedState.setBayName(draft.getBayName());
+            }
+            if (draft.hasTime() && extractedState.getTimeSlot() == null) {
+                extractedState.setHasTime(true);
+                extractedState.setTimeSlot(draft.getTimeSlot());
             }
 
             log.info("Extracted state (with draft): vehicle={}, date={}, branch={}, service={}, bay={}, time={}",
@@ -128,11 +212,197 @@ public class AiBookingAssistantController {
             // PHẦN 3: PARSE USER MESSAGE VÀ UPDATE DRAFT TRƯỚC KHI GỌI AI
             // ============================================================
             // CRITICAL: Parse và update draft TRƯỚC KHI build messages để AI nhận được draft context đầy đủ
-            String userMessage = request.getMessage();
+            // userMessage đã được lấy ở trên
             List<ChatRequest.ChatMessage> conversationHistory = request.getConversationHistory();
 
-            // Parse user message để detect selections (vehicle, branch, service, bay, time)
-            draft = parseUserSelectionAndUpdateDraft(draft, userMessage, conversationHistory);
+                // NEW FLOW: AI extraction trước, pattern matching fallback sau
+                // Step 1: Thử AI extraction trước (ưu tiên - thông minh hơn)
+                boolean aiExtractionSuccess = false;
+                UUID draftIdBeforeAI = draft.getDraftId();
+                
+                // Lưu state TRƯỚC AI extraction để so sánh chính xác
+                UUID vehicleIdBefore = draft.getVehicleId();
+                LocalDateTime dateTimeBefore = draft.getDateTime();
+                UUID branchIdBefore = draft.getBranchId();
+                UUID serviceIdBefore = draft.getServiceId();
+                UUID bayIdBefore = draft.getBayId();
+                String timeSlotBefore = draft.getTimeSlot();
+                
+                // CRITICAL: Auto-load bay list TRƯỚC KHI AI extraction nếu ở step 5
+                // Đảm bảo available options có bay list để AI extraction có thể validate
+                int actualStepBeforeAI = determineActualStep(draft);
+                if (actualStepBeforeAI == 5 && !draft.hasBay() && draft.hasService() && draft.hasDate() && draft.hasBranch()) {
+                    log.info("STEP 5 detected, auto-loading bay list before AI extraction");
+                    
+                    // Lấy AvailabilityResponse từ ThreadLocal hoặc conversation history
+                    AvailabilityResponse availabilityResponse = DraftContextHolder.getAvailabilityResponse();
+                    if (availabilityResponse == null && conversationHistory != null) {
+                        availabilityResponse = parseAvailabilityFromHistory(conversationHistory);
+                    }
+                    
+                    // Nếu không có → Auto-call checkAvailability()
+                    if (availabilityResponse == null || availabilityResponse.getAvailableBays() == null) {
+                        log.info("No AvailabilityResponse found. Auto-calling checkAvailability() before AI extraction for bay selection.");
+                        
+                        // Lấy service_type từ draft
+                        String serviceType = null;
+                        List<DraftService> draftServices = bookingDraftService.getDraftServices(draft.getDraftId());
+                        if (!draftServices.isEmpty()) {
+                            serviceType = draftServices.get(0).getServiceName();
+                        } else if (draft.getServiceType() != null) {
+                            serviceType = draft.getServiceType();
+                        }
+                        
+                        if (serviceType != null && draft.hasBranch() && draft.hasDate()) {
+                            try {
+                                com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest availabilityRequest =
+                                        com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest.builder()
+                                                .serviceType(serviceType)
+                                                .branchId(draft.getBranchId() != null ? draft.getBranchId().toString() : null)
+                                                .branchName(draft.getBranchName())
+                                                .dateTime(draft.getDateTime() != null ? draft.getDateTime().toString() : null)
+                                                .build();
+                                
+                                availabilityResponse = aiBookingAssistantService.checkAvailability(availabilityRequest);
+                                DraftContextHolder.setAvailabilityResponse(availabilityResponse);
+                                
+                                log.info("Auto-called checkAvailability() before AI extraction for bay selection - found {} available bays",
+                                        availabilityResponse.getAvailableBays() != null ? availabilityResponse.getAvailableBays().size() : 0);
+                            } catch (Exception e) {
+                                log.error("Error auto-calling checkAvailability() before AI extraction for bay selection: {}", e.getMessage(), e);
+                            }
+                        }
+                    }
+                }
+                
+                // CRITICAL: Auto-load time slots TRƯỚC KHI AI extraction nếu ở step 6
+                // Đảm bảo available options có time slots để AI extraction có thể validate
+                if (actualStepBeforeAI == 6 && !draft.hasTime() && draft.hasBay()) {
+                    log.info("STEP 6 detected, auto-loading time slots before AI extraction");
+                    
+                    // Lấy AvailabilityResponse từ ThreadLocal hoặc conversation history
+                    AvailabilityResponse availabilityResponse = DraftContextHolder.getAvailabilityResponse();
+                    if (availabilityResponse == null && conversationHistory != null) {
+                        availabilityResponse = parseAvailabilityFromHistory(conversationHistory);
+                    }
+                    
+                    // Nếu không có → Auto-call checkAvailability()
+                    if (availabilityResponse == null || availabilityResponse.getAvailableBays() == null) {
+                        log.info("No AvailabilityResponse found. Auto-calling checkAvailability() before AI extraction.");
+                        
+                        // Lấy service_type từ draft
+                        String serviceType = null;
+                        List<DraftService> draftServices = bookingDraftService.getDraftServices(draft.getDraftId());
+                        if (!draftServices.isEmpty()) {
+                            serviceType = draftServices.get(0).getServiceName();
+                        } else if (draft.getServiceType() != null) {
+                            serviceType = draft.getServiceType();
+                        }
+                        
+                        if (serviceType != null && draft.hasBranch() && draft.hasDate()) {
+                            try {
+                                com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest availabilityRequest =
+                                        com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest.builder()
+                                                .serviceType(serviceType)
+                                                .branchId(draft.getBranchId() != null ? draft.getBranchId().toString() : null)
+                                                .branchName(draft.getBranchName())
+                                                .dateTime(draft.getDateTime() != null ? draft.getDateTime().toString() : null)
+                                                .build();
+                                
+                                availabilityResponse = aiBookingAssistantService.checkAvailability(availabilityRequest);
+                                DraftContextHolder.setAvailabilityResponse(availabilityResponse);
+                                
+                                log.info("Auto-called checkAvailability() before AI extraction - found {} available bays",
+                                        availabilityResponse.getAvailableBays() != null ? availabilityResponse.getAvailableBays().size() : 0);
+                            } catch (Exception e) {
+                                log.error("Error auto-calling checkAvailability() before AI extraction: {}", e.getMessage(), e);
+                            }
+                        }
+                    }
+                }
+                
+                if (shouldUseAIExtraction(draft, userMessage)) {
+                    log.info("Trying AI-powered extraction first (priority)");
+                    BookingDraft draftAfterAI = tryAIExtraction(draft, userMessage, conversationHistory);
+                    
+                    // Check nếu AI extraction thành công bằng cách reload draft từ database
+                    // và so sánh với state TRƯỚC AI extraction
+                    if (draftAfterAI != null) {
+                        try {
+                            // Đợi một chút để đảm bảo transaction đã commit
+                            // Note: Thread.sleep có thể không tốt, nhưng cần thiết để đảm bảo transaction commit
+                            try {
+                                Thread.sleep(50);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                log.warn("Thread interrupted while waiting for transaction commit");
+                            }
+                            BookingDraft reloadedDraft = bookingDraftService.getDraft(draftIdBeforeAI);
+                            
+                            // So sánh với state TRƯỚC AI extraction (không dùng draft object vì có thể đã bị thay đổi)
+                            boolean hasChanges = !Objects.equals(vehicleIdBefore, reloadedDraft.getVehicleId()) ||
+                                                !Objects.equals(dateTimeBefore, reloadedDraft.getDateTime()) ||
+                                                !Objects.equals(branchIdBefore, reloadedDraft.getBranchId()) ||
+                                                !Objects.equals(serviceIdBefore, reloadedDraft.getServiceId()) ||
+                                                !Objects.equals(bayIdBefore, reloadedDraft.getBayId()) ||
+                                                !Objects.equals(timeSlotBefore, reloadedDraft.getTimeSlot());
+                            
+                            if (hasChanges) {
+                                draft = reloadedDraft;
+                                aiExtractionSuccess = true;
+                                log.info("AI extraction succeeded, draft updated. Changes detected: vehicle={}, date={}, branch={}, service={}, bay={}, time={}",
+                                        !Objects.equals(vehicleIdBefore, reloadedDraft.getVehicleId()),
+                                        !Objects.equals(dateTimeBefore, reloadedDraft.getDateTime()),
+                                        !Objects.equals(branchIdBefore, reloadedDraft.getBranchId()),
+                                        !Objects.equals(serviceIdBefore, reloadedDraft.getServiceId()),
+                                        !Objects.equals(bayIdBefore, reloadedDraft.getBayId()),
+                                        !Objects.equals(timeSlotBefore, reloadedDraft.getTimeSlot()));
+                            } else {
+                                log.info("AI extraction did not result in draft changes, falling back to pattern matching");
+                            }
+                        } catch (Exception e) {
+                            log.warn("Error reloading draft after AI extraction: {}", e.getMessage());
+                            // Fallback to pattern matching
+                        }
+                    } else {
+                        log.info("AI extraction did not succeed or confidence too low, falling back to pattern matching");
+                    }
+                }
+                
+                // Step 2: Fallback - Pattern matching (chỉ khi AI extraction không thành công)
+                boolean patternMatchingDetected = false;
+                if (!aiExtractionSuccess) {
+                    log.info("Using pattern matching as fallback");
+                    BookingDraft draftBeforePattern = bookingDraftService.getDraft(draft.getDraftId());
+                    UUID vehicleIdBeforePattern = draftBeforePattern.getVehicleId();
+                    LocalDateTime dateTimeBeforePattern = draftBeforePattern.getDateTime();
+                    UUID branchIdBeforePattern = draftBeforePattern.getBranchId();
+                    UUID serviceIdBeforePattern = draftBeforePattern.getServiceId();
+                    UUID bayIdBeforePattern = draftBeforePattern.getBayId();
+                    String timeSlotBeforePattern = draftBeforePattern.getTimeSlot();
+                    
+                    draft = parseUserSelectionAndUpdateDraft(draft, userMessage, conversationHistory);
+                    
+                    // Check nếu pattern matching có detect được gì không
+                    try {
+                        Thread.sleep(50);
+                        BookingDraft draftAfterPattern = bookingDraftService.getDraft(draft.getDraftId());
+                        patternMatchingDetected = !Objects.equals(vehicleIdBeforePattern, draftAfterPattern.getVehicleId()) ||
+                                                  !Objects.equals(dateTimeBeforePattern, draftAfterPattern.getDateTime()) ||
+                                                  !Objects.equals(branchIdBeforePattern, draftAfterPattern.getBranchId()) ||
+                                                  !Objects.equals(serviceIdBeforePattern, draftAfterPattern.getServiceId()) ||
+                                                  !Objects.equals(bayIdBeforePattern, draftAfterPattern.getBayId()) ||
+                                                  !Objects.equals(timeSlotBeforePattern, draftAfterPattern.getTimeSlot());
+                        if (patternMatchingDetected) {
+                            draft = draftAfterPattern;
+                            log.info("Pattern matching detected selection, draft updated");
+                        } else {
+                            log.info("Pattern matching did not detect any selection");
+                        }
+                    } catch (Exception e) {
+                        log.warn("Error checking pattern matching result: {}", e.getMessage());
+                    }
+                }
 
             // CRITICAL: Reload draft từ database sau khi update để có data mới nhất
             // Điều này đảm bảo draft context có đầy đủ thông tin mới nhất (ví dụ: bay_id sau khi user chọn bay)
@@ -185,6 +455,17 @@ public class AiBookingAssistantController {
                 messages.add(new org.springframework.ai.chat.messages.SystemMessage(draftContext));
                 log.info("Added draft context to messages - current_step={}, hasVehicle={}, hasBranch={}, hasService={}, hasBay={}, hasTime={}",
                         draft.getCurrentStep(), draft.hasVehicle(), draft.hasBranch(), draft.hasService(), draft.hasBay(), draft.hasTime());
+            }
+            
+            // 1.1.1. CRITICAL: Nếu AI extraction fail và pattern matching cũng không detect được
+            // → Inject instruction để AI KHÔNG tự động chọn, PHẢI yêu cầu user chọn lại
+            if (!aiExtractionSuccess && !patternMatchingDetected) {
+                int actualStep = determineActualStep(draft);
+                String noSelectionInstruction = buildNoSelectionInstruction(actualStep, draft, userMessage);
+                if (noSelectionInstruction != null && !noSelectionInstruction.trim().isEmpty()) {
+                    messages.add(new org.springframework.ai.chat.messages.SystemMessage(noSelectionInstruction));
+                    log.info("Injected instruction: AI extraction and pattern matching both failed, AI must ask user to select again");
+                }
             }
 
             // 1.2. CRITICAL: Xác định actual step TRƯỚC KHI xử lý auto-load và prevent instructions
@@ -342,6 +623,82 @@ public class AiBookingAssistantController {
                         """;
                 messages.add(new org.springframework.ai.chat.messages.SystemMessage(preventVehicleCallInstruction));
                 log.info("Injected instruction to prevent getCustomerVehicles() call - vehicle already selected");
+            }
+
+            // 1.5.1. CRITICAL: Auto-call checkAvailability() nếu ở STEP 5 và chưa có bay
+            // → Tự động GỌI checkAvailability() TRỰC TIẾP từ backend và inject kết quả (danh sách bay)
+            // PHẢI CHẠY TRƯỚC prevent instructions để đảm bảo load data khi cần
+            if (actualStep == 5 && !draft.hasBay() && draft.hasService() && draft.hasDate() && draft.hasBranch()) {
+                log.info("Auto-calling checkAvailability() directly from backend - STEP 5 (actualStep={}), no bay selected", actualStep);
+
+                // Gọi function trực tiếp từ backend
+                try {
+                    // Lấy service_type từ draft
+                    String serviceType = null;
+                    List<DraftService> draftServices = bookingDraftService.getDraftServices(draft.getDraftId());
+                    if (!draftServices.isEmpty()) {
+                        serviceType = draftServices.get(0).getServiceName();
+                    } else if (draft.getServiceType() != null) {
+                        serviceType = draft.getServiceType();
+                    }
+
+                    if (serviceType != null && draft.hasBranch() && draft.hasDate()) {
+                        com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest availabilityRequest =
+                                com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest.builder()
+                                        .serviceType(serviceType)
+                                        .branchId(draft.getBranchId() != null ? draft.getBranchId().toString() : null)
+                                        .branchName(draft.getBranchName())
+                                        .dateTime(draft.getDateTime() != null ? draft.getDateTime().toString() : null)
+                                        .build();
+
+                        AvailabilityResponse availabilityResponse = aiBookingAssistantService.checkAvailability(availabilityRequest);
+                        DraftContextHolder.setAvailabilityResponse(availabilityResponse);
+
+                        // Inject instruction để AI sử dụng kết quả đã có
+                        if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null && !availabilityResponse.getAvailableBays().isEmpty()) {
+                            String autoCallInstruction = String.format("""
+                                    CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                                    - Backend đã TỰ ĐỘNG gọi checkAvailability() và có kết quả
+                                    - Danh sách bay/khu vực đã được load sẵn, bạn KHÔNG cần gọi function lại
+                                    - BẠN PHẢI hiển thị danh sách bay cho user ngay lập tức
+                                    - Format: "1. [tên bay], 2. [tên bay], ..."
+                                    - Sau đó hỏi: "Bạn muốn chọn bay/khu vực nào? Vui lòng cho tôi biết số thứ tự hoặc tên bay."
+                                    - KHÔNG được hỏi lại "Bạn muốn chọn bay không?" hoặc "Tôi sẽ kiểm tra availability"
+                                    
+                                    DANH SÁCH BAY ĐÃ LOAD:
+                                    %s
+                                    """, formatBaysList(availabilityResponse));
+                            messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+
+                            log.info("Auto-called checkAvailability() - found {} available bays", availabilityResponse.getAvailableBays().size());
+                        } else {
+                            // Không có bay
+                            String noBaysInstruction = """
+                                    CRITICAL INSTRUCTION:
+                                    - Backend đã gọi checkAvailability() nhưng không có bay nào khả dụng
+                                    - BẠN PHẢI thông báo: "Hiện tại không có bay/khu vực nào khả dụng cho ngày và dịch vụ bạn đã chọn. Vui lòng chọn ngày khác hoặc dịch vụ khác."
+                                    - KHÔNG được hỏi lại về việc chọn bay
+                                    """;
+                            messages.add(new org.springframework.ai.chat.messages.SystemMessage(noBaysInstruction));
+                            log.info("Auto-called checkAvailability() - no available bays found");
+                        }
+                    } else {
+                        log.warn("Cannot auto-call checkAvailability() for bay selection: missing required data - serviceType={}, hasBranch={}, hasDate={}",
+                                serviceType, draft.hasBranch(), draft.hasDate());
+                    }
+                } catch (Exception e) {
+                    log.error("Error auto-calling checkAvailability() for bay selection: {}", e.getMessage(), e);
+                    // Fallback: Inject instruction để AI gọi function
+                    String autoCallInstruction = """
+                            CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                            - User đang ở STEP 5 (chọn bay/khu vực) và chưa có bay_id
+                            - BẠN PHẢI TỰ ĐỘNG GỌI checkAvailability() NGAY LẬP TỨC
+                            - KHÔNG nói "Tôi sẽ kiểm tra availability" rồi chờ user yêu cầu
+                            - PHẢI gọi function NGAY và hiển thị danh sách bay cho user chọn
+                            - KHÔNG được hỏi lại user về việc có muốn chọn bay không
+                            """;
+                    messages.add(new org.springframework.ai.chat.messages.SystemMessage(autoCallInstruction));
+                }
             }
 
             // 1.6. CRITICAL: Sau khi chọn bay thành công, tự động lấy danh sách time slots và inject cho AI
@@ -1340,6 +1697,30 @@ public class AiBookingAssistantController {
     }
 
     /**
+     * Kiểm tra xem user message có phải là yêu cầu bắt đầu đặt lịch mới không
+     * Nếu user nói "đặt lịch hẹn", "bắt đầu", "đặt lịch mới" → Cần reset draft
+     */
+    private boolean isNewBookingRequest(String userMessage) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return false;
+        }
+        
+        String msgLower = userMessage.toLowerCase().trim();
+        
+        // Các keywords cho yêu cầu bắt đầu đặt lịch mới
+        boolean isNewBooking = msgLower.contains("đặt lịch hẹn") ||
+                              msgLower.contains("muốn đặt lịch") ||
+                              msgLower.contains("cần đặt lịch") ||
+                              msgLower.contains("bắt đầu") ||
+                              msgLower.contains("đặt lịch mới") ||
+                              msgLower.contains("tạo booking mới") ||
+                              (msgLower.contains("đặt lịch") && 
+                               (msgLower.contains("mới") || msgLower.contains("lại")));
+        
+        return isNewBooking;
+    }
+    
+    /**
      * Kiểm tra xem user message có phải là yêu cầu đặt lịch không
      */
     private boolean isBookingRequest(String userMessage, List<ChatRequest.ChatMessage> conversationHistory) {
@@ -1457,6 +1838,26 @@ public class AiBookingAssistantController {
     }
 
     /**
+     * Kiểm tra xem một message có phải là từ chối không
+     *
+     * @param content Nội dung message (đã lowercase)
+     * @return true nếu là từ chối, false nếu không
+     */
+    private boolean isRejectionMessage(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            return false;
+        }
+
+        content = content.trim();
+
+        return content.contains("không") ||
+                content.contains("sai") ||
+                content.contains("không phải") ||
+                content.contains("không đúng") ||
+                content.equals("no");
+    }
+
+    /**
      * Format danh sách xe để hiển thị cho user
      */
     /**
@@ -1565,6 +1966,25 @@ public class AiBookingAssistantController {
         for (com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse.VehicleInfo vehicle : response.getVehicles()) {
             sb.append(String.format("%d. %s", index++, vehicle.getLicensePlate()));
             if (index <= response.getVehicles().size()) {
+                sb.append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Format danh sách bay từ AvailabilityResponse để hiển thị cho AI
+     */
+    private String formatBaysList(AvailabilityResponse response) {
+        if (response == null || response.getAvailableBays() == null || response.getAvailableBays().isEmpty()) {
+            return "Không có bay nào";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (AvailabilityResponse.AvailableBayInfo bay : response.getAvailableBays()) {
+            sb.append(String.format("%d. %s", index++, bay.getBayName() != null ? bay.getBayName() : "N/A"));
+            if (index <= response.getAvailableBays().size()) {
                 sb.append("\n");
             }
         }
@@ -1707,6 +2127,69 @@ public class AiBookingAssistantController {
             return 7; // Đầy đủ, sẵn sàng tạo booking
         }
     }
+    
+    /**
+     * Build instruction để AI KHÔNG tự động chọn khi extraction fail
+     * Dùng khi cả AI extraction và pattern matching đều không detect được selection
+     */
+    private String buildNoSelectionInstruction(int actualStep, BookingDraft draft, String userMessage) {
+        StringBuilder instruction = new StringBuilder();
+        instruction.append("⚠️ CRITICAL - KHÔNG TỰ ĐỘNG CHỌN ⚠️\n");
+        instruction.append("Backend đã thử AI extraction và pattern matching nhưng KHÔNG detect được lựa chọn từ user message.\n");
+        instruction.append("User message: \"").append(userMessage).append("\"\n\n");
+        
+        switch (actualStep) {
+            case 1:
+                instruction.append("BẠN ĐANG Ở STEP 1 (chọn xe).\n");
+                instruction.append("User chưa chọn xe rõ ràng (không có biển số, không có số thứ tự).\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn xe đầu tiên.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại bằng cách:\n");
+                instruction.append("- Hiển thị lại danh sách xe (nếu đã có từ getCustomerVehicles())\n");
+                instruction.append("- Hỏi: \"Bạn muốn chọn xe nào? Vui lòng cho tôi biết số thứ tự hoặc biển số.\"\n");
+                instruction.append("- CHỜ user chọn rõ ràng trước khi tiếp tục.\n");
+                break;
+            case 2:
+                instruction.append("BẠN ĐANG Ở STEP 2 (chọn ngày).\n");
+                instruction.append("User chưa chọn ngày rõ ràng.\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn ngày.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại: \"Bạn muốn đặt lịch vào ngày nào? (ví dụ: ngày mai, 15/12, hôm nay)\"\n");
+                break;
+            case 3:
+                instruction.append("BẠN ĐANG Ở STEP 3 (chọn chi nhánh).\n");
+                instruction.append("User chưa chọn chi nhánh rõ ràng.\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn chi nhánh đầu tiên.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại: \"Bạn muốn chọn chi nhánh nào? Vui lòng cho tôi biết số thứ tự hoặc tên chi nhánh.\"\n");
+                break;
+            case 4:
+                instruction.append("BẠN ĐANG Ở STEP 4 (chọn dịch vụ).\n");
+                instruction.append("User chưa chọn dịch vụ rõ ràng.\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn dịch vụ.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại: \"Bạn muốn đặt dịch vụ gì? (ví dụ: rửa xe, bảo dưỡng)\"\n");
+                break;
+            case 5:
+                instruction.append("BẠN ĐANG Ở STEP 5 (chọn bay/khu vực).\n");
+                instruction.append("User chưa chọn bay rõ ràng.\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn bay đầu tiên.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại: \"Bạn muốn chọn bay/khu vực nào? Vui lòng cho tôi biết số thứ tự hoặc tên bay.\"\n");
+                break;
+            case 6:
+                instruction.append("BẠN ĐANG Ở STEP 6 (chọn giờ).\n");
+                instruction.append("User chưa chọn giờ rõ ràng.\n");
+                instruction.append("TUYỆT ĐỐI KHÔNG được tự động chọn giờ đầu tiên.\n");
+                instruction.append("PHẢI yêu cầu user chọn lại: \"Bạn muốn chọn giờ nào? Vui lòng cho tôi biết số thứ tự hoặc giờ (ví dụ: 08:00).\"\n");
+                break;
+            default:
+                return null; // Không cần instruction cho step khác
+        }
+        
+        instruction.append("\nQUAN TRỌNG:\n");
+        instruction.append("- KHÔNG được tự động chọn bất kỳ option nào\n");
+        instruction.append("- KHÔNG được giả định user muốn chọn option đầu tiên\n");
+        instruction.append("- PHẢI yêu cầu user chọn lại một cách rõ ràng\n");
+        instruction.append("- CHỜ user trả lời trước khi tiếp tục\n");
+        
+        return instruction.toString();
+    }
 
     /**
      * Build draft context message để inject vào prompt
@@ -1778,6 +2261,30 @@ public class AiBookingAssistantController {
             context.append("[CO] time_slot: ").append(draft.getTimeSlot()).append("\n");
         } else {
             context.append("[CHUA] time_slot: null (CHƯA CÓ)\n");
+        }
+        
+        // CRITICAL: Thêm instruction rõ ràng về step tiếp theo
+        context.append("\n");
+        context.append("STEP HIỆN TẠI VÀ BƯỚC TIẾP THEO:\n");
+        if (!draft.hasVehicle()) {
+            context.append("- STEP 1: Chọn xe (CHƯA CÓ)\n");
+        } else if (!draft.hasDate()) {
+            context.append("- STEP 2: Chọn ngày đặt lịch (CHƯA CÓ)\n");
+        } else if (!draft.hasBranch()) {
+            context.append("- STEP 3: Chọn chi nhánh (CHƯA CÓ)\n");
+        } else if (!draft.hasService()) {
+            context.append("- STEP 4: Chọn dịch vụ (CHƯA CÓ)\n");
+        } else if (!draft.hasBay()) {
+            context.append("- STEP 5: Chọn bay/khu vực (CHƯA CÓ) ← BẠN ĐANG Ở ĐÂY\n");
+            context.append("- Sau khi user chọn bay → Chuyển sang STEP 6 (chọn giờ)\n");
+        } else if (!draft.hasTime()) {
+            context.append("- STEP 6: Chọn giờ đặt lịch (CHƯA CÓ) ← BẠN ĐANG Ở ĐÂY\n");
+            context.append("- Bay đã được chọn: ").append(draft.getBayName()).append("\n");
+            context.append("- Cần yêu cầu user chọn giờ từ danh sách time slots\n");
+            context.append("- TUYỆT ĐỐI KHÔNG được yêu cầu xác nhận booking khi chưa có time_slot\n");
+        } else {
+            context.append("- STEP 7: Xác nhận và tạo booking (ĐÃ ĐẦY ĐỦ) ← BẠN ĐANG Ở ĐÂY\n");
+            context.append("- Tất cả dữ liệu đã đầy đủ, có thể tạo booking\n");
         }
 
         context.append("\n");
@@ -1917,7 +2424,7 @@ public class AiBookingAssistantController {
         // ========== PARSE SERVICE SELECTION ==========
         // Cho phép user đổi dịch vụ (không chỉ check !draft.hasService())
         // Nếu user nói về dịch vụ mới → Update lại service_id và service_name
-        String selectedService = extractServiceSelectionFromMessage(userMessage, conversationHistory);
+        String selectedService = extractServiceSelectionFromMessage(userMessage, conversationHistory, draft);
         if (selectedService != null) {
             log.info("DETECTED SERVICE SELECTION: {}", selectedService);
 
@@ -1935,17 +2442,35 @@ public class AiBookingAssistantController {
                 log.info("EXTRACTED service_id: {}, service_name: {} from user selection: {} (VALIDATED from tool response)",
                         serviceInfo.getServiceId(), serviceInfo.getServiceName(), selectedService);
             } else {
-                // KHÔNG tìm thấy trong tool response → KHÔNG lưu vào draft
-                // Yêu cầu AI gọi getServices() trước để validate
-                log.warn("Could not find service in tool response for selection: {}. " +
-                        "AI should call getServices() first to validate service exists in database.", selectedService);
-                // KHÔNG update draft - để AI gọi getServices() trước
+                // KHÔNG tìm thấy trong tool response → Query database để tìm serviceId từ serviceName
+                log.info("Service not found in tool response, querying database for serviceName: {}", selectedService);
+                com.kltn.scsms_api_service.core.entity.Service serviceFromDb = 
+                        findServiceFromDatabase(selectedService);
+                
+                if (serviceFromDb != null) {
+                    // Tìm thấy trong database → Validate thành công → Lưu vào draft
+                    update.setServiceId(serviceFromDb.getServiceId());
+                    update.setServiceType(serviceFromDb.getServiceName());
+                    updateType = "SERVICE";
+                    hasUpdate = true;
+                    log.info("EXTRACTED service_id: {}, service_name: {} from user selection: {} (VALIDATED from database)",
+                            serviceFromDb.getServiceId(), serviceFromDb.getServiceName(), selectedService);
+                } else {
+                    // KHÔNG tìm thấy trong database → KHÔNG lưu vào draft
+                    // Yêu cầu AI gọi getServices() trước để validate
+                    log.warn("Could not find service in database for selection: {}. " +
+                            "AI should call getServices() first to validate service exists.", selectedService);
+                    // KHÔNG update draft - để AI gọi getServices() trước
+                }
             }
         }
 
         // ========== PARSE BAY SELECTION ==========
-        if (!draft.hasBay() && (userMsgLower.contains("bay") || userMsgLower.contains("chọn bay"))) {
-            String selectedBay = extractBaySelectionFromMessage(userMessage);
+        if (!draft.hasBay() && (userMsgLower.contains("bay") || 
+                                userMsgLower.contains("khu vực") || 
+                                userMsgLower.contains("chọn bay") ||
+                                userMsgLower.contains("chọn khu vực"))) {
+            String selectedBay = extractBaySelectionFromMessage(userMessage, conversationHistory);
             if (selectedBay != null) {
                 log.info("DETECTED BAY SELECTION: {}", selectedBay);
 
@@ -2012,6 +2537,646 @@ public class AiBookingAssistantController {
         }
 
         log.info("═══════════════════════════════════════════════════════════════");
+        return draft;
+    }
+
+    /**
+     * Quyết định có nên dùng AI extraction không
+     * 
+     * CHIẾN LƯỢC: Luôn ưu tiên AI extraction trước (trừ một số trường hợp đặc biệt)
+     * AI extraction có thể hiểu context tốt hơn và extract chính xác hơn
+     * Pattern matching chỉ là fallback khi AI extraction không thành công
+     * 
+     * Sử dụng AI extraction khi:
+     * 1. User message không rỗng
+     * 2. Không phải là câu hỏi hoặc yêu cầu thông tin (có thể skip AI extraction)
+     * 3. Có vẻ là lựa chọn hoặc confirmation
+     */
+    private boolean shouldUseAIExtraction(BookingDraft draft, String userMessage) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return false;
+        }
+        
+        String userMsgLower = userMessage.toLowerCase().trim();
+        
+        // Skip AI extraction cho các câu hỏi hoặc yêu cầu thông tin rõ ràng
+        boolean isQuestion = userMsgLower.startsWith("là gì") ||
+                            userMsgLower.startsWith("là ai") ||
+                            userMsgLower.startsWith("ở đâu") ||
+                            userMsgLower.startsWith("khi nào") ||
+                            userMsgLower.startsWith("tại sao") ||
+                            userMsgLower.startsWith("như thế nào") ||
+                            userMsgLower.contains("giải thích") ||
+                            userMsgLower.contains("hướng dẫn");
+        
+        if (isQuestion) {
+            log.debug("Detected question/information request, skipping AI extraction");
+            return false;
+        }
+        
+        // Luôn thử AI extraction cho:
+        // 1. Confirmation keywords (ưu tiên cao)
+        boolean hasConfirmationKeywords = userMsgLower.equals("có") ||
+                                         userMsgLower.equals("đúng") ||
+                                         userMsgLower.equals("ok") ||
+                                         userMsgLower.equals("xác nhận") ||
+                                         userMsgLower.equals("đồng ý") ||
+                                         userMsgLower.equals("được") ||
+                                         userMsgLower.equals("yes") ||
+                                         userMsgLower.equals("y");
+        
+        if (hasConfirmationKeywords) {
+            log.debug("Detected confirmation message, will try AI extraction");
+            return true;
+        }
+        
+        // 2. Selection keywords
+        boolean hasSelectionKeywords = userMsgLower.contains("chọn") || 
+                                      userMsgLower.contains("muốn") ||
+                                      userMsgLower.contains("xe") ||
+                                      userMsgLower.contains("chi nhánh") ||
+                                      userMsgLower.contains("dịch vụ") ||
+                                      userMsgLower.contains("bay") ||
+                                      userMsgLower.contains("khu vực") ||
+                                      userMsgLower.contains("giờ");
+        
+        // 3. Patterns có vẻ là lựa chọn (biển số xe, ngày tháng, giờ)
+        boolean hasSelectionPatterns = userMsgLower.matches(".*\\d{1,2}:\\d{2}.*") ||  // Time: "08:00"
+                                      userMsgLower.matches(".*\\d{1,2}/\\d{1,2}.*") ||  // Date: "07/12"
+                                      userMsgLower.matches(".*\\d{2,4}-\\d{4,5}.*") ||  // License plate: "69D1-27069"
+                                      userMsgLower.matches(".*[A-Z]{2,4}\\d{1,4}-\\d{4,5}.*"); // License plate: "69D1-27069"
+        
+        // 4. Chỉ là số hoặc text ngắn (có thể là lựa chọn theo index hoặc tên)
+        boolean isShortSelection = userMessage.trim().length() <= 50 && 
+                                   (userMsgLower.matches("^\\d+$") || // Chỉ số: "1", "2"
+                                    userMsgLower.matches("^[a-zà-ỹ\\s]{1,30}$")); // Text ngắn: "Khu vực 1"
+        
+        // Luôn thử AI extraction nếu có bất kỳ dấu hiệu nào của lựa chọn
+        boolean shouldUse = hasConfirmationKeywords || hasSelectionKeywords || hasSelectionPatterns || isShortSelection;
+        
+        if (shouldUse) {
+            log.debug("Will try AI extraction - hasConfirmationKeywords={}, hasSelectionKeywords={}, hasSelectionPatterns={}, isShortSelection={}",
+                    hasConfirmationKeywords, hasSelectionKeywords, hasSelectionPatterns, isShortSelection);
+        } else {
+            log.debug("Skipping AI extraction - message does not appear to be a selection");
+        }
+        
+        return shouldUse;
+    }
+
+    /**
+     * Thử dùng AI extraction để extract lựa chọn từ user message
+     */
+    private BookingDraft tryAIExtraction(
+            BookingDraft draft,
+            String userMessage,
+            List<ChatRequest.ChatMessage> conversationHistory) {
+        
+        log.info("=== TRYING AI EXTRACTION ===");
+        
+        try {
+            // Build ExtractSelectionRequest
+            ExtractSelectionRequest.DraftContext draftContext = 
+                    ExtractSelectionRequest.DraftContext.builder()
+                            .draftId(draft.getDraftId())
+                            .hasVehicle(draft.hasVehicle())
+                            .hasDate(draft.hasDate())
+                            .hasBranch(draft.hasBranch())
+                            .hasService(draft.hasService())
+                            .hasBay(draft.hasBay())
+                            .hasTime(draft.hasTime())
+                            .currentStep(draft.getCurrentStep())
+                            .build();
+            
+            // Build available options từ ThreadLocal hoặc conversation history (fallback)
+            ExtractSelectionRequest.AvailableOptions availableOptions = 
+                    extractionService.buildAvailableOptions(conversationHistory);
+            
+            ExtractSelectionRequest extractRequest = ExtractSelectionRequest.builder()
+                    .userMessage(userMessage)
+                    .draftContext(draftContext)
+                    .availableOptions(availableOptions)
+                    .currentStep(draft.getCurrentStep())
+                    .build();
+            
+            // Call extraction service
+            ExtractSelectionResponse response = extractionService.extractUserSelection(extractRequest);
+            
+            // Xử lý confirmation riêng - không cần available options
+            String userMsgLower = userMessage.toLowerCase().trim();
+            boolean isConfirmation = userMsgLower.equals("có") ||
+                                    userMsgLower.equals("đúng") ||
+                                    userMsgLower.equals("ok") ||
+                                    userMsgLower.equals("xác nhận") ||
+                                    userMsgLower.equals("đồng ý") ||
+                                    userMsgLower.equals("được") ||
+                                    userMsgLower.equals("yes") ||
+                                    userMsgLower.equals("y");
+            
+            if (isConfirmation && response.getExtractedData() != null) {
+                ExtractSelectionResponse.ExtractedData data = response.getExtractedData();
+                // Check intent từ AI response (nếu có)
+                // Nếu AI trả về intent="CONFIRM" hoặc tất cả fields null → Xử lý confirmation
+                if (data.getVehicle() == null && data.getDate() == null && 
+                    data.getBranch() == null && data.getService() == null && 
+                    data.getBay() == null && data.getTime() == null) {
+                    // AI không extract được gì → Có thể là confirmation
+                    log.info("Detected confirmation message, checking draft state");
+                    
+                    // Nếu draft đã có service và current_step=5 → User xác nhận service, chuyển sang bay selection
+                    if (draft.hasService() && draft.getCurrentStep() == 5) {
+                        log.info("User confirmed service selection. Service already saved in draft. No update needed.");
+                        return draft; // Service đã có, không cần update
+                    }
+                    // Nếu draft đã có bay và current_step=6 → User xác nhận bay, chuyển sang time selection
+                    if (draft.hasBay() && draft.getCurrentStep() == 6) {
+                        log.info("User confirmed bay selection. Bay already saved in draft. No update needed.");
+                        return draft; // Bay đã có, không cần update
+                    }
+                }
+            }
+            
+            // Nếu extraction thành công và confidence >= 0.8
+            if (response.getStatus() != null && 
+                "SUCCESS".equals(response.getStatus()) &&
+                response.getConfidence() != null &&
+                response.getConfidence() >= 0.8 &&
+                response.getExtractedData() != null) {
+                
+                log.info("AI extraction successful with confidence: {}", response.getConfidence());
+                
+                // Update draft với extracted data
+                BookingDraftService.DraftUpdate update = 
+                        BookingDraftService.DraftUpdate.builder().build();
+                String updateType = null;
+                boolean hasUpdate = false;
+                
+                ExtractSelectionResponse.ExtractedData data = response.getExtractedData();
+                
+                // Update vehicle
+                // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name/licensePlate với database
+                if (data.getVehicle() != null && data.getVehicle().getLicensePlate() != null) {
+                    // Tìm vehicle từ tool response hoặc database bằng licensePlate
+                    GetCustomerVehiclesResponse vehiclesResponse = DraftContextHolder.getVehiclesResponse();
+                    UUID matchedVehicleId = null;
+                    String matchedLicensePlate = null;
+                    
+                    // Bước 1: Tìm trong tool response (ThreadLocal)
+                    if (vehiclesResponse != null && vehiclesResponse.getVehicles() != null) {
+                        for (GetCustomerVehiclesResponse.VehicleInfo v : vehiclesResponse.getVehicles()) {
+                            if (v.getLicensePlate() != null && 
+                                v.getLicensePlate().equalsIgnoreCase(data.getVehicle().getLicensePlate())) {
+                                matchedVehicleId = v.getVehicleId();
+                                matchedLicensePlate = v.getLicensePlate();
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                    if (matchedVehicleId == null && conversationHistory != null) {
+                        GetCustomerVehiclesResponse parsedResponse = parseVehiclesFromHistory(conversationHistory);
+                        if (parsedResponse != null && parsedResponse.getVehicles() != null) {
+                            for (GetCustomerVehiclesResponse.VehicleInfo v : parsedResponse.getVehicles()) {
+                                if (v.getLicensePlate() != null && 
+                                    v.getLicensePlate().equalsIgnoreCase(data.getVehicle().getLicensePlate())) {
+                                    matchedVehicleId = v.getVehicleId();
+                                    matchedLicensePlate = v.getLicensePlate();
+                                    log.info("Found vehicle_id from conversation history: {} for license_plate: {}", 
+                                            matchedVehicleId, matchedLicensePlate);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bước 3: Nếu không tìm thấy trong tool response, query database
+                    if (matchedVehicleId == null) {
+                        try {
+                            // Tìm vehicle từ tool response của getCustomerVehicles (nếu có customerId)
+                            // Hoặc query trực tiếp từ database bằng licensePlate
+                            // Note: VehicleProfileService không có search method, cần dùng cách khác
+                            // Tạm thời skip database query cho vehicle vì cần customerId
+                            // Vehicle sẽ được validate từ tool response là đủ
+                            log.debug("Vehicle not found in tool response or history. Skipping database query (requires customerId).");
+                        } catch (Exception e) {
+                            log.warn("Error querying database for vehicle with licensePlate '{}': {}", 
+                                    data.getVehicle().getLicensePlate(), e.getMessage());
+                        }
+                    }
+                    
+                    if (matchedVehicleId != null) {
+                        update.setVehicleId(matchedVehicleId);
+                        update.setVehicleLicensePlate(matchedLicensePlate);
+                        updateType = "VEHICLE";
+                        hasUpdate = true;
+                        log.info("AI extracted vehicle licensePlate '{}', validated and found vehicleId: {}", 
+                                data.getVehicle().getLicensePlate(), matchedVehicleId);
+                    } else {
+                        log.warn("AI extracted vehicle licensePlate '{}' but not found in tool response or database", 
+                                data.getVehicle().getLicensePlate());
+                    }
+                }
+                
+                // Update date
+                if (data.getDate() != null && data.getDate().getDateTime() != null) {
+                    update.setDateTime(data.getDate().getDateTime());
+                    updateType = "DATE";
+                    hasUpdate = true;
+                    log.info("AI extracted date: {}", data.getDate().getDateTime());
+                }
+                
+                // Update branch
+                // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name với database
+                if (data.getBranch() != null && data.getBranch().getBranchName() != null) {
+                    // Tìm branch từ tool response hoặc database bằng branchName
+                    GetBranchesResponse branchesResponse = DraftContextHolder.getBranchesResponse();
+                    UUID matchedBranchId = null;
+                    String matchedBranchName = null;
+                    
+                    // Bước 1: Tìm trong tool response (ThreadLocal)
+                    if (branchesResponse != null && branchesResponse.getBranches() != null) {
+                        String searchName = data.getBranch().getBranchName().toLowerCase();
+                        for (GetBranchesResponse.BranchInfo b : branchesResponse.getBranches()) {
+                            if (b.getBranchName() != null) {
+                                String branchNameLower = b.getBranchName().toLowerCase();
+                                if (branchNameLower.equals(searchName) || 
+                                    branchNameLower.contains(searchName) || 
+                                    searchName.contains(branchNameLower)) {
+                                    matchedBranchId = b.getBranchId();
+                                    matchedBranchName = b.getBranchName();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bước 2: Nếu không tìm thấy trong ThreadLocal, parse từ conversation history
+                    if (matchedBranchId == null && conversationHistory != null) {
+                        GetBranchesResponse parsedResponse = parseBranchesFromHistory(conversationHistory);
+                        if (parsedResponse != null && parsedResponse.getBranches() != null) {
+                            String searchName = data.getBranch().getBranchName().toLowerCase();
+                            for (GetBranchesResponse.BranchInfo b : parsedResponse.getBranches()) {
+                                if (b.getBranchName() != null) {
+                                    String branchNameLower = b.getBranchName().toLowerCase();
+                                    if (branchNameLower.equals(searchName) || 
+                                        branchNameLower.contains(searchName) || 
+                                        searchName.contains(branchNameLower)) {
+                                        matchedBranchId = b.getBranchId();
+                                        matchedBranchName = b.getBranchName();
+                                        log.info("Found branch_id from conversation history: {} for branch_name: {}", 
+                                                matchedBranchId, matchedBranchName);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bước 3: Nếu không tìm thấy trong tool response, query database
+                    if (matchedBranchId == null) {
+                        try {
+                            Branch branch = aiBookingAssistantService.findBranchByNameOrAddress(data.getBranch().getBranchName());
+                            if (branch != null) {
+                                matchedBranchId = branch.getBranchId();
+                                matchedBranchName = branch.getBranchName();
+                            }
+                        } catch (Exception e) {
+                            log.warn("Error querying database for branch with name '{}': {}", 
+                                    data.getBranch().getBranchName(), e.getMessage());
+                        }
+                    }
+                    
+                    if (matchedBranchId != null) {
+                        update.setBranchId(matchedBranchId);
+                        update.setBranchName(matchedBranchName);
+                        updateType = "BRANCH";
+                        hasUpdate = true;
+                        log.info("AI extracted branch name '{}', validated and found branchId: {}", 
+                                data.getBranch().getBranchName(), matchedBranchId);
+                    } else {
+                        log.warn("AI extracted branch name '{}' but not found in tool response or database", 
+                                data.getBranch().getBranchName());
+                    }
+                }
+                
+                // Update service
+                // PHÂN BIỆT selection type:
+                // - NAME/INDEX selection → Lưu ngay (user đã chọn cụ thể)
+                // - KEYWORD selection → Tùy số lượng services (1 service → hỏi xác nhận, nhiều → yêu cầu chọn cụ thể)
+                // - CONFIRM intent → Lấy từ conversation history
+                if (data.getService() != null && data.getService().getServiceName() != null) {
+                    String selectionType = data.getService().getSelectionType();
+                    boolean shouldSaveImmediately = false;
+                    String reason = "";
+                    
+                    // Case 1: NAME selection (user chọn cụ thể bằng tên) → Lưu ngay
+                    if ("NAME".equals(selectionType)) {
+                        shouldSaveImmediately = true;
+                        reason = "NAME selection (user chose specific service name)";
+                    }
+                    // Case 2: INDEX selection (user chọn cụ thể bằng số) → Lưu ngay
+                    else if ("INDEX".equals(selectionType)) {
+                        shouldSaveImmediately = true;
+                        reason = "INDEX selection (user chose specific service by index)";
+                    }
+                    // Case 3: KEYWORD selection (user nói keyword chung) → Tùy số lượng services
+                    else if ("KEYWORD".equals(selectionType)) {
+                        // Check số lượng services từ tool response
+                        GetServicesResponse servicesResponse = DraftContextHolder.getServicesResponse();
+                        if (servicesResponse == null) {
+                            servicesResponse = parseServicesFromHistory(conversationHistory);
+                        }
+                        
+                        if (servicesResponse != null && servicesResponse.getServices() != null) {
+                            int serviceCount = servicesResponse.getServices().size();
+                            if (serviceCount == 1) {
+                                // Chỉ có 1 service → Hỏi xác nhận (không lưu ngay)
+                                shouldSaveImmediately = false;
+                                reason = "KEYWORD selection with 1 service (need confirmation)";
+                            } else if (serviceCount > 1) {
+                                // Nhiều services → Yêu cầu chọn cụ thể (không lưu ngay)
+                                shouldSaveImmediately = false;
+                                reason = "KEYWORD selection with multiple services (need specific selection)";
+                            } else {
+                                // Không có service → Không lưu
+                                shouldSaveImmediately = false;
+                                reason = "KEYWORD selection with no services found";
+                            }
+                        } else {
+                            // Không có tool response → Không lưu, yêu cầu AI gọi getServices()
+                            shouldSaveImmediately = false;
+                            reason = "KEYWORD selection but no tool response (AI should call getServices() first)";
+                        }
+                    }
+                    // Case 4: CONFIRM intent (user nói "đúng", "có", "ok") → Lấy từ conversation history
+                    else if (isConfirmation) {
+                        shouldSaveImmediately = true;
+                        reason = "CONFIRM intent (user confirmed, will get service from conversation history)";
+                        
+                        // Lấy service từ conversation history
+                        GetServicesResponse servicesResponse = parseServicesFromHistory(conversationHistory);
+                        if (servicesResponse == null) {
+                            servicesResponse = DraftContextHolder.getServicesResponse();
+                        }
+                        
+                        if (servicesResponse != null && servicesResponse.getServices() != null && 
+                            !servicesResponse.getServices().isEmpty()) {
+                            // Lấy service đầu tiên từ tool response (service được đề xuất)
+                            String serviceNameFromHistory = servicesResponse.getServices().get(0).getServiceName();
+                            log.info("User confirmed. Getting service from conversation history: {}", serviceNameFromHistory);
+                            // Override service name với service từ conversation history
+                            data.getService().setServiceName(serviceNameFromHistory);
+                        }
+                    }
+                    // Case 5: Service đã có trong draft → Coi như thành công
+                    else if (draft.hasService()) {
+                        shouldSaveImmediately = true;
+                        reason = "Service already in draft (user already confirmed)";
+                    }
+                    
+                    // Quyết định có lưu hay không
+                    if (shouldSaveImmediately) {
+                        log.info("AI extracted service name '{}' with selection_type='{}'. Reason: {}. Will save to draft.",
+                                data.getService().getServiceName(), selectionType, reason);
+                        
+                        // Luôn validate serviceName với database, không dùng serviceId từ AI
+                        GetServicesResponse.ServiceInfo serviceInfo = 
+                                findServiceInfoFromToolResponse(data.getService().getServiceName(), conversationHistory);
+                        
+                        UUID matchedServiceId = null;
+                        String matchedServiceName = null;
+                        
+                        // Bước 1: Tìm trong tool response
+                        if (serviceInfo != null && serviceInfo.getServiceId() != null) {
+                            matchedServiceId = serviceInfo.getServiceId();
+                            matchedServiceName = serviceInfo.getServiceName();
+                            log.info("AI extracted service name '{}', found serviceId from tool response: {}", 
+                                    data.getService().getServiceName(), matchedServiceId);
+                        } else {
+                            // Bước 2: Xử lý INDEX selection - lấy service theo index từ tool response
+                            if ("INDEX".equals(selectionType) && data.getService().getRawText() != null) {
+                                int index = parseIndexFromText(data.getService().getRawText());
+                                if (index > 0) {
+                                    GetServicesResponse parsedResponse = parseServicesFromHistory(conversationHistory);
+                                    if (parsedResponse == null) {
+                                        parsedResponse = DraftContextHolder.getServicesResponse();
+                                    }
+                                    if (parsedResponse != null && parsedResponse.getServices() != null &&
+                                        index > 0 && index <= parsedResponse.getServices().size()) {
+                                        GetServicesResponse.ServiceInfo serviceInfoByIndex =
+                                            parsedResponse.getServices().get(index - 1);
+                                        matchedServiceId = serviceInfoByIndex.getServiceId();
+                                        matchedServiceName = serviceInfoByIndex.getServiceName();
+                                        log.info("Found service by index {}: {} ({})", index, matchedServiceName, matchedServiceId);
+                                    }
+                                }
+                            }
+                            
+                            // Bước 3: Nếu không tìm thấy trong tool response, query database
+                            if (matchedServiceId == null) {
+                                log.info("Service not found in tool response, querying database for serviceName: {}", 
+                                        data.getService().getServiceName());
+                                com.kltn.scsms_api_service.core.entity.Service serviceFromDb = 
+                                        findServiceFromDatabase(data.getService().getServiceName());
+                                
+                                if (serviceFromDb != null) {
+                                    matchedServiceId = serviceFromDb.getServiceId();
+                                    matchedServiceName = serviceFromDb.getServiceName();
+                                    log.info("AI extracted service name '{}', found serviceId from database: {}", 
+                                            data.getService().getServiceName(), matchedServiceId);
+                                }
+                            }
+                        }
+                        
+                        if (matchedServiceId != null) {
+                            // Check nếu service đã có trong draft
+                            boolean serviceAlreadyInDraft = draft.getServiceId() != null && 
+                                                            draft.getServiceId().equals(matchedServiceId);
+                            
+                            if (serviceAlreadyInDraft) {
+                                // Service đã có trong draft → Coi như thành công
+                                log.info("AI extracted service '{}' which is already in draft. User confirmed selection.",
+                                        data.getService().getServiceName());
+                                updateType = "SERVICE";
+                                hasUpdate = true;
+                            } else {
+                                // Service chưa có → Update draft
+                                update.setServiceId(matchedServiceId);
+                                update.setServiceType(matchedServiceName);
+                                updateType = "SERVICE";
+                                hasUpdate = true;
+                                log.info("AI extracted service name '{}', validated and saved with serviceId: {} (reason: {})",
+                                        data.getService().getServiceName(), matchedServiceId, reason);
+                            }
+                        } else {
+                            // Không tìm thấy trong database → Log warning, không lưu
+                            log.warn("AI extracted service name '{}' but service not found in tool response or database. " +
+                                    "Will not save to draft. AI should call getServices() first to validate.", 
+                                    data.getService().getServiceName());
+                        }
+                    } else {
+                        // User chưa chọn cụ thể hoặc cần xác nhận → KHÔNG lưu service vào draft
+                        // AI sẽ hỏi xác nhận hoặc yêu cầu chọn cụ thể
+                        log.info("AI extracted service name '{}' with selection_type='{}'. Reason: {}. Will NOT save to draft. " +
+                                "AI should ask for confirmation or specific selection.",
+                                data.getService().getServiceName(), selectionType, reason);
+                    }
+                }
+                
+                // Update bay
+                // CRITICAL: KHÔNG trust ID từ AI - chỉ validate name với database
+                if (data.getBay() != null && data.getBay().getBayName() != null) {
+                    // Tìm bay từ tool response hoặc database bằng bayName
+                    AvailabilityResponse availabilityResponse = DraftContextHolder.getAvailabilityResponse();
+                    UUID matchedBayId = null;
+                    String matchedBayName = null;
+                    
+                    // Bước 1: Tìm trong tool response
+                    if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+                        String searchName = data.getBay().getBayName().toLowerCase();
+                        for (AvailabilityResponse.AvailableBayInfo b : availabilityResponse.getAvailableBays()) {
+                            if (b.getBayName() != null) {
+                                String bayNameLower = b.getBayName().toLowerCase();
+                                if (bayNameLower.equals(searchName) || 
+                                    bayNameLower.contains(searchName) || 
+                                    searchName.contains(bayNameLower)) {
+                                    matchedBayId = b.getBayId();
+                                    matchedBayName = b.getBayName();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bước 2: Xử lý INDEX selection ("đầu tiên", "thứ hai", etc.)
+                    if (matchedBayId == null && "INDEX".equals(data.getBay().getSelectionType())) {
+                        int index = parseIndexFromText(data.getBay().getRawText());
+                        if (index > 0) {
+                            // Tìm bay theo index trong available options
+                            AvailabilityResponse parsedResponse = parseAvailabilityFromHistory(conversationHistory);
+                            if (parsedResponse == null) {
+                                parsedResponse = DraftContextHolder.getAvailabilityResponse();
+                            }
+                            
+                            if (parsedResponse != null && parsedResponse.getAvailableBays() != null &&
+                                index > 0 && index <= parsedResponse.getAvailableBays().size()) {
+                                AvailabilityResponse.AvailableBayInfo bay = 
+                                    parsedResponse.getAvailableBays().get(index - 1);
+                                matchedBayId = bay.getBayId();
+                                matchedBayName = bay.getBayName();
+                                log.info("Found bay by index {}: {} ({})", index, matchedBayName, matchedBayId);
+                            }
+                        }
+                    }
+                    
+                    // Bước 3: Nếu không tìm thấy trong tool response, tìm từ conversation history
+                    if (matchedBayId == null) {
+                        matchedBayId = findBayIdFromToolResponse(data.getBay().getBayName(), conversationHistory);
+                        if (matchedBayId != null) {
+                            // Lấy bay name từ conversation history
+                            AvailabilityResponse parsedResponse = parseAvailabilityFromHistory(conversationHistory);
+                            if (parsedResponse != null && parsedResponse.getAvailableBays() != null) {
+                                for (AvailabilityResponse.AvailableBayInfo b : parsedResponse.getAvailableBays()) {
+                                    if (b.getBayId().equals(matchedBayId)) {
+                                        matchedBayName = b.getBayName();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Bước 4: Nếu vẫn không tìm thấy, tìm từ database (fallback cuối cùng)
+                    if (matchedBayId == null && draft.getBranchId() != null) {
+                        UUID bayIdFromDb = findBayIdFromDatabase(data.getBay().getBayName(), draft.getBranchId());
+                        if (bayIdFromDb != null) {
+                            matchedBayId = bayIdFromDb;
+                            // Lấy bay name từ database
+                            try {
+                                ServiceBay bay = serviceBayService.getById(bayIdFromDb);
+                                if (bay != null && bay.getBayName() != null) {
+                                    matchedBayName = bay.getBayName();
+                                } else {
+                                    matchedBayName = data.getBay().getBayName();
+                                }
+                            } catch (Exception e) {
+                                log.debug("Could not get bay name from database for bay_id: {}, using extracted name: {}", 
+                                        bayIdFromDb, data.getBay().getBayName());
+                                matchedBayName = data.getBay().getBayName();
+                            }
+                            log.info("Found bay_id from database (fallback): {} for bay_name: {}", 
+                                    bayIdFromDb, data.getBay().getBayName());
+                        }
+                    }
+                    
+                    // Lưu bay ngay cả khi chưa có bay_id (chỉ cần bay_name với confidence cao)
+                    if (matchedBayId != null) {
+                        update.setBayId(matchedBayId);
+                        update.setBayName(matchedBayName != null ? matchedBayName : data.getBay().getBayName());
+                        updateType = "BAY";
+                        hasUpdate = true;
+                        log.info("AI extracted bay name '{}', validated and found bayId: {}", 
+                                data.getBay().getBayName(), matchedBayId);
+                    } else {
+                        // Vẫn lưu bay_name để có thể tìm bay_id sau
+                        // Nếu confidence >= 0.8 → Lưu bay_name ngay
+                        double bayConfidence = data.getBay().getConfidence() != null ? data.getBay().getConfidence() : 0.0;
+                        if (bayConfidence >= 0.8) {
+                            update.setBayName(data.getBay().getBayName());
+                            updateType = "BAY";
+                            hasUpdate = true;
+                            log.info("AI extracted bay name '{}' with high confidence ({}), saved bay_name without bay_id. Will try to find bay_id later.", 
+                                    data.getBay().getBayName(), bayConfidence);
+                            
+                            // Thử tìm bay_id từ database nếu có branch_id (đã được tìm ở Bước 4 ở trên, nhưng thử lại để chắc chắn)
+                            if (draft.getBranchId() != null) {
+                                UUID bayIdFromDb = findBayIdFromDatabase(data.getBay().getBayName(), draft.getBranchId());
+                                if (bayIdFromDb != null) {
+                                    update.setBayId(bayIdFromDb);
+                                    log.info("Found bay_id from database (retry): {} for bay_name: {}", bayIdFromDb, data.getBay().getBayName());
+                                } else {
+                                    log.warn("Could not find bay_id from database for bay_name: '{}' in branch_id: {}. Bay will be saved with bay_name only.", 
+                                            data.getBay().getBayName(), draft.getBranchId());
+                                }
+                            } else {
+                                log.warn("Cannot find bay_id from database because branch_id is null. Bay will be saved with bay_name only: {}", 
+                                        data.getBay().getBayName());
+                            }
+                        } else {
+                            log.warn("AI extracted bay name '{}' but confidence too low ({}), not saving", 
+                                    data.getBay().getBayName(), bayConfidence);
+                        }
+                    }
+                }
+                
+                // Update time
+                if (data.getTime() != null && data.getTime().getTimeSlot() != null) {
+                    update.setTimeSlot(data.getTime().getTimeSlot());
+                    updateType = "TIME";
+                    hasUpdate = true;
+                    log.info("AI extracted time: {}", data.getTime().getTimeSlot());
+                }
+                
+                // Update draft nếu có thay đổi
+                if (hasUpdate) {
+                    draft = bookingDraftService.updateDraft(
+                            draft.getDraftId(), 
+                            updateType + "_AI", 
+                            userMessage, 
+                            update);
+                    log.info("Draft updated successfully from AI extraction");
+                }
+            } else {
+                log.info("AI extraction did not succeed or confidence too low. Status: {}, Confidence: {}", 
+                        response.getStatus(), response.getConfidence());
+            }
+            
+        } catch (Exception e) {
+            log.error("Error during AI extraction: {}", e.getMessage(), e);
+            // Fallback: Continue with current draft
+        }
+        
         return draft;
     }
 
@@ -2359,18 +3524,63 @@ public class AiBookingAssistantController {
         }
 
         // Pattern 3: Extract từ user message nếu có format "chi nhánh X" hoặc chỉ "X"
-        // Cải thiện pattern để match cả "Chi Nhánh Gò Vấp" và "Gò Vấp"
+        // FIX: Chỉ extract tên branch, không extract toàn bộ câu
+        // Pattern: "chi nhánh [Tên]" hoặc "[Tên]" sau từ khóa "chi nhánh"
         // LOẠI TRỪ câu hỏi: "Bạn có những chi nhánh nào?", "Chi nhánh nào?", etc.
         boolean isQuestionPattern = msgLower.contains("bạn có") || msgLower.contains("những chi nhánh nào") ||
                 msgLower.contains("chi nhánh nào") || msgLower.contains("có những") ||
                 msgLower.contains("muốn biết") || msgLower.contains("cho tôi biết");
 
         if (!isQuestionPattern) {
-            Pattern branchPattern = Pattern.compile("(?:chọn\\s+)?(?:chi nhánh\\s+)?([A-Za-zÀ-ỹ\\s\\-]+)",
+            // Pattern cải thiện: Extract tên branch đầy đủ sau "chi nhánh"
+            // Ví dụ: "tôi chọn chi nhánh Phú nhuận" → extract "Phú nhuận"
+            // Pattern ưu tiên: "chi nhánh" + tên branch (có thể có nhiều từ)
+            Pattern branchPattern1 = Pattern.compile(
+                    "chi\\s*nhánh\\s+([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ\\s\\-]+?)(?:\\s|$|\\?|!|,|\\.)",
                     Pattern.CASE_INSENSITIVE);
-            Matcher matcher = branchPattern.matcher(userMessage);
-            if (matcher.find()) {
-                String extractedName = matcher.group(1).trim();
+            Matcher matcher1 = branchPattern1.matcher(userMessage);
+            if (matcher1.find()) {
+                String extractedName = matcher1.group(1).trim();
+                
+                // Loại bỏ các từ không phải tên branch
+                extractedName = extractedName.replaceAll("^(?:tôi|muốn|chọn|đặt|đổi|quan)\\s+", "").trim();
+                extractedName = extractedName.replaceAll("\\s+(?:cho|tôi|bạn|nào|gì|đâu)$", "").trim();
+                
+                // Nếu extract được và có ít nhất 2 ký tự
+                if (extractedName.length() >= 2) {
+                    // Tìm trong tool response để validate và lấy tên đầy đủ
+                    if (branchesResponse != null && branchesResponse.getBranches() != null) {
+                        for (GetBranchesResponse.BranchInfo branch :
+                                branchesResponse.getBranches()) {
+                            if (branch.getBranchName() != null) {
+                                String branchNameLower = branch.getBranchName().toLowerCase();
+                                String extractedLower = extractedName.toLowerCase();
+                                // Match exact hoặc partial (extracted name có trong branch name)
+                                if (branchNameLower.contains(extractedLower) || 
+                                    extractedLower.contains(branchNameLower)) {
+                                    log.info("Found branch by extracted name '{}': {}", extractedName, branch.getBranchName());
+                                    return branch.getBranchName(); // Return tên đầy đủ từ tool response
+                                }
+                            }
+                        }
+                    }
+                    // Nếu không tìm thấy trong tool response, return extracted name để tìm trong database
+                    log.info("Extracted branch name from message: {}", extractedName);
+                    return extractedName;
+                }
+            }
+            
+            // Pattern fallback: "chọn/đặt/muốn" + "chi nhánh" + tên
+            Pattern branchPattern2 = Pattern.compile(
+                    "(?:chọn|đặt|muốn|tôi\\s+muốn\\s+chọn|tôi\\s+muốn\\s+đặt|tôi\\s+chọn|tôi\\s+đổi)\\s+(?:chi\\s*nhánh\\s+)?([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ\\s\\-]+?)(?:\\s|$|\\?|!|,|\\.)",
+                    Pattern.CASE_INSENSITIVE);
+            Matcher matcher2 = branchPattern2.matcher(userMessage);
+            if (matcher2.find()) {
+                String extractedName = matcher2.group(1).trim();
+                
+                // Loại bỏ các từ không phải tên branch
+                extractedName = extractedName.replaceAll("^(?:tôi|muốn|chọn|đặt|đổi|quan)\\s+", "").trim();
+                extractedName = extractedName.replaceAll("\\s+(?:cho|tôi|bạn|nào|gì|đâu)$", "").trim();
 
                 // Kiểm tra lại xem có phải câu hỏi không (sau khi extract)
                 String extractedLower = extractedName.toLowerCase();
@@ -2505,25 +3715,81 @@ public class AiBookingAssistantController {
      * Extract service selection từ user message
      * Không hard code - chỉ dùng dynamic patterns từ tool response
      * Hỗ trợ: "dịch vụ X", "chọn số X", tên dịch vụ cụ thể từ tool response
+     * Hỗ trợ xác nhận: "đúng", "có", "ok", "chọn dịch vụ này" khi có service cần xác nhận
      */
-    private String extractServiceSelectionFromMessage(String userMessage, List<ChatRequest.ChatMessage> history) {
+    private String extractServiceSelectionFromMessage(String userMessage, List<ChatRequest.ChatMessage> history, BookingDraft draft) {
         String msgLower = userMessage.toLowerCase();
 
-        // Pattern 1: "chọn số X" - tìm trong tool response
-        Pattern numberPattern = Pattern.compile("(?:chọn|số)\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+        // CRITICAL: Nếu đang ở step 1 (chọn vehicle) → KHÔNG extract service
+        // Vì user có thể nói "tôi chọn xe 69D1-27069" và pattern sẽ extract "xe" thành service
+        if (draft.getCurrentStep() == 1 && !draft.hasVehicle()) {
+            log.debug("Skipping service extraction - current step is 1 (vehicle selection). User message: {}", userMessage);
+            return null;
+        }
+
+        // Pattern 0: Xác nhận dịch vụ khi có service cần xác nhận
+        // Nếu user nói "đúng", "có", "ok", "chọn dịch vụ này" → Lấy service từ conversation history hoặc tool response
+        GetServicesResponse servicesResponse = DraftContextHolder.getServicesResponse();
+        
+        // Kiểm tra xem user có xác nhận không
+        boolean isConfirmation = isConfirmationMessage(msgLower);
+        boolean isRejection = isRejectionMessage(msgLower);
+        
+        if (isConfirmation && !isRejection) {
+            // User xác nhận → Ưu tiên lấy từ conversation history (tool response gần nhất)
+            // Bước 1: Parse conversation history để lấy tool response gần nhất
+            GetServicesResponse historyResponse = parseServicesFromHistory(history);
+            if (historyResponse != null && historyResponse.getServices() != null && 
+                !historyResponse.getServices().isEmpty()) {
+                // Lấy service đầu tiên từ conversation history (service được đề xuất)
+                String serviceName = historyResponse.getServices().get(0).getServiceName();
+                log.info("User confirmed service selection: {} (from conversation history)", serviceName);
+                return serviceName;
+            }
+            
+            // Bước 2: Fallback - lấy từ ThreadLocal (tool response vừa được gọi)
+            if (servicesResponse != null && 
+                servicesResponse.getServices() != null && 
+                !servicesResponse.getServices().isEmpty()) {
+                String serviceName = servicesResponse.getServices().get(0).getServiceName();
+                log.info("User confirmed service selection: {} (from ThreadLocal tool response)", serviceName);
+                return serviceName;
+            }
+            
+            // Bước 3: Fallback - lấy từ draft nếu đã có service
+            if (draft.hasService() && draft.getServiceType() != null) {
+                log.info("User confirmed service selection: {} (from draft, tool response not available)", draft.getServiceType());
+                return draft.getServiceType();
+            }
+            
+            // Không có service nào để xác nhận
+            log.warn("User confirmed but no service found in conversation history, tool response or draft");
+            return null;
+        } else if (isRejection) {
+            // User từ chối → Không lưu, AI sẽ hỏi lại
+            log.info("User rejected service. Will ask for another service.");
+            return null;
+        }
+
+        // Pattern 1: "chọn số X" hoặc "số X" - tìm trong tool response (INDEX selection)
+        Pattern numberPattern = Pattern.compile("(?:chọn|số|dịch\\s*vụ\\s*(?:số|thứ)?)\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
         Matcher numberMatcher = numberPattern.matcher(userMessage);
         if (numberMatcher.find()) {
             String numberStr = numberMatcher.group(1);
             // Tìm service theo số thứ tự trong tool response
-            GetServicesResponse servicesResponse =
-                    DraftContextHolder.getServicesResponse();
+            if (servicesResponse == null) {
+                servicesResponse = DraftContextHolder.getServicesResponse();
+            }
+            if (servicesResponse == null && history != null) {
+                servicesResponse = parseServicesFromHistory(history);
+            }
 
             if (servicesResponse != null && servicesResponse.getServices() != null) {
                 try {
                     int index = Integer.parseInt(numberStr) - 1; // Convert to 0-based index
                     if (index >= 0 && index < servicesResponse.getServices().size()) {
                         String serviceName = servicesResponse.getServices().get(index).getServiceName();
-                        log.info("Found service by number {}: {}", numberStr, serviceName);
+                        log.info("Found service by number {}: {} (INDEX selection - will save immediately)", numberStr, serviceName);
                         return serviceName;
                     }
                 } catch (NumberFormatException e) {
@@ -2532,10 +3798,69 @@ public class AiBookingAssistantController {
             }
         }
 
-        // Pattern 2: Tìm exact match trong tool response (nếu user nói tên dịch vụ cụ thể)
+        // Pattern 2: "Tôi chọn X" hoặc "chọn X" - user chọn cụ thể bằng tên (NAME selection)
+        // Pattern này ưu tiên hơn Pattern 3 vì user đã chọn cụ thể
+        // CRITICAL: Loại trừ các từ không phải service: "xe", "chi nhánh", "bay", "khu vực", "ngày", "giờ", "thời gian"
+        Pattern choosePattern = Pattern.compile(
+                "(?:tôi\\s+)?(?:muốn\\s+)?(?:chọn|đặt|đổi)\\s+(?:dịch\\s*vụ\\s+)?([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ\\s\\-]+?)(?:\\s|$|\\?|!|,|\\.)",
+                Pattern.CASE_INSENSITIVE);
+        Matcher chooseMatcher = choosePattern.matcher(userMessage);
+        if (chooseMatcher.find()) {
+            String extractedService = chooseMatcher.group(1).trim();
+            // Loại bỏ các từ không phải tên service
+            extractedService = extractedService.replaceAll("^(?:tôi|muốn|chọn|đặt|đổi|dịch\\s*vụ)\\s+", "").trim();
+            extractedService = extractedService.replaceAll("\\s+(?:cho|tôi|bạn|nào|gì|đâu)$", "").trim();
+            
+            // CRITICAL: Blacklist các từ không phải service
+            String extractedLowerCheck = extractedService.toLowerCase();
+            String[] blacklist = {"xe", "chi nhánh", "bay", "khu vực", "ngày", "giờ", "thời gian", "ngày mai", "ngày kia", "hôm nay"};
+            for (String blacklisted : blacklist) {
+                if (extractedLowerCheck.equals(blacklisted) || extractedLowerCheck.startsWith(blacklisted + " ")) {
+                    log.debug("Skipping service extraction - extracted text '{}' matches blacklist: {}", extractedService, blacklisted);
+                    return null;
+                }
+            }
+            
+            if (extractedService.length() >= 2) {
+                // Tìm trong tool response hoặc conversation history
+                if (servicesResponse == null) {
+                    servicesResponse = DraftContextHolder.getServicesResponse();
+                }
+                if (servicesResponse == null && history != null) {
+                    servicesResponse = parseServicesFromHistory(history);
+                }
+                
+                if (servicesResponse != null && servicesResponse.getServices() != null) {
+                    String extractedLower = extractedService.toLowerCase();
+                    for (GetServicesResponse.ServiceInfo service : servicesResponse.getServices()) {
+                        if (service.getServiceName() != null) {
+                            String serviceNameLower = service.getServiceName().toLowerCase();
+                            // Match exact hoặc partial (extracted name có trong service name hoặc ngược lại)
+                            if (service.getServiceName().equalsIgnoreCase(extractedService) ||
+                                serviceNameLower.contains(extractedLower) ||
+                                extractedLower.contains(serviceNameLower)) {
+                                log.info("Found service by extracted name '{}': {} (NAME selection - will save immediately)", 
+                                        extractedService, service.getServiceName());
+                                return service.getServiceName(); // Return tên đầy đủ từ tool response
+                            }
+                        }
+                    }
+                }
+                
+                // Nếu không tìm thấy trong tool response, vẫn return extracted name để tìm trong database
+                log.info("Extracted service name from 'chọn' pattern: {} (will try to find in database)", extractedService);
+                return extractedService;
+            }
+        }
+
+        // Pattern 3: Tìm exact match trong tool response (nếu user nói tên dịch vụ cụ thể)
         // QUAN TRỌNG: Chỉ tìm trong tool response - KHÔNG extract nếu không có tool response
-        GetServicesResponse servicesResponse =
-                DraftContextHolder.getServicesResponse();
+        if (servicesResponse == null) {
+            servicesResponse = DraftContextHolder.getServicesResponse();
+        }
+        if (servicesResponse == null && history != null) {
+            servicesResponse = parseServicesFromHistory(history);
+        }
 
         if (servicesResponse != null && servicesResponse.getServices() != null) {
             for (GetServicesResponse.ServiceInfo service :
@@ -2666,10 +3991,77 @@ public class AiBookingAssistantController {
     }
 
     /**
-     * Extract bay selection từ user message
-     * Hỗ trợ: "Gò Vấp Bay 4", "Bay 4", "bay số 4", etc.
+     * Tìm service từ database dựa trên serviceName
+     * Ưu tiên exact match, sau đó tìm theo keyword
+     * 
+     * @param serviceName Tên dịch vụ cần tìm
+     * @return Service entity nếu tìm thấy, null nếu không tìm thấy
      */
-    private String extractBaySelectionFromMessage(String userMessage) {
+    private com.kltn.scsms_api_service.core.entity.Service findServiceFromDatabase(String serviceName) {
+        if (serviceName == null || serviceName.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // BƯỚC 1: Tìm theo keyword (searchByKeyword)
+            List<com.kltn.scsms_api_service.core.entity.Service> foundServices = 
+                    serviceService.searchByKeyword(serviceName.trim());
+            
+            if (foundServices.isEmpty()) {
+                log.debug("No services found in database for keyword: {}", serviceName);
+                return null;
+            }
+            
+            // BƯỚC 2: Ưu tiên exact match (tên dịch vụ khớp chính xác)
+            for (com.kltn.scsms_api_service.core.entity.Service service : foundServices) {
+                if (service.getServiceName() != null && 
+                    service.getServiceName().equalsIgnoreCase(serviceName.trim())) {
+                    log.info("Found exact match service in database: service_id={}, service_name={}", 
+                            service.getServiceId(), service.getServiceName());
+                    return service;
+                }
+            }
+            
+            // BƯỚC 3: Nếu không có exact match, kiểm tra partial match
+            for (com.kltn.scsms_api_service.core.entity.Service service : foundServices) {
+                if (service.getServiceName() != null) {
+                    String serviceNameLower = service.getServiceName().toLowerCase();
+                    String searchNameLower = serviceName.trim().toLowerCase();
+                    
+                    // Match nếu serviceName chứa searchName hoặc ngược lại
+                    if (serviceNameLower.contains(searchNameLower) || 
+                        searchNameLower.contains(serviceNameLower)) {
+                        log.info("Found partial match service in database: service_id={}, service_name={} (searched: {})", 
+                                service.getServiceId(), service.getServiceName(), serviceName);
+                        return service;
+                    }
+                }
+            }
+            
+            // BƯỚC 4: Nếu không có match nào, lấy service đầu tiên (fallback)
+            // Chỉ khi có 1 service duy nhất để tránh chọn sai
+            if (foundServices.size() == 1) {
+                log.info("Found single service in database (fallback): service_id={}, service_name={} (searched: {})", 
+                        foundServices.get(0).getServiceId(), foundServices.get(0).getServiceName(), serviceName);
+                return foundServices.get(0);
+            }
+            
+            // Nếu có nhiều services và không match → return null
+            log.warn("Multiple services found in database for '{}' but no exact/partial match. " +
+                    "Found {} services. Will not auto-select.", serviceName, foundServices.size());
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error querying database for service: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Extract bay selection từ user message
+     * Hỗ trợ: "Gò Vấp Bay 4", "Bay 4", "bay số 4", "khu vực 2", etc.
+     */
+    private String extractBaySelectionFromMessage(String userMessage, List<ChatRequest.ChatMessage> history) {
         String msgLower = userMessage.toLowerCase();
 
         // Pattern 1: "bay số X", "bay thứ X", "chọn bay thứ X" - tìm trong tool response
@@ -2681,6 +4073,11 @@ public class AiBookingAssistantController {
             // Tìm bay theo số thứ tự trong tool response
             AvailabilityResponse availabilityResponse =
                     DraftContextHolder.getAvailabilityResponse();
+            
+            // Fallback: Parse từ conversation history
+            if (availabilityResponse == null && history != null) {
+                availabilityResponse = parseAvailabilityFromHistory(history);
+            }
 
             if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
                 try {
@@ -2699,6 +4096,11 @@ public class AiBookingAssistantController {
         // Pattern 2: Tìm exact match trong tool response (nếu user nói tên bay cụ thể)
         AvailabilityResponse availabilityResponse =
                 DraftContextHolder.getAvailabilityResponse();
+        
+        // Fallback: Parse từ conversation history
+        if (availabilityResponse == null && history != null) {
+            availabilityResponse = parseAvailabilityFromHistory(history);
+        }
 
         if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
             for (AvailabilityResponse.AvailableBayInfo bay :
@@ -2716,7 +4118,38 @@ public class AiBookingAssistantController {
             }
         }
 
-        // Pattern 3: Extract từ user message nếu có format "bay X" hoặc "Gò Vấp Bay 4"
+        // Pattern 3: Extract "khu vực X", "khu vực số X", "khu vực đầu tiên", "khu vực thứ hai", etc.
+        Pattern khuVucPattern = Pattern.compile("khu\\s*vực\\s*(?:số\\s*)?(\\d+|đầu\\s*tiên|thứ\\s*(?:hai|ba|bốn|năm|sáu|bảy|tám|chín|mười))", Pattern.CASE_INSENSITIVE);
+        Matcher khuVucMatcher = khuVucPattern.matcher(userMessage);
+        if (khuVucMatcher.find()) {
+            String khuVucText = khuVucMatcher.group(1);
+            int index = parseIndexFromText(khuVucText);
+            
+            // Tìm trong tool response theo index hoặc số
+            if (availabilityResponse != null && availabilityResponse.getAvailableBays() != null) {
+                if (index > 0 && index <= availabilityResponse.getAvailableBays().size()) {
+                    // Tìm theo index
+                    AvailabilityResponse.AvailableBayInfo bay = availabilityResponse.getAvailableBays().get(index - 1);
+                    log.info("Found bay by khu vực index {}: {}", index, bay.getBayName());
+                    return bay.getBayName();
+                } else {
+                    // Tìm theo số trong tên
+                    for (AvailabilityResponse.AvailableBayInfo bay : availabilityResponse.getAvailableBays()) {
+                        if (bay.getBayName() != null && bay.getBayName().contains("Khu vực " + khuVucText)) {
+                            log.info("Found bay by khu vực '{}': {}", khuVucText, bay.getBayName());
+                            return bay.getBayName();
+                        }
+                    }
+                }
+            }
+            // Fallback: Return "Khu vực X" hoặc "Khu vực {index}"
+            if (index > 0) {
+                return "Khu vực " + index;
+            }
+            return "Khu vực " + khuVucText;
+        }
+        
+        // Pattern 4: Extract từ user message nếu có format "bay X" hoặc "Gò Vấp Bay 4"
         Pattern bayPattern = Pattern.compile("(?:bay|Bay)\\s*(\\d+)",
                 Pattern.CASE_INSENSITIVE);
         Matcher matcher = bayPattern.matcher(userMessage);
@@ -2742,7 +4175,7 @@ public class AiBookingAssistantController {
             return "Bay " + bayNum;
         }
 
-        // Pattern 4: Extract full bay name nếu user nói đầy đủ (ví dụ: "Gò Vấp Bay 4")
+        // Pattern 6: Extract full bay name nếu user nói đầy đủ (ví dụ: "Gò Vấp Bay 4")
         Pattern fullBayPattern = Pattern.compile("([A-Za-zÀ-ỹ\\s]+)\\s+Bay\\s+(\\d+)",
                 Pattern.CASE_INSENSITIVE);
         Matcher fullMatcher = fullBayPattern.matcher(userMessage);
@@ -2754,6 +4187,140 @@ public class AiBookingAssistantController {
             return fullBayName;
         }
 
+        return null;
+    }
+    
+    /**
+     * Parse index từ text ("đầu tiên" = 1, "thứ hai" = 2, "thứ ba" = 3, etc.)
+     */
+    private int parseIndexFromText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return 0;
+        }
+        
+        String textLower = text.toLowerCase().trim();
+        
+        // "đầu tiên", "đầu", "số 1", "1"
+        if (textLower.contains("đầu tiên") || textLower.equals("đầu") || 
+            textLower.equals("1") || textLower.contains("số 1")) {
+            return 1;
+        }
+        
+        // "thứ hai", "thứ 2", "số 2", "2"
+        if (textLower.contains("thứ hai") || textLower.contains("thứ 2") || 
+            textLower.equals("2") || textLower.contains("số 2")) {
+            return 2;
+        }
+        
+        // "thứ ba", "thứ 3", "số 3", "3"
+        if (textLower.contains("thứ ba") || textLower.contains("thứ 3") || 
+            textLower.equals("3") || textLower.contains("số 3")) {
+            return 3;
+        }
+        
+        // Parse số từ text
+        Pattern numberPattern = Pattern.compile("(\\d+)");
+        Matcher matcher = numberPattern.matcher(text);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException e) {
+                // Ignore
+            }
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Parse GetCustomerVehiclesResponse từ conversation history
+     */
+    private GetCustomerVehiclesResponse parseVehiclesFromHistory(List<ChatRequest.ChatMessage> history) {
+        if (history == null) return null;
+        
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatRequest.ChatMessage msg = history.get(i);
+            if ("tool".equalsIgnoreCase(msg.getRole()) &&
+                "getCustomerVehicles".equalsIgnoreCase(msg.getToolName()) &&
+                msg.getToolResponse() != null) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
+                    return mapper.readValue(jsonStr, GetCustomerVehiclesResponse.class);
+                } catch (Exception e) {
+                    log.debug("Error parsing GetCustomerVehiclesResponse from history: {}", e.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Parse GetBranchesResponse từ conversation history
+     */
+    private GetBranchesResponse parseBranchesFromHistory(List<ChatRequest.ChatMessage> history) {
+        if (history == null) return null;
+        
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatRequest.ChatMessage msg = history.get(i);
+            if ("tool".equalsIgnoreCase(msg.getRole()) &&
+                "getBranches".equalsIgnoreCase(msg.getToolName()) &&
+                msg.getToolResponse() != null) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
+                    return mapper.readValue(jsonStr, GetBranchesResponse.class);
+                } catch (Exception e) {
+                    log.debug("Error parsing GetBranchesResponse from history: {}", e.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Parse GetServicesResponse từ conversation history
+     */
+    private GetServicesResponse parseServicesFromHistory(List<ChatRequest.ChatMessage> history) {
+        if (history == null) return null;
+        
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatRequest.ChatMessage msg = history.get(i);
+            if ("tool".equalsIgnoreCase(msg.getRole()) &&
+                "getServices".equalsIgnoreCase(msg.getToolName()) &&
+                msg.getToolResponse() != null) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
+                    return mapper.readValue(jsonStr, GetServicesResponse.class);
+                } catch (Exception e) {
+                    log.debug("Error parsing GetServicesResponse from history: {}", e.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse availability từ conversation history
+     */
+    private AvailabilityResponse parseAvailabilityFromHistory(List<ChatRequest.ChatMessage> history) {
+        if (history == null) return null;
+        
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatRequest.ChatMessage msg = history.get(i);
+            if ("tool".equalsIgnoreCase(msg.getRole()) &&
+                "checkAvailability".equalsIgnoreCase(msg.getToolName()) &&
+                msg.getToolResponse() != null) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    String jsonStr = mapper.writeValueAsString(msg.getToolResponse());
+                    return mapper.readValue(jsonStr, AvailabilityResponse.class);
+                } catch (Exception e) {
+                    log.warn("Error parsing availability from conversation history: {}", e.getMessage());
+                }
+            }
+        }
         return null;
     }
 
@@ -2841,20 +4408,64 @@ public class AiBookingAssistantController {
                 List<ServiceBay> bays =
                         serviceBayService.getByBranch(branchId);
 
-                if (bays != null) {
+                if (bays != null && !bays.isEmpty()) {
+                    String searchNameLower = bayName.toLowerCase().trim();
+                    String searchNameNormalized = bayName.replaceAll("\\s+", " ").trim();
+                    
+                    // Extract số từ "Khu vực X" hoặc "Bay X"
+                    Pattern numberPattern = Pattern.compile("(?:khu\\s*vực|bay)\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+                    Matcher numberMatcher = numberPattern.matcher(bayName);
+                    String extractedNumber = null;
+                    if (numberMatcher.find()) {
+                        extractedNumber = numberMatcher.group(1);
+                    }
+                    
                     for (ServiceBay bay : bays) {
-                        if (bay.getBayName() != null) {
-                            String bayNameLower = bay.getBayName().toLowerCase();
-                            String searchNameLower = bayName.toLowerCase();
-                            // Match exact hoặc partial
-                            if (bay.getBayName().equalsIgnoreCase(bayName) ||
-                                    bayNameLower.contains(searchNameLower) ||
-                                    searchNameLower.contains(bayNameLower)) {
-                                log.info("Found bay_id from database: {} for bay_name: {} (matched with: {})",
+                        if (bay.getBayName() == null || bay.getIsDeleted() || !bay.getIsActive()) {
+                            continue;
+                        }
+                        
+                        String bayNameLower = bay.getBayName().toLowerCase().trim();
+                        String bayNameNormalized = bay.getBayName().replaceAll("\\s+", " ").trim();
+                        
+                        // Match 1: Exact match (case-insensitive)
+                        if (bay.getBayName().equalsIgnoreCase(bayName) || 
+                            bayNameNormalized.equalsIgnoreCase(searchNameNormalized)) {
+                            log.info("Found bay_id from database (exact match): {} for bay_name: {} (matched with: {})",
+                                    bay.getBayId(), bayName, bay.getBayName());
+                            return bay.getBayId();
+                        }
+                        
+                        // Match 2: Partial match
+                        if (bayNameLower.contains(searchNameLower) || 
+                            searchNameLower.contains(bayNameLower)) {
+                            log.info("Found bay_id from database (partial match): {} for bay_name: {} (matched with: {})",
+                                    bay.getBayId(), bayName, bay.getBayName());
+                            return bay.getBayId();
+                        }
+                        
+                        // Match 3: Match số trong tên (ví dụ: "Khu vực 1" match với "Khu vực 1")
+                        if (extractedNumber != null) {
+                            Pattern bayNumberPattern = Pattern.compile("(?:khu\\s*vực|bay)\\s*" + extractedNumber, Pattern.CASE_INSENSITIVE);
+                            if (bayNumberPattern.matcher(bay.getBayName()).find()) {
+                                log.info("Found bay_id from database (number match): {} for bay_name: {} (matched with: {})",
                                         bay.getBayId(), bayName, bay.getBayName());
                                 return bay.getBayId();
                             }
                         }
+                    }
+                    
+                    // Nếu không tìm thấy exact/partial match, thử search by keyword
+                    try {
+                        List<ServiceBay> keywordBays = serviceBayService.searchByKeywordInBranch(branchId, bayName);
+                        if (keywordBays != null && !keywordBays.isEmpty()) {
+                            ServiceBay foundBay = keywordBays.get(0);
+                            log.info("Found bay_id from database (keyword search): {} for bay_name: {} (matched with: {})",
+                                    foundBay.getBayId(), bayName, foundBay.getBayName());
+                            return foundBay.getBayId();
+                        }
+                    } catch (Exception e) {
+                        log.debug("Keyword search failed for bay_name: {}, error: {}", bayName, e.getMessage());
                     }
                 }
             } else {
@@ -2870,7 +4481,8 @@ public class AiBookingAssistantController {
                 }
             }
 
-            log.warn("Could not find bay in database for bay_name: {}, branch_id: {}", bayName, branchId);
+            log.warn("Could not find bay in database for bay_name: '{}', branch_id: {}. Tried exact match, partial match, number match, and keyword search.",
+                    bayName, branchId);
         } catch (Exception e) {
             log.error("Error finding bay_id from database for bay_name '{}', branch_id '{}': {}",
                     bayName, branchId, e.getMessage(), e);
@@ -3044,6 +4656,10 @@ public class AiBookingAssistantController {
         private String branchName = null;
         private String bayId = null;
         private String bayName = null;
+        private LocalDateTime dateTime = null;
+        private String serviceId = null;
+        private String serviceType = null;
+        private String timeSlot = null;
 
         public boolean hasVehicle() {
             return hasVehicle;
@@ -3144,6 +4760,38 @@ public class AiBookingAssistantController {
 
         public void setBayName(String bayName) {
             this.bayName = bayName;
+        }
+
+        public LocalDateTime getDateTime() {
+            return dateTime;
+        }
+
+        public void setDateTime(LocalDateTime dateTime) {
+            this.dateTime = dateTime;
+        }
+
+        public String getServiceId() {
+            return serviceId;
+        }
+
+        public void setServiceId(String serviceId) {
+            this.serviceId = serviceId;
+        }
+
+        public String getServiceType() {
+            return serviceType;
+        }
+
+        public void setServiceType(String serviceType) {
+            this.serviceType = serviceType;
+        }
+
+        public String getTimeSlot() {
+            return timeSlot;
+        }
+
+        public void setTimeSlot(String timeSlot) {
+            this.timeSlot = timeSlot;
         }
     }
 }

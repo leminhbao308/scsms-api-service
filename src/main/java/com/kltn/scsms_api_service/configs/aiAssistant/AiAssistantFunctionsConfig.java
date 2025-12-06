@@ -2,11 +2,13 @@ package com.kltn.scsms_api_service.configs.aiAssistant;
 
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.AvailabilityRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.CreateBookingRequest;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.request.ExtractSelectionRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetBranchesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetCustomerVehiclesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.request.GetServicesRequest;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.AvailabilityResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.CreateBookingResponse;
+import com.kltn.scsms_api_service.core.dto.aiAssistant.response.ExtractSelectionResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetBranchesResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetCustomerVehiclesResponse;
 import com.kltn.scsms_api_service.core.dto.aiAssistant.response.GetServicesResponse;
@@ -14,6 +16,7 @@ import com.kltn.scsms_api_service.core.dto.token.LoginUserInfo;
 import com.kltn.scsms_api_service.core.dto.vehicleManagement.param.VehicleProfileFilterParam;
 import com.kltn.scsms_api_service.core.entity.*;
 import com.kltn.scsms_api_service.core.service.aiAssistant.AiBookingAssistantService;
+import com.kltn.scsms_api_service.core.service.aiAssistant.ExtractionService;
 import com.kltn.scsms_api_service.core.service.entityService.BookingDraftService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceBayService;
 import com.kltn.scsms_api_service.core.service.entityService.ServiceService;
@@ -26,6 +29,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Description;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
@@ -41,6 +48,7 @@ public class AiAssistantFunctionsConfig {
     private final VehicleProfileService vehicleProfileService;
     private final BookingDraftService bookingDraftService;
     private final ServiceService serviceService;
+    private final ExtractionService extractionService;
 
     /**
      * Smart parser để xử lý AI hallucination - tự động parse UUID hoặc tìm kiếm
@@ -189,8 +197,11 @@ public class AiAssistantFunctionsConfig {
     @Description("Search services by keyword. Call this at STEP 4 when user mentions a service (e.g., 'Rửa xe', 'Bảo dưỡng'). "
             +
             "This function searches for services matching the keyword. " +
-            "If multiple services found, list them for user to choose. " +
-            "Only after user has selected a specific service, proceed to STEP 5 (checkAvailability). " +
+            "IMPORTANT: If status is 'FOUND_NEEDS_CONFIRMATION' (only 1 service found), you MUST ask user to confirm before selecting. " +
+            "Display the service information (name, description, duration) and ask: 'Đây có phải là dịch vụ bạn muốn đặt không?'. " +
+            "Wait for user confirmation ('đúng', 'có', 'ok') before proceeding. If user rejects, ask for another service. " +
+            "If multiple services found (status='MULTIPLE_FOUND'), list them for user to choose. " +
+            "Only after user has confirmed/selected a specific service, proceed to STEP 5 (checkAvailability). " +
             "INPUT: keyword (string, e.g., 'Rửa xe'), branch_id (optional UUID). " +
             "OUTPUT: List of services with service_id, service_name, description, estimated_duration, price.")
     public Function<GetServicesRequest, GetServicesResponse> getServices() {
@@ -735,9 +746,46 @@ public class AiAssistantFunctionsConfig {
                         request.setServiceType(draft.getServiceType());
                         log.info("   Using service_type from draft (fallback): {}", draft.getServiceType());
                     }
-                    if (request.getDateTime() == null && draft.getDateTime() != null) {
+                    // CRITICAL: Kết hợp date_time với time_slot để tạo dateTime đầy đủ
+                    // Ưu tiên: Nếu có time_slot trong draft, luôn combine với date (từ draft hoặc request)
+                    LocalDateTime finalDateTime = null;
+                    
+                    // Bước 1: Lấy date từ draft hoặc request
+                    if (draft.getDateTime() != null) {
+                        finalDateTime = draft.getDateTime();
+                        log.info("   Using date_time from draft: {}", finalDateTime);
+                    } else if (request.getDateTime() != null) {
+                        try {
+                            finalDateTime = LocalDateTime.parse(request.getDateTime());
+                            log.info("   Using date_time from request: {}", finalDateTime);
+                        } catch (Exception e) {
+                            log.warn("   Error parsing date_time from request '{}': {}", request.getDateTime(), e.getMessage());
+                        }
+                    }
+                    
+                    // Bước 2: Nếu có time_slot trong draft, combine với date
+                    if (finalDateTime != null && draft.getTimeSlot() != null && !draft.getTimeSlot().trim().isEmpty()) {
+                        try {
+                            LocalTime time = parseTimeSlot(draft.getTimeSlot());
+                            // Combine date từ finalDateTime với time từ time_slot
+                            finalDateTime = LocalDateTime.of(finalDateTime.toLocalDate(), time);
+                            log.info("   Combined date_time ({}) with time_slot ({}) -> {}", 
+                                    finalDateTime.toLocalDate(), draft.getTimeSlot(), finalDateTime);
+                        } catch (Exception e) {
+                            log.warn("   Error parsing time_slot '{}': {}. Using date_time as-is: {}", 
+                                    draft.getTimeSlot(), e.getMessage(), finalDateTime);
+                        }
+                    }
+                    
+                    // Bước 3: Set dateTime vào request nếu đã có giá trị
+                    if (finalDateTime != null) {
+                        request.setDateTime(finalDateTime.toString());
+                        log.info("   Final date_time set to request: {} (time_slot from draft: {})", 
+                                finalDateTime, draft.getTimeSlot());
+                    } else if (request.getDateTime() == null && draft.getDateTime() != null) {
+                        // Fallback: Nếu không có time_slot, dùng date_time từ draft
                         request.setDateTime(draft.getDateTime().toString());
-                        log.info("   Using date_time from draft: {}", draft.getDateTime());
+                        log.info("   Using date_time from draft (no time_slot): {}", draft.getDateTime());
                     }
                 } catch (Exception e) {
                     log.warn("Could not get draft: {}", e.getMessage());
@@ -776,6 +824,113 @@ public class AiAssistantFunctionsConfig {
             }
 
             return response;
+        };
+    }
+    
+    /**
+     * Parse time slot string (e.g., "13:30", "13:30:00") thành LocalTime
+     * Handle các format: "HH:mm", "HH:mm:ss", "H:mm"
+     */
+    private LocalTime parseTimeSlot(String timeSlot) {
+        if (timeSlot == null || timeSlot.trim().isEmpty()) {
+            return null;
+        }
+        
+        String trimmed = timeSlot.trim();
+        
+        try {
+            // Format: "HH:mm" hoặc "H:mm"
+            if (trimmed.matches("\\d{1,2}:\\d{2}")) {
+                String[] parts = trimmed.split(":");
+                int hour = Integer.parseInt(parts[0]);
+                int minute = Integer.parseInt(parts[1]);
+                
+                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                    return LocalTime.of(hour, minute);
+                }
+            }
+            
+            // Format: "HH:mm:ss"
+            if (trimmed.matches("\\d{1,2}:\\d{2}:\\d{2}")) {
+                String[] parts = trimmed.split(":");
+                int hour = Integer.parseInt(parts[0]);
+                int minute = Integer.parseInt(parts[1]);
+                int second = Integer.parseInt(parts[2]);
+                
+                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && 
+                    second >= 0 && second <= 59) {
+                    return LocalTime.of(hour, minute, second);
+                }
+            }
+            
+            // Thử parse với DateTimeFormatter
+            try {
+                return LocalTime.parse(trimmed, DateTimeFormatter.ofPattern("HH:mm"));
+            } catch (DateTimeParseException e) {
+                // Ignore
+            }
+            
+            try {
+                return LocalTime.parse(trimmed, DateTimeFormatter.ofPattern("HH:mm:ss"));
+            } catch (DateTimeParseException e) {
+                // Ignore
+            }
+            
+            log.warn("Could not parse time_slot '{}' to LocalTime", timeSlot);
+            return null;
+        } catch (Exception e) {
+            log.error("Error parsing time_slot '{}': {}", timeSlot, e.getMessage());
+            return null;
+        }
+    }
+
+    @Bean
+    @Description("Extract user selection from message using AI. " +
+            "This function analyzes user message and extracts structured data (vehicle, date, branch, service, bay, time). " +
+            "Use this when user message is unclear or needs intelligent parsing. " +
+            "INPUT: user_message (string), draft_context (current draft state), available_options (list of options from previous function calls). " +
+            "OUTPUT: extracted_data (structured), confidence (0-1), needs_clarification (boolean). " +
+            "CRITICAL: Only use extracted data if confidence >= 0.8. If confidence < 0.8, ask user to clarify.")
+    public Function<ExtractSelectionRequest, ExtractSelectionResponse> extractUserSelection() {
+        return request -> {
+            log.info("=== AI FUNCTION CALL ===: extractUserSelection(user_message='{}')", 
+                    request.getUserMessage() != null ? request.getUserMessage().substring(0, Math.min(50, request.getUserMessage().length())) : "null");
+
+            try {
+                // Build available options từ ThreadLocal nếu chưa có
+                if (request.getAvailableOptions() == null) {
+                    ExtractSelectionRequest.AvailableOptions availableOptions = extractionService.buildAvailableOptions();
+                    request.setAvailableOptions(availableOptions);
+                }
+
+                // Call extraction service
+                ExtractSelectionResponse response = extractionService.extractUserSelection(request);
+
+                // Log result
+                if (response.getStatus() != null) {
+                    log.info("Extraction result: status={}, confidence={}, needs_clarification={}", 
+                            response.getStatus(), response.getConfidence(), response.getNeedsClarification());
+                    
+                    if (response.getExtractedData() != null) {
+                        ExtractSelectionResponse.ExtractedData data = response.getExtractedData();
+                        log.info("Extracted data: intent={}, vehicle={}, branch={}, service={}, bay={}, time={}",
+                                data.getIntent(),
+                                data.getVehicle() != null ? data.getVehicle().getLicensePlate() : null,
+                                data.getBranch() != null ? data.getBranch().getBranchName() : null,
+                                data.getService() != null ? data.getService().getServiceName() : null,
+                                data.getBay() != null ? data.getBay().getBayName() : null,
+                                data.getTime() != null ? data.getTime().getTimeSlot() : null);
+                    }
+                }
+
+                return response;
+            } catch (Exception e) {
+                log.error("Error in extractUserSelection(): {}", e.getMessage(), e);
+                return ExtractSelectionResponse.needsClarification(
+                        "Xin lỗi, có lỗi xảy ra khi phân tích lựa chọn của bạn. Vui lòng thử lại.",
+                        List.of("Extraction error: " + e.getMessage())
+                );
+            }
         };
     }
 

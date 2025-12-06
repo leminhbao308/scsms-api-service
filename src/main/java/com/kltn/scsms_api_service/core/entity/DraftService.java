@@ -1,5 +1,6 @@
 package com.kltn.scsms_api_service.core.entity;
 
+import com.kltn.scsms_api_service.constants.GeneralConstant;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -17,7 +18,7 @@ import java.util.UUID;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "booking_draft_services", schema = "dev",
+@Table(name = "booking_draft_services", schema = GeneralConstant.DB_SCHEMA_DEV,
        uniqueConstraints = @UniqueConstraint(name = "uk_draft_service", columnNames = {"draft_id", "service_id"}))
 public class DraftService {
     

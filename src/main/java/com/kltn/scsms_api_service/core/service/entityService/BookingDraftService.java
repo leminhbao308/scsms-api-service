@@ -94,6 +94,50 @@ public class BookingDraftService {
     }
     
     /**
+     * Reset draft về trạng thái ban đầu (step 1, clear tất cả data)
+     * Dùng khi user muốn bắt đầu đặt lịch mới
+     */
+    @Transactional
+    public BookingDraft resetDraft(UUID draftId) {
+        BookingDraft draft = getDraft(draftId);
+        
+        log.info("Resetting draft: draft_id={}, current_step={}, status={}", 
+                draftId, draft.getCurrentStep(), draft.getStatus());
+        
+        // Clear tất cả data
+        draft.setVehicleId(null);
+        draft.setVehicleLicensePlate(null);
+        draft.setDateTime(null);
+        draft.setBranchId(null);
+        draft.setBranchName(null);
+        draft.setServiceId(null);
+        draft.setServiceType(null);
+        draft.setBayId(null);
+        draft.setBayName(null);
+        draft.setTimeSlot(null);
+        
+        // Reset về step 1
+        draft.setCurrentStep(1);
+        draft.setStatus(DraftStatus.IN_PROGRESS);
+        draft.setLastActivityAt(LocalDateTime.now());
+        draft.setExpiresAt(LocalDateTime.now().plusHours(24)); // Reset TTL
+        
+        // Xóa tất cả services trong bảng quan hệ
+        List<DraftService> draftServices = draftServiceRepository.findByDraftId(draftId);
+        if (!draftServices.isEmpty()) {
+            draftServiceRepository.deleteAll(draftServices);
+            log.info("Deleted {} draft services", draftServices.size());
+        }
+        
+        BookingDraft saved = draftRepository.save(draft);
+        
+        log.info("Draft reset successfully: draft_id={}, current_step={}, status={}", 
+                saved.getDraftId(), saved.getCurrentStep(), saved.getStatus());
+        
+        return saved;
+    }
+    
+    /**
      * Lấy draft theo session ID
      */
     public Optional<BookingDraft> getDraftBySession(String sessionId) {

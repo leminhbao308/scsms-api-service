@@ -131,17 +131,18 @@ public class IntegratedBookingService {
             log.info("Successfully created integrated scheduled booking: {} with schedule: {}",
                 savedBooking.getBookingId(), request.getSelectedSchedule());
             
-            // 7. Reserve stock cho booking (PENDING status)
+            // 7. TEMPORARY: Skip stock reservation for AI chatbot testing
+            // TODO: Re-enable stock reservation after testing AI chatbot functionality
             try {
+                log.info("TEMPORARY: Skipping stock reservation for booking: {} (AI chatbot testing)", savedBooking.getBookingId());
                 // Reload booking với details để đảm bảo có đầy đủ thông tin
-                Booking bookingWithDetails = bookingService.getByIdWithDetails(savedBooking.getBookingId());
-                bookingInventoryService.reserveStockForBooking(bookingWithDetails);
-                log.info("Successfully reserved stock for booking: {}", savedBooking.getBookingId());
+                // Booking bookingWithDetails = bookingService.getByIdWithDetails(savedBooking.getBookingId());
+                // bookingInventoryService.reserveStockForBooking(bookingWithDetails);
+                // log.info("Successfully reserved stock for booking: {}", savedBooking.getBookingId());
             } catch (Exception e) {
                 log.error("Failed to reserve stock for booking {}: {}", savedBooking.getBookingId(), e.getMessage(), e);
                 // Không throw exception ở đây để đảm bảo booking vẫn được tạo thành công
                 // Stock reservation có thể được xử lý sau hoặc admin có thể xử lý thủ công
-                // Nếu muốn strict hơn, có thể throw exception để rollback booking
             }
             
             // 8. Gửi WebSocket notification với structured event
@@ -350,14 +351,17 @@ public class IntegratedBookingService {
                     continue;
                 }
                 
-                // Lấy giá từ price book
+                // TEMPORARY: Skip pricing check - use default price 0
+                // TODO: Re-enable pricing check after testing AI chatbot functionality
                 BigDecimal unitPrice;
                 try {
                     unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
                     log.info("Resolved price for service {}: {}", itemRequest.getServiceId(), unitPrice);
                 } catch (Exception e) {
-                    log.error("Error resolving price for service {}: {}", itemRequest.getServiceId(), e.getMessage(), e);
-                    throw e;
+                    // TEMPORARY: If price not found, use default price 0 instead of throwing exception
+                    log.warn("TEMPORARY: Price not found for service {}: {}. Using default price 0.", 
+                            itemRequest.getServiceId(), e.getMessage());
+                    unitPrice = BigDecimal.ZERO;
                 }
                 
                 // Get duration from Service entity
