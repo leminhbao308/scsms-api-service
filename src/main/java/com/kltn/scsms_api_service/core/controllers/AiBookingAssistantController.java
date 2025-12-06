@@ -862,14 +862,20 @@ public class AiBookingAssistantController {
 
                                 // Inject instruction cho AI để hiển thị danh sách time slots
                                 String timeSlotsInstruction = String.format("""
-                                        CRITICAL INSTRUCTION - BẠN PHẢI LÀM NGAY:
+                                        ⚠️ CRITICAL INSTRUCTION - BẠN PHẢI LÀM ĐÚNG ⚠️
                                         - User đã chọn bay '%s' thành công
                                         - Backend đã TỰ ĐỘNG gọi checkAvailability() và lấy danh sách thời gian trống từ bay này
                                         - Danh sách thời gian đã được load sẵn, bạn KHÔNG cần gọi function lại
-                                        - BẠN PHẢI hiển thị danh sách thời gian trống cho user ngay lập tức
+                                        
+                                        ⚠️ QUAN TRỌNG NHẤT - TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ ĐỘNG CHỌN GIỜ ⚠️
+                                        - BẠN CHỈ ĐƯỢC hiển thị danh sách thời gian trống cho user
                                         - Format: "1. 08:00, 2. 08:30, 3. 09:00, ..."
                                         - Sau đó hỏi: "Bạn muốn chọn giờ nào? Vui lòng cho tôi biết số thứ tự hoặc giờ (ví dụ: 08:00)."
-                                        - KHÔNG được nói "bạn cần chọn giờ trước" hoặc "bạn muốn chọn giờ nào" mà không hiển thị danh sách
+                                        - TUYỆT ĐỐI KHÔNG được tự động chọn giờ đầu tiên hoặc bất kỳ giờ nào
+                                        - TUYỆT ĐỐI KHÔNG được nói "Bạn đã chọn khung giờ 09:00" hoặc tương tự
+                                        - TUYỆT ĐỐI KHÔNG được chuyển sang xác nhận booking khi user chưa chọn giờ
+                                        - PHẢI CHỜ user chọn giờ cụ thể (bằng số thứ tự hoặc giờ) TRƯỚC KHI chuyển sang xác nhận
+                                        - Nếu user chưa chọn giờ → CHỈ hiển thị danh sách và hỏi, KHÔNG làm gì khác
                                                                                 
                                         DANH SÁCH THỜI GIAN TRỐNG ĐÃ LOAD:
                                         %s

@@ -579,6 +579,26 @@ public class ExtractionService {
             }
         }
         
+        // Validate date
+        if (extractedData.getDate() != null) {
+            ExtractSelectionResponse.DateSelection date = extractedData.getDate();
+            double dateConfidence = date.getConfidence() != null ? date.getConfidence() : 0.0;
+            
+            // Date không cần match với available options, chỉ cần có dateTime và confidence cao
+            if (date.getDateTime() != null && dateConfidence >= 0.8) {
+                log.info("Date extraction accepted (confidence: {}): {}", dateConfidence, date.getDateTime());
+                totalConfidence += dateConfidence;
+                count++;
+            } else {
+                // Date không hợp lệ hoặc confidence thấp
+                if (date.getDateTime() == null) {
+                    result.addError("Date extraction failed: date_time is null");
+                } else {
+                    result.addError("Date extraction confidence too low: " + dateConfidence);
+                }
+            }
+        }
+        
         // Validate branch
         if (extractedData.getBranch() != null) {
             ExtractSelectionResponse.BranchSelection branch = extractedData.getBranch();
@@ -717,6 +737,18 @@ public class ExtractionService {
         }
         
         List<ExtractSelectionRequest.VehicleOption> vehicles = request.getAvailableOptions().getVehicles();
+        
+        // CRITICAL: Match by vehicle_id trực tiếp (ưu tiên cao nhất)
+        // Nếu AI extract vehicle_id và vehicle_id có trong available options → Accept
+        // Điều này xử lý trường hợp AI extract vehicle_id từ available options mà không có license_plate/raw_text
+        if (vehicle.getVehicleId() != null) {
+            for (ExtractSelectionRequest.VehicleOption v : vehicles) {
+                if (v.getVehicleId() != null && v.getVehicleId().equals(vehicle.getVehicleId())) {
+                    log.debug("Matched vehicle by vehicle_id: {}", vehicle.getVehicleId());
+                    return v.getVehicleId();
+                }
+            }
+        }
         
         // Match by index
         if ("INDEX".equals(vehicle.getSelectionType()) && vehicle.getRawText() != null) {
