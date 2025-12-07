@@ -3,8 +3,11 @@ package com.kltn.scsms_api_service.core.service.businessService;
 import com.kltn.scsms_api_service.core.dto.dashboard.*;
 import com.kltn.scsms_api_service.core.entity.Booking;
 import com.kltn.scsms_api_service.core.entity.BookingItem;
+import com.kltn.scsms_api_service.core.entity.SalesOrder;
 import com.kltn.scsms_api_service.core.entity.VehicleProfile;
+import com.kltn.scsms_api_service.core.entity.enumAttribute.SalesStatus;
 import com.kltn.scsms_api_service.core.repository.BookingRepository;
+import com.kltn.scsms_api_service.core.repository.SalesOrderRepository;
 import com.kltn.scsms_api_service.core.repository.UserRepository;
 import com.kltn.scsms_api_service.core.repository.VehicleProfileRepository;
 import com.kltn.scsms_api_service.core.repository.VehicleBrandRepository;
@@ -33,6 +36,7 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
   private final BookingRepository bookingRepository;
+  private final SalesOrderRepository salesOrderRepository;
   private final UserRepository userRepository;
   private final VehicleProfileRepository vehicleProfileRepository;
   private final VehicleBrandRepository vehicleBrandRepository;
@@ -206,29 +210,52 @@ public class DashboardService {
   }
 
   /**
-   * Calculate total revenue from all completed bookings
+   * Calculate total revenue from all completed bookings and fulfilled sales
+   * orders
    */
   private BigDecimal calculateTotalRevenue() {
+    // Revenue from completed bookings
     List<Booking> completedBookings = bookingRepository
         .findByStatus(Booking.BookingStatus.COMPLETED);
 
-    return completedBookings.stream()
+    BigDecimal bookingRevenue = completedBookings.stream()
         .map(Booking::getTotalPrice)
         .filter(java.util.Objects::nonNull)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    // Revenue from fulfilled and confirmed sales orders
+    List<SalesOrder> salesOrders = salesOrderRepository.findAll();
+    BigDecimal salesRevenue = salesOrders.stream()
+        .filter(so -> so.getStatus() == SalesStatus.FULFILLED || so.getStatus() == SalesStatus.CONFIRMED)
+        .map(SalesOrder::getFinalAmount)
+        .filter(java.util.Objects::nonNull)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    return bookingRevenue.add(salesRevenue);
   }
 
   /**
-   * Calculate revenue in a specific period
+   * Calculate revenue in a specific period from both bookings and sales orders
    */
   private BigDecimal calculateRevenueInPeriod(LocalDateTime start, LocalDateTime end) {
+    // Revenue from completed bookings
     List<Booking> bookings = bookingRepository
         .findCompletedBookingsBetween(start, end);
 
-    return bookings.stream()
+    BigDecimal bookingRevenue = bookings.stream()
         .map(Booking::getTotalPrice)
         .filter(java.util.Objects::nonNull)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    // Revenue from sales orders in period
+    List<SalesOrder> salesOrders = salesOrderRepository.findByCreatedDateBetween(start, end);
+    BigDecimal salesRevenue = salesOrders.stream()
+        .filter(so -> so.getStatus() == SalesStatus.FULFILLED || so.getStatus() == SalesStatus.CONFIRMED)
+        .map(SalesOrder::getFinalAmount)
+        .filter(java.util.Objects::nonNull)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    return bookingRevenue.add(salesRevenue);
   }
 
   /**
