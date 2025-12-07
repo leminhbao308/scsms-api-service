@@ -187,14 +187,29 @@ public class MediaService {
     
     /**
      * Get main media for an entity
+     * If no main media is found, returns the first media (by sort order) as fallback
+     * If no media exists at all, throws EntityNotFoundException
      */
     public MediaInfoDto getMainMediaByEntity(Media.EntityType entityType, UUID entityId) {
         log.debug("Fetching main media by entity: {} - {}", entityType, entityId);
         
-        Media media = mediaRepository.findByEntityTypeAndEntityIdAndIsMainTrueAndIsDeletedFalse(entityType, entityId)
-            .orElseThrow(() -> new EntityNotFoundException("Main media not found for entity: " + entityType + " - " + entityId));
+        // First, try to find main media
+        Optional<Media> mainMedia = mediaRepository.findByEntityTypeAndEntityIdAndIsMainTrueAndIsDeletedFalse(entityType, entityId);
         
-        return mediaMapper.toInfoDto(media);
+        if (mainMedia.isPresent()) {
+            return mediaMapper.toInfoDto(mainMedia.get());
+        }
+        
+        // If no main media, fallback to first media by sort order
+        log.debug("Main media not found for entity: {} - {}, falling back to first media", entityType, entityId);
+        List<Media> mediaList = mediaRepository.findByEntityTypeAndEntityIdAndIsDeletedFalseOrderBySortOrderAsc(entityType, entityId);
+        
+        if (mediaList.isEmpty()) {
+            throw new EntityNotFoundException("No media found for entity: " + entityType + " - " + entityId);
+        }
+        
+        // Return first media as fallback
+        return mediaMapper.toInfoDto(mediaList.get(0));
     }
     
     /**

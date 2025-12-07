@@ -387,6 +387,7 @@ public class ApiConstant {
         public static final String GET_SERVICE_TYPE_BY_ID_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}";
         public static final String GET_SERVICE_TYPE_BY_CODE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/code/{code}";
         public static final String GET_ACTIVE_SERVICE_TYPES_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/active";
+        public static final String GET_SERVICE_TYPES_DROPDOWN_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/dropdown";
         public static final String SEARCH_SERVICE_TYPES_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/search";
         public static final String CREATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/create";
         public static final String UPDATE_SERVICE_TYPE_API = SERVICE_TYPE_MANAGEMENT_PREFIX + "/{serviceTypeId}/update";

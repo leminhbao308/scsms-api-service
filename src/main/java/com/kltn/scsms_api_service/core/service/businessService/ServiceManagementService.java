@@ -31,8 +31,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -78,10 +81,93 @@ public class ServiceManagementService {
                 filterParam.getSort());
         Pageable pageable = PageRequest.of(filterParam.getPage(), filterParam.getSize(), sort);
 
-        // Get services with filtering
-        Page<Service> servicePage = serviceService.findAll(pageable);
+        // Build specification from filter params
+        Specification<Service> spec = buildServiceSpecification(filterParam);
+
+        // Get services with specification and pagination
+        Page<Service> servicePage = serviceService.findAll(spec, pageable);
 
         return servicePage.map(this::enrichServiceWithDetails);
+    }
+    
+    /**
+     * Build JPA Specification from ServiceFilterParam
+     */
+    private Specification<Service> buildServiceSpecification(ServiceFilterParam filterParam) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Always exclude deleted services
+            predicates.add(criteriaBuilder.equal(root.get("isDeleted"), false));
+
+            // Filter by is_active
+            if (filterParam.getIsActive() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isActive"), filterParam.getIsActive()));
+            }
+
+            // Filter by is_featured
+            if (filterParam.getIsFeatured() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isFeatured"), filterParam.getIsFeatured()));
+            }
+
+            // Filter by category
+            if (filterParam.getCategoryId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("category").get("categoryId"), filterParam.getCategoryId()));
+            }
+
+            // Filter by service type
+            if (filterParam.getServiceTypeId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("serviceTypeId"), filterParam.getServiceTypeId()));
+            }
+
+            // Filter by skill level
+            if (filterParam.getRequiredSkillLevel() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("requiredSkillLevel"), filterParam.getRequiredSkillLevel()));
+            }
+
+            // Filter by duration range
+            if (filterParam.getMinDuration() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("estimatedDuration"), filterParam.getMinDuration()));
+            }
+            if (filterParam.getMaxDuration() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("estimatedDuration"), filterParam.getMaxDuration()));
+            }
+
+            // Search by keyword (service name or description)
+            if (filterParam.getSearch() != null && !filterParam.getSearch().trim().isEmpty()) {
+                String searchPattern = "%" + filterParam.getSearch().toLowerCase() + "%";
+                Predicate namePredicate = criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("serviceName")), searchPattern);
+                Predicate descPredicate = criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("description")), searchPattern);
+                predicates.add(criteriaBuilder.or(namePredicate, descPredicate));
+            }
+
+            // Filter by service name
+            if (filterParam.getServiceName() != null && !filterParam.getServiceName().trim().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("serviceName")),
+                        "%" + filterParam.getServiceName().toLowerCase() + "%"));
+            }
+
+            // Filter by created date range
+            if (filterParam.getCreatedDateFrom() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdDate"), filterParam.getCreatedDateFrom()));
+            }
+            if (filterParam.getCreatedDateTo() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdDate"), filterParam.getCreatedDateTo()));
+            }
+
+            // Filter by modified date range
+            if (filterParam.getModifiedDateFrom() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("modifiedDate"), filterParam.getModifiedDateFrom()));
+            }
+            if (filterParam.getModifiedDateTo() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("modifiedDate"), filterParam.getModifiedDateTo()));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     public ServiceInfoDto getServiceById(UUID serviceId) {

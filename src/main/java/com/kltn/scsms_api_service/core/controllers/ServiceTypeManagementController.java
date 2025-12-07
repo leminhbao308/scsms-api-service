@@ -97,6 +97,21 @@ public class ServiceTypeManagementController {
     }
 
     /**
+     * Get service types for dropdown
+     */
+    @GetMapping(ApiConstant.GET_SERVICE_TYPES_DROPDOWN_API)
+    @Operation(summary = "Get service types dropdown", description = "Retrieve all active service types for dropdown selection")
+    @SwaggerOperation(summary = "Get service types dropdown")
+    // @RequirePermission(permissions = PermissionConstant.SERVICE_TYPE_READ)
+    public ResponseEntity<ApiResponse<List<ServiceTypeInfoDto>>> getServiceTypesDropdown() {
+        log.info("Getting service types for dropdown");
+
+        List<ServiceTypeInfoDto> serviceTypes = serviceTypeManagementService.getActiveServiceTypes();
+
+        return ResponseBuilder.success("Service types for dropdown fetched successfully", serviceTypes);
+    }
+
+    /**
      * Search service types by keyword
      */
     @GetMapping(ApiConstant.SEARCH_SERVICE_TYPES_API)
