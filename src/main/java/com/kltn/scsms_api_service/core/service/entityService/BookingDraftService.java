@@ -94,6 +94,50 @@ public class BookingDraftService {
     }
     
     /**
+     * Reset draft về trạng thái ban đầu (step 1, clear tất cả data)
+     * Dùng khi user muốn bắt đầu đặt lịch mới
+     */
+    @Transactional
+    public BookingDraft resetDraft(UUID draftId) {
+        BookingDraft draft = getDraft(draftId);
+        
+        log.info("Resetting draft: draft_id={}, current_step={}, status={}", 
+                draftId, draft.getCurrentStep(), draft.getStatus());
+        
+        // Clear tất cả data
+        draft.setVehicleId(null);
+        draft.setVehicleLicensePlate(null);
+        draft.setDateTime(null);
+        draft.setBranchId(null);
+        draft.setBranchName(null);
+        draft.setServiceId(null);
+        draft.setServiceType(null);
+        draft.setBayId(null);
+        draft.setBayName(null);
+        draft.setTimeSlot(null);
+        
+        // Reset về step 1
+        draft.setCurrentStep(1);
+        draft.setStatus(DraftStatus.IN_PROGRESS);
+        draft.setLastActivityAt(LocalDateTime.now());
+        draft.setExpiresAt(LocalDateTime.now().plusHours(24)); // Reset TTL
+        
+        // Xóa tất cả services trong bảng quan hệ
+        List<DraftService> draftServices = draftServiceRepository.findByDraftId(draftId);
+        if (!draftServices.isEmpty()) {
+            draftServiceRepository.deleteAll(draftServices);
+            log.info("Deleted {} draft services", draftServices.size());
+        }
+        
+        BookingDraft saved = draftRepository.save(draft);
+        
+        log.info("Draft reset successfully: draft_id={}, current_step={}, status={}", 
+                saved.getDraftId(), saved.getCurrentStep(), saved.getStatus());
+        
+        return saved;
+    }
+    
+    /**
      * Lấy draft theo session ID
      */
     public Optional<BookingDraft> getDraftBySession(String sessionId) {
@@ -122,6 +166,12 @@ public class BookingDraftService {
         log.info("USER MESSAGE: {}", userMessage);
         log.info("DRAFT BEFORE UPDATE:");
         logDraftState(draft);
+        
+        // Lưu giá trị cũ để check có thay đổi không (cho cascade update)
+        UUID oldBranchId = draft.getBranchId();
+        LocalDateTime oldDateTime = draft.getDateTime();
+        UUID oldServiceId = draft.getServiceId();
+        UUID oldBayId = draft.getBayId();
         
         // Cập nhật các fields
         boolean hasChanges = false;
@@ -208,6 +258,40 @@ public class BookingDraftService {
             log.info("Updated time_slot: {}", updates.getTimeSlot());
         }
         
+        // CRITICAL: Cascade update - Reset dependent fields khi có thay đổi
+        // Phải check TRƯỚC khi update current_step
+        if (hasChanges) {
+            // Check từng loại thay đổi và reset dependent fields
+            if (oldBranchId != null && updates.getBranchId() != null && 
+                !oldBranchId.equals(updates.getBranchId())) {
+                log.info("Branch changed from {} to {}, resetting dependent fields: service, bay, time, date", 
+                        oldBranchId, updates.getBranchId());
+                resetDependentFields(draft, draftId, "BRANCH");
+            } else if (oldDateTime != null && updates.getDateTime() != null) {
+                // Chỉ reset khi đổi ngày (date part), không reset khi chỉ đổi giờ (time part)
+                boolean datePartChanged = !oldDateTime.toLocalDate().equals(updates.getDateTime().toLocalDate());
+                if (datePartChanged) {
+                    log.info("Date changed from {} to {} (date part changed), resetting dependent fields: branch, service, bay, time", 
+                            oldDateTime, updates.getDateTime());
+                    resetDependentFields(draft, draftId, "DATE");
+                } else {
+                    log.debug("DateTime changed from {} to {} but date part unchanged (only time changed), no reset needed", 
+                            oldDateTime, updates.getDateTime());
+                }
+            } else if (oldServiceId != null && updates.getServiceId() != null && 
+                       !oldServiceId.equals(updates.getServiceId())) {
+                log.info("Service changed from {} to {}, resetting dependent fields: bay, time", 
+                        oldServiceId, updates.getServiceId());
+                resetDependentFields(draft, draftId, "SERVICE");
+            } else if (oldBayId != null && updates.getBayId() != null && 
+                       !oldBayId.equals(updates.getBayId())) {
+                log.info("Bay changed from {} to {}, resetting dependent fields: time", 
+                        oldBayId, updates.getBayId());
+                resetDependentFields(draft, draftId, "BAY");
+            }
+            // Vehicle và Time không cần reset gì
+        }
+        
         if (hasChanges) {
             // Cập nhật current_step và last_activity
             draft.updateCurrentStep();
@@ -224,6 +308,89 @@ public class BookingDraftService {
             log.warn("No changes detected in update request");
             log.info("═══════════════════════════════════════════════════════════════");
             return draft;
+        }
+    }
+    
+    /**
+     * Reset các fields phụ thuộc khi có thay đổi
+     * Logic cascade update:
+     * - Đổi branch → Reset: service, bay, time, date
+     * - Đổi date → Reset: branch, service, bay, time (NGHIỆP VỤ: Khi đổi ngày phải chọn lại toàn bộ)
+     * - Đổi service → Reset: bay, time
+     * - Đổi bay → Reset: time
+     * - Đổi vehicle/time → Không reset gì
+     */
+    private void resetDependentFields(BookingDraft draft, UUID draftId, String updateType) {
+        log.info("Resetting dependent fields for updateType: {}", updateType);
+        
+        switch (updateType) {
+            case "BRANCH":
+                // Reset: service, bay, time, date
+                log.info("Resetting service, bay, time, date due to branch change");
+                draft.setServiceId(null);
+                draft.setServiceType(null);
+                draft.setBayId(null);
+                draft.setBayName(null);
+                draft.setTimeSlot(null);
+                draft.setDateTime(null);
+                
+                // Xóa tất cả services trong bảng quan hệ
+                List<DraftService> draftServices = draftServiceRepository.findByDraftId(draftId);
+                if (!draftServices.isEmpty()) {
+                    draftServiceRepository.deleteAll(draftServices);
+                    log.info("Deleted {} draft services due to branch change", draftServices.size());
+                }
+                break;
+                
+            case "DATE":
+                // Reset: branch, service, bay, time (NGHIỆP VỤ: Khi đổi ngày phải chọn lại toàn bộ)
+                log.info("Resetting branch, service, bay, time due to date change");
+                draft.setBranchId(null);
+                draft.setBranchName(null);
+                draft.setServiceId(null);
+                draft.setServiceType(null);
+                draft.setBayId(null);
+                draft.setBayName(null);
+                draft.setTimeSlot(null);
+                
+                // Xóa tất cả services trong bảng quan hệ
+                draftServices = draftServiceRepository.findByDraftId(draftId);
+                if (!draftServices.isEmpty()) {
+                    draftServiceRepository.deleteAll(draftServices);
+                    log.info("Deleted {} draft services due to date change", draftServices.size());
+                }
+                break;
+                
+            case "SERVICE":
+                // Reset: bay, time
+                log.info("Resetting bay, time due to service change");
+                draft.setBayId(null);
+                draft.setBayName(null);
+                draft.setTimeSlot(null);
+                
+                // Xóa tất cả services trong bảng quan hệ (sẽ được thêm lại sau)
+                draftServices = draftServiceRepository.findByDraftId(draftId);
+                if (!draftServices.isEmpty()) {
+                    draftServiceRepository.deleteAll(draftServices);
+                    log.info("Deleted {} draft services due to service change", draftServices.size());
+                }
+                break;
+                
+            case "BAY":
+                // Reset: time
+                log.info("Resetting time due to bay change");
+                draft.setTimeSlot(null);
+                break;
+                
+            case "VEHICLE":
+            case "TIME":
+                // Không reset gì
+                log.info("No dependent fields to reset for updateType: {}", updateType);
+                break;
+                
+            default:
+                log.warn("Unknown updateType: {}, no dependent fields reset", updateType);
+                break;
         }
     }
     

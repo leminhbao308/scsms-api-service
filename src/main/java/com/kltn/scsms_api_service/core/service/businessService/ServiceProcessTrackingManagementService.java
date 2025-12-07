@@ -117,7 +117,8 @@ public class ServiceProcessTrackingManagementService {
         // Start step (simplified - no technician parameter needed)
         tracking.startStep();
         if (request.getNotes() != null) {
-            tracking.addNote(request.getNotes());
+            // Replace notes instead of appending to avoid duplicate content
+            tracking.setNotes(LocalDateTime.now().toString() + " - " + request.getNotes());
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
@@ -149,9 +150,8 @@ public class ServiceProcessTrackingManagementService {
         // Progress update method removed - simplified tracking
         if (request.getNotes() != null) {
             // For simplified tracking, we don't need technician for notes
-            // Just update the notes directly
-            tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
-                    LocalDateTime.now().toString() + " - " + request.getNotes());
+            // Replace notes instead of appending to avoid duplicate content
+            tracking.setNotes(LocalDateTime.now().toString() + " - " + request.getNotes());
         }
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);
@@ -183,8 +183,8 @@ public class ServiceProcessTrackingManagementService {
         tracking.completeStep();
         if (request.getNotes() != null) {
             // For simplified tracking, we don't need technician for notes
-            tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
-                    LocalDateTime.now().toString() + " - " + request.getNotes());
+            // Replace notes instead of appending to avoid duplicate content
+            tracking.setNotes(LocalDateTime.now().toString() + " - " + request.getNotes());
         }
         if (request.getEvidenceMediaUrls() != null && !request.getEvidenceMediaUrls().trim().isEmpty()) {
             // Parse and add media URLs
@@ -233,8 +233,8 @@ public class ServiceProcessTrackingManagementService {
         // Cancel step (simplified - no technician needed)
         tracking.setStatus(ServiceProcessTracking.TrackingStatus.CANCELLED);
         tracking.setEndTime(LocalDateTime.now());
-        tracking.setNotes((tracking.getNotes() != null ? tracking.getNotes() + "\n" : "") + 
-                "Cancelled: " + request.getReason());
+        // Replace notes instead of appending to avoid duplicate content
+        tracking.setNotes(LocalDateTime.now().toString() + " - Cancelled: " + request.getReason());
         tracking.setLastUpdatedAt(LocalDateTime.now());
         
         ServiceProcessTracking updatedTracking = serviceProcessTrackingService.update(tracking);

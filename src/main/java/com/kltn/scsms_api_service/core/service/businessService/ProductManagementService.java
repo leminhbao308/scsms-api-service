@@ -135,13 +135,27 @@ public class ProductManagementService {
     public ProductInfoDto getProductById(UUID productId) {
         log.info("Getting product by ID: {}", productId);
         Product product = productService.getById(productId);
-        return productMapper.toProductInfoDto(product);
+        ProductInfoDto dto = productMapper.toProductInfoDto(product);
+        
+        // Fetch and populate attribute values
+        List<ProductAttributeValue> attributeValues = productAttributeValueService.getProductAttributeValues(productId);
+        dto.setAttributeValues(productAttributeValueMapper.toDtoList(attributeValues));
+        
+        log.debug("Product {} has {} attribute values", productId, attributeValues.size());
+        return dto;
     }
 
     public ProductInfoDto getProductByUrl(String productUrl) {
         log.info("Getting product by URL: {}", productUrl);
         Product product = productService.getByProductUrl(productUrl);
-        return productMapper.toProductInfoDto(product);
+        ProductInfoDto dto = productMapper.toProductInfoDto(product);
+        
+        // Fetch and populate attribute values
+        List<ProductAttributeValue> attributeValues = productAttributeValueService.getProductAttributeValues(product.getProductId());
+        dto.setAttributeValues(productAttributeValueMapper.toDtoList(attributeValues));
+        
+        log.debug("Product {} (URL: {}) has {} attribute values", product.getProductId(), productUrl, attributeValues.size());
+        return dto;
     }
 
     public List<ProductInfoDto> getProductsByProductType(UUID productTypeId) {

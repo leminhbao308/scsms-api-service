@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -30,6 +31,11 @@ public class ServiceService {
     public Page<Service> findAll(Pageable pageable) {
         log.info("Finding all services with pagination: {}", pageable);
         return serviceRepository.findAll(pageable);
+    }
+    
+    public Page<Service> findAll(Specification<Service> spec, Pageable pageable) {
+        log.info("Finding all services with specification and pagination: {}", pageable);
+        return serviceRepository.findAll(spec, pageable);
     }
     
     public Optional<Service> findById(UUID serviceId) {

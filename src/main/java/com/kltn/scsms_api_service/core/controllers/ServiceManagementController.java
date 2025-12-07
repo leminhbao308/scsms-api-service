@@ -40,19 +40,26 @@ public class ServiceManagementController {
     @Operation(summary = "Get all services", description = "Retrieve all services with optional filtering and pagination")
     @SwaggerOperation(summary = "Get all services")
     // @RequirePermission(permissions = {"SERVICE_READ"})
+    @SuppressWarnings("unchecked")
     public ResponseEntity<ApiResponse<Object>> getAllServices(
             @Parameter(description = "Filter parameters") ServiceFilterParam filterParam) {
         log.info("Getting all services with filter: {}", filterParam);
 
-        // Check if pagination is requested
-        if (filterParam != null && filterParam.getPage() >= 0 && filterParam.getSize() > 0) {
-            // Return paginated results
+        // Initialize filter if null
+        if (filterParam == null) {
+            filterParam = new ServiceFilterParam();
+        }
+
+        // Check if pagination is requested (size > 0 means pagination is requested)
+        // ServiceManagementService will handle standardization
+        if (filterParam.getSize() > 0) {
+            // Return paginated results using paginated response builder
             Page<ServiceInfoDto> servicePage = serviceManagementService.getAllServices(filterParam);
-            return ResponseBuilder.success(servicePage);
+            return (ResponseEntity<ApiResponse<Object>>) (ResponseEntity<?>) ResponseBuilder.paginated("Services fetched successfully", servicePage);
         } else {
-            // Return all results
+            // Return all results (no pagination)
             List<ServiceInfoDto> services = serviceManagementService.getAllServices();
-            return ResponseBuilder.success(services);
+            return (ResponseEntity<ApiResponse<Object>>) (ResponseEntity<?>) ResponseBuilder.success(services);
         }
     }
 

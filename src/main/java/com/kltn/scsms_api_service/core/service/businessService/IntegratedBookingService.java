@@ -141,7 +141,6 @@ public class IntegratedBookingService {
                 log.error("Failed to reserve stock for booking {}: {}", savedBooking.getBookingId(), e.getMessage(), e);
                 // Không throw exception ở đây để đảm bảo booking vẫn được tạo thành công
                 // Stock reservation có thể được xử lý sau hoặc admin có thể xử lý thủ công
-                // Nếu muốn strict hơn, có thể throw exception để rollback booking
             }
             
             // 8. Gửi WebSocket notification với structured event
@@ -350,14 +349,16 @@ public class IntegratedBookingService {
                     continue;
                 }
                 
-                // Lấy giá từ price book
+                // Resolve price từ price book
                 BigDecimal unitPrice;
                 try {
                     unitPrice = pricingBusinessService.resolveServicePrice(itemRequest.getServiceId(), null);
                     log.info("Resolved price for service {}: {}", itemRequest.getServiceId(), unitPrice);
                 } catch (Exception e) {
-                    log.error("Error resolving price for service {}: {}", itemRequest.getServiceId(), e.getMessage(), e);
-                    throw e;
+                    log.error("Price not found for service {}: {}. This should not happen.", 
+                            itemRequest.getServiceId(), e.getMessage());
+                    // Throw exception để đảm bảo booking không được tạo với giá sai
+                    throw new RuntimeException("Cannot resolve price for service: " + itemRequest.getServiceName(), e);
                 }
                 
                 // Get duration from Service entity

@@ -57,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             PROTECTED_PATH_PATTERNS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
         
         // Skip bypass paths (actuator, swagger, login, etc.)
-        if (isBypassPath(path)) {
+        if (isBypassPath(path, method)) {
             log.info("AuthFilter - Bypassing path: {} (method: {})", path, method);
             filterChain.doFilter(request, response);
             return;
@@ -151,13 +151,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             // Nếu không phải protected path và không có token, tiếp tục bình thường
+            // Let AnonymousAuthenticationFilter handle anonymous authentication for permitAll() to work
             log.debug("AuthFilter - No token provided for non-protected path: {}", request.getRequestURI());
         }
         
         filterChain.doFilter(request, response);
     }
     
-    private boolean isBypassPath(String path) {
+    private boolean isBypassPath(String path, String method) {
         boolean bypass = path.contains("/actuator")
             || path.contains("/docs/api-docs")
             || path.contains("/docs/swagger-ui")
@@ -174,7 +175,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.equals(API_PREFIX + ApiConstant.LOGOUT_API) // Allow logout
             || path.startsWith(API_PREFIX + "/otp/"); // Allow OTP endpoints
         
-        log.debug("AuthFilter - Checking bypass for path {}: {}", path, bypass);
+        // Public GET endpoints - allow Guest access (only GET methods)
+        if (!bypass && "GET".equals(method)) {
+            bypass = path.startsWith(API_PREFIX + "/products/") // Products GET endpoints
+                || path.startsWith(API_PREFIX + "/services/") // Services GET endpoints
+                || path.equals(API_PREFIX + "/service-types/dropdown") // Service types dropdown
+                || path.equals(API_PREFIX + "/service-types/active") // Service types active
+                || path.equals(API_PREFIX + "/centers/get-all") // Centers get-all
+                || path.startsWith(API_PREFIX + "/branches/") // Branches GET endpoints
+                || path.startsWith(API_PREFIX + "/media/entity/"); // Media GET endpoints
+        }
+        
+        // Public POST endpoints - allow Guest access for pricing preview (POST because they have request body)
+        if (!bypass && "POST".equals(method)) {
+            bypass = path.equals(API_PREFIX + "/pricing/preview") // Pricing preview
+                || path.equals(API_PREFIX + "/pricing/preview-batch") // Batch pricing preview
+                || path.equals(API_PREFIX + "/pricing/batch-service-prices"); // Batch service prices
+        }
+        
+        log.debug("AuthFilter - Checking bypass for path {} (method: {}): {}", path, method, bypass);
         return bypass;
     }
     

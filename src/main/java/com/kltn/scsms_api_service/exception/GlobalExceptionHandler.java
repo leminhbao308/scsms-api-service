@@ -13,6 +13,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import io.jsonwebtoken.ExpiredJwtException;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -133,6 +134,31 @@ public class GlobalExceptionHandler {
         
         log.warn("Endpoint not found - Path: {}, Method: {}",
             getRequestPath(request), ex.getHttpMethod());
+        
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+    
+    /**
+     * Handle EntityNotFoundException (JPA) - return 404 Not Found
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEntityNotFoundException(
+        EntityNotFoundException ex, WebRequest request) {
+        
+        HttpStatus status = HttpStatus.NOT_FOUND;
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(status.value())
+            .error(status.getReasonPhrase())
+            .message(ex.getMessage())
+            .path(getRequestPath(request))
+            .errorCode("RESOURCE_NOT_FOUND")
+            .build();
+        
+        // Log at WARN level, not ERROR, as this is expected behavior for missing resources
+        log.warn("Resource not found - Path: {}, Message: {}",
+            getRequestPath(request), ex.getMessage());
         
         return ResponseEntity.status(status).body(errorResponse);
     }

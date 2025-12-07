@@ -179,6 +179,7 @@ public class AiBookingAssistantService {
                     List<Service> allServices = serviceService.findAll().stream()
                             .filter(s -> s.getIsActive() != null && s.getIsActive())
                             .collect(Collectors.toList());
+                    log.info("Returning all {} active services", allServices.size());
 
                     if (allServices.isEmpty()) {
                         return AvailabilityResponse.builder()
@@ -792,18 +793,18 @@ public class AiBookingAssistantService {
                     (endTime - startTime), availableBays.size(), allSuggestions.size());
 
             // Build state tracking - dùng lại state đã khai báo ở đầu method
-            // Update state: đã có bay_id từ availableBays
+            // Update state: đã có danh sách bay, nhưng user chưa chọn bay → STEP 5
             if (!availableBays.isEmpty()) {
                 state = AvailabilityResponse.BookingState.builder()
-                        .currentStep(6) // STEP 6: Chọn giờ
+                        .currentStep(5) // STEP 5: Chọn bay (chưa chọn bay, chỉ mới có danh sách)
                         .hasVehicleId(state.getHasVehicleId())
                         .hasDateTime(state.getHasDateTime())
                         .hasBranchId(state.getHasBranchId())
                         .hasServiceType(state.getHasServiceType())
-                        .hasBayId(true) // Đã có danh sách bay
+                        .hasBayId(false) // Chưa chọn bay, chỉ mới có danh sách
                         .hasTimeSlot(false)
-                        .missingData(List.of("time_slot"))
-                        .nextAction(getNextActionForStep(6))
+                        .missingData(List.of("bay_id"))
+                        .nextAction(getNextActionForStep(5))
                         .build();
             }
 
@@ -2387,17 +2388,15 @@ public class AiBookingAssistantService {
                         request.getKeyword(), foundServices.size());
             }
 
-            // Filter theo branch_id nếu có
+            // KHÔNG filter theo branch_id của service
+            // NGHIỆP VỤ: Check dịch vụ theo chi nhánh = check sản phẩm dùng trong dịch vụ với tồn kho của chi nhánh đó
+            // - Nếu dịch vụ không có sản phẩm → luôn hợp lệ (available)
+            // - Nếu dịch vụ có sản phẩm → check inventory của branch đó
+            // - Logic check inventory sẽ được xử lý trong checkAvailability() và createBooking()
+            // - branch_id trong request chỉ dùng để check inventory, KHÔNG dùng để filter services
             if (request.getBranchId() != null && !request.getBranchId().trim().isEmpty()) {
-                try {
-                    UUID branchId = UUID.fromString(request.getBranchId());
-                    foundServices = foundServices.stream()
-                            .filter(s -> s.getBranchId() != null && s.getBranchId().equals(branchId))
-                            .collect(Collectors.toList());
-                    log.info("Filtered by branch_id={}, remaining {} services", branchId, foundServices.size());
-                } catch (IllegalArgumentException e) {
-                    log.warn("Invalid branch_id format: '{}', ignoring branch filter", request.getBranchId());
-                }
+                log.info("Branch_id provided: {} (will be used for inventory check in checkAvailability/createBooking, not for filtering services)", 
+                        request.getBranchId());
             }
 
             if (foundServices.isEmpty()) {
@@ -2438,8 +2437,20 @@ public class AiBookingAssistantService {
             String message;
 
             if (serviceInfos.size() == 1) {
-                status = "FOUND";
-                message = "Tìm thấy 1 dịch vụ: " + serviceInfos.get(0).getServiceName();
+                // Tìm thấy 1 dịch vụ → Yêu cầu user xác nhận trước khi chọn
+                status = "FOUND_NEEDS_CONFIRMATION";
+                GetServicesResponse.ServiceInfo service = serviceInfos.get(0);
+                message = String.format(
+                    "Tôi tìm thấy dịch vụ: **%s**\n\n" +
+                    "Mô tả: %s\n" +
+                    "Thời gian ước tính: %d phút\n\n" +
+                    "Đây có phải là dịch vụ bạn muốn đặt không? Vui lòng xác nhận bằng cách nói 'đúng', 'có', 'ok', hoặc 'chọn dịch vụ này'. " +
+                    "Nếu không phải, vui lòng cho tôi biết dịch vụ khác bạn muốn.",
+                    service.getServiceName(),
+                    service.getDescription() != null && !service.getDescription().trim().isEmpty() 
+                        ? service.getDescription() : "Không có mô tả",
+                    service.getEstimatedDuration() != null ? service.getEstimatedDuration() : 0
+                );
             } else {
                 status = "MULTIPLE_FOUND";
                 message = "Tìm thấy " + serviceInfos.size() + " dịch vụ. Vui lòng chọn một dịch vụ cụ thể.";

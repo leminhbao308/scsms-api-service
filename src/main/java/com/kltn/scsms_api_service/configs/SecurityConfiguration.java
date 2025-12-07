@@ -16,7 +16,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.security.web.firewall.StrictHttpFirewall;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -64,6 +63,10 @@ public class SecurityConfiguration {
                 configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(
                 configurer -> configurer.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
+            // Configure anonymous authentication explicitly for permitAll() to work with STATELESS
+            .anonymous(anonymous -> anonymous
+                .principal("anonymousUser")
+                .authorities(org.springframework.security.core.authority.AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")))
             .authorizeHttpRequests(auth -> {
                 log.info("SecurityConfiguration: Configuring authorization rules");
                 auth
@@ -84,12 +87,35 @@ public class SecurityConfiguration {
                     // Swagger/Docs endpoints
                     .requestMatchers("/docs/**", "/swagger-ui/**", "/swagger-resources/**", 
                         "/webjars/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                    // Error endpoint - must be permitted for error handling
+                    .requestMatchers("/error").permitAll()
+                    // Public GET endpoints - Guest can view without authentication
+                    // NOTE: Context-path is /api, so Spring Security removes it before pattern matching
+                    // Products - GET only (Guest can view products)
+                    .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                    // Services - GET only (Guest can view services)
+                    .requestMatchers(HttpMethod.GET, "/services/**").permitAll()
+                    // Service Types - GET dropdown and active (Guest can view service types)
+                    .requestMatchers(HttpMethod.GET, "/service-types/dropdown").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/service-types/active").permitAll()
+                    // Centers - GET get-all only (Guest can view centers list)
+                    .requestMatchers(HttpMethod.GET, "/centers/get-all").permitAll()
+                    // Branches - GET only (Guest can view branches)
+                    .requestMatchers(HttpMethod.GET, "/branches/**").permitAll()
+                    // Pricing endpoints - Guest can view prices (POST because they have request body)
+                    .requestMatchers(HttpMethod.POST, "/pricing/preview").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/pricing/preview-batch").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/pricing/batch-service-prices").permitAll()
+                    // Media endpoints - Guest can view media/images (GET only)
+                    .requestMatchers(HttpMethod.GET, "/media/entity/**").permitAll()
                     // All other requests require authentication
                     .anyRequest().authenticated();
-                log.info("SecurityConfiguration: WebSocket paths permitted, OPTIONS permitted, anyRequest authenticated");
+                log.info("SecurityConfiguration: Public GET endpoints permitted, anyRequest authenticated");
             })
             // JWT filter chỉ áp dụng cho các request không phải WebSocket
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // Add JWT filter AFTER AnonymousAuthenticationFilter to allow anonymous auth to be set first
+            // This ensures permitAll() works correctly with STATELESS session
+            .addFilterAfter(jwtAuthenticationFilter, org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class)
             .build();
     }
     
