@@ -1,0 +1,17 @@
+# Replce .example with .yml and fill in the values or set environment variables
+aws:
+  access-key-id: ${AWS_ACCESS_KEY_ID}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+  region: ${AWS_REGION}
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME}
+    image-file-size-limit: ${AWS_S3_IMAGE_FILE_SIZE_LIMIT} # 5MB
+    video-file-size-limit: ${AWS_S3_VIDEO_FILE_SIZE_LIMIT} # 100MB
+    file-url-expiration: ${AWS_S3_FILE_URL_EXPIRATION} # 1 hour
+    presign-url-expiration: ${AWS_S3_PRESIGN_URL_EXPIRATION} # 15 minutes
+  multipart-upload:
+    part-size: ${AWS_S3_MULTIPART_UPLOAD_PART_SIZE} # 5MB
+    threshold: ${AWS_S3_MULTIPART_UPLOAD_THRESHOLD} # 10MB
+    max-concurrency: ${AWS_S3_MULTIPART_UPLOAD_MAX_CONCURRENCY}
+    max-attempts: ${AWS_S3_MULTIPART_UPLOAD_MAX_ATTEMPTS}
+    backoff-delay: ${AWS_S3_MULTIPART_UPLOAD_BACKOFF_DELAY} # 1 second

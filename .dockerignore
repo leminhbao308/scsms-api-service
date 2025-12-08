@@ -1,0 +1,16 @@
+target/
+.idea/
+.vscode/
+.git/
+*.md
+*.log
+.env
+.env.*
+src/test/
+mvnw
+mvnw.cmd
+.mvn/
+.dockerignore
+docker-compose.yml
+Dockerfile
+*.example

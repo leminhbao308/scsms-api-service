@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: scsms-api-service
+  profiles:
+    active: prod # dev/prod
+  config:
+    import:
+      - classpath:aws.yml
+      - classpath:payos.yml
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB # Max size per file
+      max-request-size: 50MB # Max size for entire request (multiple files)
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY: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}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.7
+          max-tokens: 2000  # Giới hạn số token để tăng tốc độ response
+      # Cấu hình timeout cho HTTP client (30 giây)
+      client:
+        connection-timeout: 30000
+        read-timeout: 30000
+server:
+  port: 8081
+  servlet:
+    context-path: /api
+
+app:
+  jwt:
+    secret-key: ${APP_JWT_SECRET:MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAFBXXeGg+QpSp/KgFV6znkPp2Y6ocsmQcJnKGZgCcq2g==}
+    public-key: ${APP_JWT_PUBLIC:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaGAQ2Of/wi2x/Xx3wd51F/gg+wkeJtjYtX6Tq0SXtXeXYp9oUqNyW1SEF98RFvHGm3jMdbmlqvNCnOJJsFBj2Q==}
+    access-token:
+      expires-in: ${APP_JWT_TOKEN_EXPIRES_IN:604800000} # 7 days in milliseconds
+    refresh-token:
+      expires-in: ${APP_JWT_REFRESH_TOKEN_EXPIRES_IN:8467200000} # 14 days in milliseconds
+    remember-me:
+      expires-in: ${APP_JWT_REMEMBER_ME_EXPIRES_IN:604800000} # 7 days in milliseconds
+    otp:
+      expires-in: ${APP_JWT_OTP_EXPIRES_IN:300000} # 5 minutes in milliseconds
+    reset-password:
+      expires-in: ${APP_JWT_RESET_PASSWORD_EXPIRES_IN:300000} # 5 minutes in milliseconds

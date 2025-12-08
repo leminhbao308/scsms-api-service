@@ -1,0 +1,39 @@
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://118.69.188.126:5432/scsms?currentSchema=dev
+    username: admin
+    password: admin
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: dev
+        format_sql: true
+        show_sql: false
+    show-sql: false
+logging:
+  sensitive-fields: ${SENSITIVE_DATA:accessToken, refreshToken, phoneNumber,email}
+  level:
+    com.kltn.scsms_api_service: INFO
+    root: WARN
+    web: INFO
+    # Tắt log DEBUG của Spring Web Client để không log prompt (rất dài)
+    org.springframework.web.client.DefaultRestClient: WARN
+    org.springframework.web.client.RestClient: WARN
+    org.springframework.ai.openai: INFO
+    # Enable STOMP protocol logging để debug WebSocket connection issues
+    org.springframework.messaging.simp: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.web.socket.messaging: DEBUG
+
+app:
+  cors:
+    # Set cụ thể các origins để tương thích với allowCredentials(true)
+    # Format: http://localhost:3000,http://localhost:3001,http://192.168.1.16:3000
+    allowed-origin-patterns: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"

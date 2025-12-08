@@ -1,0 +1,4 @@
+payos:
+  client-id: ${PAYOS_CLIENT_ID:c50d3a04-2436-49ca-bac9-d7af6d9162f2}
+  api-key: ${PAYOS_API_KEY:0c376e1d-02c0-4cbf-ba49-f19e5d6a5e78}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:a4976f7c897f3fbe1996e3a74ec6940956b7a775a223c8a58c54154aa64f44ad}

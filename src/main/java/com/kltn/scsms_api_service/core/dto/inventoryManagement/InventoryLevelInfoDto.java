@@ -1,0 +1,34 @@
+package com.kltn.scsms_api_service.core.dto.inventoryManagement;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kltn.scsms_api_service.core.dto.branchManagement.BranchInfoDto;
+import com.kltn.scsms_api_service.core.dto.productManagement.ProductInfoDto;
+import com.kltn.scsms_api_service.core.dto.response.AuditDto;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.SuperBuilder;
+
+@Getter
+@Setter
+@SuperBuilder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class InventoryLevelInfoDto extends AuditDto {
+    
+    private String id;
+    
+    private ProductInfoDto product;
+    
+    private BranchInfoDto branch;
+    
+    @JsonProperty("on_hand")
+    private Long onHand;
+    
+    private Long reserved;
+    
+    private Long available;
+}
