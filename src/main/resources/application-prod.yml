@@ -19,4 +19,4 @@ spring:
 
 app:
   cors:
-    allowed-origin-patterns: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
+    allowed-origin-patterns: \"http://localhost:3000,http://${EC2_IP}:3000,http://${EC2_IP},http://scsms.store,https://scsms.store\"
