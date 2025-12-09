@@ -24,7 +24,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         * Tìm booking theo mã booking
         */
        Optional<Booking> findByBookingCode(String bookingCode);
-       
+
        /**
         * Find booking by code with all related entities eagerly fetched
         * Prevents N+1 queries by using JOIN FETCH for:
@@ -63,7 +63,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
        /**
         * Tìm booking theo nhiều trạng thái
-        * Dùng để lấy booking cho quản lý chăm sóc xe (CHECKED_IN, IN_PROGRESS, CANCELLED, COMPLETED)
+        * Dùng để lấy booking cho quản lý chăm sóc xe (CHECKED_IN, IN_PROGRESS,
+        * CANCELLED, COMPLETED)
         */
        @Query("SELECT b FROM Booking b WHERE b.status IN :statuses " +
                      "ORDER BY b.scheduledStartAt DESC")
@@ -210,7 +211,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      @Param("endDateTime") LocalDateTime endDateTime);
 
        /**
-        * Tìm booking conflict với bay cụ thể trong khoảng thời gian với PESSIMISTIC LOCK
+        * Tìm booking conflict với bay cụ thể trong khoảng thời gian với PESSIMISTIC
+        * LOCK
         * Sử dụng để ngăn race condition khi tạo booking mới
         * Lock đảm bảo atomicity giữa check conflict và save booking
         */
@@ -277,7 +279,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "LEFT JOIN FETCH b.bookingItems " +
                      "WHERE b.bookingId = :bookingId")
        Optional<Booking> findByIdWithDetails(@Param("bookingId") UUID bookingId);
-       
+
        /**
         * Projection query để lấy thông tin schedule bookings cho bay và ngày cụ thể
         * Chỉ lấy các field cần thiết để tính toán available time ranges
@@ -298,11 +300,12 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "AND b.scheduledEndAt IS NOT NULL " +
                      "ORDER BY b.scheduledStartAt ASC")
        List<BookingScheduleProjection> findScheduleProjectionsByBayAndDate(
-                     @Param("bayId") UUID bayId, 
+                     @Param("bayId") UUID bayId,
                      @Param("date") LocalDate date);
-       
+
        /**
-        * Projection query để lấy thông tin schedule bookings cho chi nhánh và ngày cụ thể
+        * Projection query để lấy thông tin schedule bookings cho chi nhánh và ngày cụ
+        * thể
         */
        @Query("SELECT new com.kltn.scsms_api_service.core.dto.bookingSchedule.BookingScheduleProjection(" +
                      "b.bookingId, " +
@@ -320,9 +323,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      "AND b.scheduledEndAt IS NOT NULL " +
                      "ORDER BY b.scheduledStartAt ASC")
        List<BookingScheduleProjection> findScheduleProjectionsByBranchAndDate(
-                     @Param("branchId") UUID branchId, 
+                     @Param("branchId") UUID branchId,
                      @Param("date") LocalDate date);
-       
+
        /**
         * Tìm các WALK_IN bookings của bay trong ngày cụ thể, chưa kết thúc
         * Sắp xếp theo scheduledStartAt để tính toán position
@@ -342,7 +345,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      @Param("bayId") UUID bayId,
                      @Param("date") LocalDate date,
                      @Param("currentTime") LocalDateTime currentTime);
-       
+
        /**
         * Lấy scheduledEndAt lớn nhất của các WALK_IN bookings chưa kết thúc trong bay
         */
@@ -357,4 +360,62 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                      @Param("bayId") UUID bayId,
                      @Param("date") LocalDate date,
                      @Param("currentTime") LocalDateTime currentTime);
+
+       /**
+        * Find recent bookings (latest created)
+        */
+       @Query("SELECT b FROM Booking b ORDER BY b.createdDate DESC")
+       List<Booking> findTop10ByOrderByCreatedDateDesc();
+
+       /**
+        * Find upcoming bookings
+        */
+       @Query("SELECT DISTINCT b FROM Booking b " +
+                     "LEFT JOIN FETCH b.customer " +
+                     "LEFT JOIN FETCH b.vehicle " +
+                     "LEFT JOIN FETCH b.bookingItems " +
+                     "WHERE b.scheduledStartAt BETWEEN :start AND :end " +
+                     "AND b.status IN ('PENDING', 'CONFIRMED') " +
+                     "ORDER BY b.scheduledStartAt ASC")
+       List<Booking> findUpcomingBookings(
+                     @Param("start") LocalDateTime start,
+                     @Param("end") LocalDateTime end,
+                     @Param("limit") int limit);
+
+       /**
+        * Find completed bookings between dates
+        */
+       @Query("SELECT b FROM Booking b WHERE b.status = 'COMPLETED' " +
+                     "AND b.createdDate BETWEEN :start AND :end")
+       List<Booking> findCompletedBookingsBetween(
+                     @Param("start") LocalDateTime start,
+                     @Param("end") LocalDateTime end);
+
+       /**
+        * Count completed bookings between dates
+        */
+       @Query("SELECT COUNT(b) FROM Booking b WHERE b.status = 'COMPLETED' " +
+                     "AND b.createdDate BETWEEN :start AND :end")
+       Long countCompletedBookingsBetween(
+                     @Param("start") LocalDateTime start,
+                     @Param("end") LocalDateTime end);
+
+       /**
+        * Count bookings created after date
+        */
+       @Query("SELECT COUNT(b) FROM Booking b WHERE b.createdDate >= :date")
+       Long countCreatedAfter(@Param("date") LocalDateTime date);
+
+       /**
+        * Count bookings created between dates
+        */
+       @Query("SELECT COUNT(b) FROM Booking b WHERE b.createdDate >= :start AND b.createdDate < :end")
+       Long countCreatedBetween(
+                     @Param("start") LocalDateTime start,
+                     @Param("end") LocalDateTime end);
+
+       /**
+        * Find bookings by status
+        */
+       List<Booking> findByStatus(Booking.BookingStatus status);
 }

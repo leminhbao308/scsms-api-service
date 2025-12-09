@@ -476,7 +476,8 @@ public class ApiConstant {
         public static final String GET_BOOKINGS_BY_STATUS_API = BOOKING_MANAGEMENT_PREFIX + "/status/{status}";
         public static final String GET_BOOKINGS_FOR_MANAGEMENT_API = BOOKING_MANAGEMENT_PREFIX + "/management";
         public static final String GET_BOOKING_STATISTICS_API = "/branches/{branchId}/bookings/statistics/date/{date}";
-        public static final String CREATE_BOOKING_WITH_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX + "/create-with-schedule";
+        public static final String CREATE_BOOKING_WITH_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX
+                        + "/create-with-schedule";
         public static final String UPDATE_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/update";
         public static final String CHANGE_BOOKING_SCHEDULE_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/change-slot";
         public static final String DELETE_BOOKING_API = BOOKING_MANAGEMENT_PREFIX + "/{bookingId}/delete";
@@ -497,6 +498,14 @@ public class ApiConstant {
         // Booking Schedule module endpoints
         public static final String BOOKING_SCHEDULE_PREFIX = "/booking-schedule";
         public static final String GET_AVAILABLE_TIME_RANGES_API = BOOKING_SCHEDULE_PREFIX + "/available-time-ranges";
+
+        // Dashboard module endpoints
+        public static final String DASHBOARD_PREFIX = "/dashboard";
+        public static final String GET_DASHBOARD_STATS_API = DASHBOARD_PREFIX + "/stats";
+        public static final String GET_BOOKING_STATUS_STATS_API = DASHBOARD_PREFIX + "/booking-status";
+        public static final String GET_RECENT_ACTIVITIES_API = DASHBOARD_PREFIX + "/recent-activities";
+        public static final String GET_UPCOMING_BOOKINGS_API = DASHBOARD_PREFIX + "/upcoming-bookings";
+        public static final String GET_REVENUE_STATS_API = DASHBOARD_PREFIX + "/revenue";
 
         public static List<String> PROTECTED_PATHS(String apiPrefix) {
                 return List.of(
@@ -727,6 +736,12 @@ public class ApiConstant {
                                 apiPrefix + CREATE_WALK_IN_BOOKING_API,
                                 apiPrefix + GET_BAY_QUEUE_API,
                                 // Booking Schedule APIs
-                                apiPrefix + GET_AVAILABLE_TIME_RANGES_API);
+                                apiPrefix + GET_AVAILABLE_TIME_RANGES_API,
+                                // Dashboard APIs
+                                apiPrefix + GET_DASHBOARD_STATS_API,
+                                apiPrefix + GET_BOOKING_STATUS_STATS_API,
+                                apiPrefix + GET_RECENT_ACTIVITIES_API,
+                                apiPrefix + GET_UPCOMING_BOOKINGS_API,
+                                apiPrefix + GET_REVENUE_STATS_API);
         }
 }
