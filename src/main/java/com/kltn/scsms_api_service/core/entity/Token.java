@@ -22,7 +22,10 @@ public class Token {
     @Column(length = Integer.MAX_VALUE)
     private String token;
 
-    @ManyToOne private User user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_user_id", referencedColumnName = "user_id", nullable = false,
+            foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT))
+    private User user;
 
     private boolean revoked;
 
