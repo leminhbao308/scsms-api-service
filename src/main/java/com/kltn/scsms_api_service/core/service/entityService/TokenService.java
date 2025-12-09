@@ -10,6 +10,8 @@ import com.kltn.scsms_api_service.core.utils.SensitiveValueMasker;
 import com.kltn.scsms_api_service.exception.ErrorCode;
 import com.kltn.scsms_api_service.exception.ServerSideException;
 import io.jsonwebtoken.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,16 +37,33 @@ public class TokenService {
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
-    private void saveTokens(UUID userId, Map<TokenType, String> tokens) {
-        saveTokens(userId, tokens, null, null, null, null);
+    private void saveTokens(User user, Map<TokenType, String> tokens) {
+        saveTokens(user, tokens, null, null, null, null);
     }
 
-    private void saveTokens(UUID userId, Map<TokenType, String> tokens, 
+    private void saveTokens(User user, Map<TokenType, String> tokens, 
                            String deviceId, String deviceName, String ipAddress, String userAgent) {
-        User user = userRepository.getReferenceById(userId);
-
-        // Batch insert tokens
+        UUID userId = user.getUserId();
+        
+        // Get user from database to ensure it's managed in current persistence context
+        // Since foreign key constraint has been removed, we can use JPA entities directly
+        User foundUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ServerSideException(ErrorCode.NOT_FOUND, 
+                        "User not found with id: " + userId));
+        
+        // If user is not managed, merge it into persistence context
+        final User managedUser;
+        if (entityManager.contains(foundUser)) {
+            managedUser = foundUser;
+        } else {
+            managedUser = entityManager.merge(foundUser);
+        }
+        
+        // Batch insert tokens using JPA entities
         List<Token> tokenEntities = new ArrayList<>();
         tokens.forEach((tokenType, tokenValue) -> {
             long tokenExpirationTime = tokenType == TokenType.ACCESS
@@ -53,7 +72,7 @@ public class TokenService {
 
             Token token = Token.builder()
                     .token(tokenValue)
-                    .user(user)
+                    .user(managedUser)
                     .type(tokenType)
                     .revoked(false)
                     .expired(false)
@@ -68,7 +87,8 @@ public class TokenService {
         });
 
         tokenRepository.saveAll(tokenEntities);
-        log.info("JWT - Saved {} tokens for userId: {} with device: {}", tokenEntities.size(), userId, deviceId);
+        log.info("JWT - Saved {} tokens for userId: {} with device: {}", 
+                tokenEntities.size(), managedUser.getUserId(), deviceId);
     }
 
     public void revokeAllUserTokens(UUID userId) {
@@ -147,7 +167,7 @@ public class TokenService {
         tokens.put(TokenType.ACCESS, accessToken);
         tokens.put(TokenType.REFRESH, refreshToken);
 
-        saveTokens(user.getUserId(), tokens, deviceId, deviceName, ipAddress, userAgent);
+        saveTokens(user, tokens, deviceId, deviceName, ipAddress, userAgent);
         return tokens;
     }
 
