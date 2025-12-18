@@ -44,7 +44,9 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
             @NonNull Map<String, Object> attributes) throws Exception {
 
         String uri = request.getURI().getPath();
-        log.info("WebSocket: Handshake attempt from {} - URI: {}", request.getRemoteAddress(), uri);
+        String origin = request.getHeaders().getFirst("Origin");
+        log.info("WebSocket: Handshake attempt from {} - URI: {}, Origin: {}", 
+                request.getRemoteAddress(), uri, origin != null ? origin : "null (mobile app)");
         
         // SockJS info endpoint (/ws/info, /api/ws/info) không phải là WebSocket handshake
         // Nó là HTTP GET request để lấy thông tin server
