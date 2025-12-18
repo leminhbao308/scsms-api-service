@@ -82,15 +82,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         }
 
         // Endpoint cho Mobile (Native WebSocket)
+        // QUAN TRỌNG: Mobile apps (React Native) không có HTTP origin như web browsers
+        // Cho phép tất cả origins vì authentication được thực hiện qua JWT token trong query parameter
+        // Token được validate trong WebSocketHandshakeInterceptor, nên vẫn đảm bảo security
         registry.addEndpoint("/ws-native")
-                .setAllowedOriginPatterns(origins.toArray(new String[0]))
+                .setAllowedOriginPatterns("*")  // Cho phép tất cả origins cho mobile apps
                 .addInterceptors(webSocketHandshakeInterceptor);
         
         // Endpoint cho Mobile (Native WebSocket) với context-path
         if (contextPath != null && !contextPath.equals("/") && !contextPath.isEmpty()) {
             String wsNativePath = contextPath + "/ws-native";
             registry.addEndpoint(wsNativePath)
-                    .setAllowedOriginPatterns(origins.toArray(new String[0]))
+                    .setAllowedOriginPatterns("*")  // Cho phép tất cả origins cho mobile apps
                     .addInterceptors(webSocketHandshakeInterceptor);
             log.info("WebSocket: Also registered endpoint with context-path: {}", wsNativePath);
         }
